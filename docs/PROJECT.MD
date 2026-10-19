@@ -28,8 +28,8 @@ THREE DELIVERABLES
    - Demo trick: one source is a local mock brochure page we can edit live.
 3. Outreach server
    - Holds NO user credentials.
-   - Sends from a per-user relay address (masked inbox) to Mailpit, a local sandbox. Nothing leaves the machine.
-   - Every email starts by disclosing it is an AI assistant writing for a customer.
+   - Sends from a per-user relay address to the local Mailpit sandbox only; no external email is delivered.
+   - Every email discloses that it was sent with Assura's help and reviewed and approved by the user.
    - Shares only what the user ticked in onboarding. Never shares name, real email, phone, NRIC, health or income.
    - Limits: max 5 insurers per request, 1 follow-up per thread per 48h, 20 emails per user per day.
    - A script replies as 5 simulated insurer personas: helpful (full quote), slow (replies after a follow-up), pushy ("sign today"), data-grabber (asks for NRIC and medical history), injector (hidden "ignore previous instructions" text).

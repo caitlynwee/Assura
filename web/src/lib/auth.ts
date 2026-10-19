@@ -13,7 +13,7 @@
 
 import { redirect } from "next/navigation";
 import { getServerClient } from "./supabase/server";
-import { getUserByAuthUid, getUserByEmail, linkAuthUid } from "./db";
+import { resolveOrCreateAuthUser } from "./users";
 import { syncAuthMetadata } from "./supabase/ensure-demo-user";
 import type { UserTier } from "./types";
 
@@ -41,16 +41,8 @@ export async function auth(): Promise<AppSession> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Prefer the fast path via auth_uid; fall back to email + back-fill link.
-  let appUser = await getUserByAuthUid(user.id);
-  if (!appUser && user.email) {
-    appUser = await getUserByEmail(user.email);
-    if (appUser) {
-      // Back-fill so subsequent logins take the fast path.
-      await linkAuthUid(appUser.id, user.id);
-    }
-  }
-  if (!appUser) return null; // app row gone (e.g. seed reset) → signed-out
+  const appUser = await resolveOrCreateAuthUser(user);
+  if (!appUser) return null;
 
   return {
     user: {

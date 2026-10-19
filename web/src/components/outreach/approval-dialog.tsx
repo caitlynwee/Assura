@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Final confirmation before any email leaves Assura (policy tier 2: SEND
+ * Final confirmation before an email is queued in Mailpit (policy tier 2: SEND
  * requires explicit user approval). Jeff: extend freely — the wizard only
  * relies on the props below.
  */
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AI_DISCLOSURE_PREFIX } from "@/lib/constants";
+import { AI_DISCLOSURE_FOOTER } from "@/lib/constants";
 
 export interface ApprovalItem {
   insurerName: string;
@@ -33,13 +33,19 @@ interface Props {
 }
 
 const SAFEGUARDS = [
-  `Each email opens with an AI disclosure: “${AI_DISCLOSURE_PREFIX.slice(0, 60)}…”`,
+  `Each email ends with an AI disclosure: “${AI_DISCLOSURE_FOOTER}”`,
   "Scanned for NRIC, phone, health and income data before sending",
   "Assura never agrees to buy or books calls on your behalf",
   "Recorded in your tamper-evident activity log",
 ];
 
-export default function ApprovalDialog({ open, from, items, onCancel, onConfirm }: Props) {
+export default function ApprovalDialog({
+  open,
+  from,
+  items,
+  onCancel,
+  onConfirm,
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="sm:max-w-lg">
@@ -48,7 +54,8 @@ export default function ApprovalDialog({ open, from, items, onCancel, onConfirm 
             Approve and send {items.length} email{items.length === 1 ? "" : "s"}?
           </DialogTitle>
           <DialogDescription>
-            Sent from your masked inbox <span className="font-mono text-foreground">{from}</span>
+            Sent from your masked inbox{" "}
+            <span className="font-mono text-foreground">{from}</span>
           </DialogDescription>
         </DialogHeader>
 

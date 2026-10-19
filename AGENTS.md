@@ -29,7 +29,7 @@ International Track · Topic D (Insurance Assistant) · Theme: "AI as a Financia
 ## Product: What We Are Building
 Assura is a "reverse CRM" for insurance customers:
 1. **Level 1 — Compare**: Scrapes public brochure data from 6 Singapore CI insurers, presents a filterable comparison table with cited sources.
-2. **Level 2 — Outreach**: With user approval, AI emails insurers on the user's behalf using a masked relay inbox. User edits and approves every email before it sends.
+2. **Level 2 — Outreach**: With user approval, AI drafts emails. All delivery goes to the local Mailpit sandbox. User edits and approves every email before it sends.
 3. **Level 3 — CRM**: Tracks all threads, extracts quotes via a quarantined LLM call, flags suspicious replies (pushy, data-grabber, injector persona).
 
 **Demo flow (must work perfectly — 4 minutes):**
@@ -98,7 +98,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 - **Next.js 16 dynamic routes**: Params are `Promise<{...}>` — always `await params`.
 - **Policy engine**: `web/src/lib/policy.ts` — pure code, no LLM, deny by default. Every AI action goes through this.
 - **Quarantine**: All untrusted external text (insurer replies, scraped HTML) → `quarantine.ts` — no-tools LLM, fixed JSON schema, Zod-validated.
-- **Email sandbox**: Mailpit only. Nothing leaves the machine. Every email prepends AI disclosure.
+- **Email delivery**: Mailpit only. No external SMTP provider or recipient is configured; every send still requires user approval, PII screening, and the AI disclosure footer.
 
 ## Security — Non-Negotiable (30% of score)
 These must be demonstrably working in the demo:

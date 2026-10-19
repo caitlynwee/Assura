@@ -268,3 +268,92 @@ Others need to know:
 - A LIVE smoke test is still pending (create the demo user via the service-role admin routine, set the keys, log in as demo@fineprint.local / demo1234). Live-key behaviours are not CI-verifiable keyless.
 Blockers: Live smoke test pending (needs a live Supabase project + the three/four keys). None blocking the draft PR.
 ---
+
+## 2026-10-20 | Copilot | PR #7 live smoke-test checkpoint
+Status: Blocked
+Done:
+- Confirmed production Compose stack and database migration/seed complete successfully.
+- One-click Supabase demo login lands on `/compare`; premium demo can open `/onboarding`, `/outreach`, `/crm`, and `/activity`.
+- `npm test -- --runInBand`: 6 suites, 53 tests passed. `npm run build`: passed.
+- Signup smoke test was blocked by Supabase Auth email rate limit (HTTP 429); `.invalid` address was rejected. Checked that neither test email left an app or Auth user record.
+- `SMTP_HOST` is unset, so outreach remains Mailpit-only; no real email was sent.
+Files:
+- TASK.MD
+Others need to know:
+- Retry registration after the Supabase Auth email rate limit resets or is adjusted; no test account remains.
+- Real inbox delivery still needs SMTP configuration and explicit authorization.
+Blockers: Supabase Auth email rate limit; no SMTP configuration for real inbox test.
+---
+
+## 2026-10-20 | Copilot | Docker end-to-end smoke test
+Status: Completed
+Done:
+- Rebuilt production web, scraper, migration, and Mailpit Docker services; all remain running.
+- Verified demo login, plan Q&A citations, first-person outreach, server-side PII blocking, Mailpit delivery, helpful reply, quote extraction, mock-only scrape/Updated badge, and 59-entry audit verification.
+- Fixed scraper DB driver/config, DeepSeek conversion, downloader call, source-id forwarding, quote schema, disclosure copy, and Q&A citation prompt.
+- Validation: web 53 tests + build pass; scraper 14 tests + changed-file Ruff pass.
+Files: web/src/lib/{ai,constants,mail}.ts, web/src/components/outreach/*, web/src/app/api/scraper/trigger/route.ts, scraper/{app/config.py,app/scraper/*,pyproject.toml,requirements.txt,tests/*}, TASK.MD
+Others need to know: SMTP remains unset; both test emails stayed in Mailpit. Supabase signup remains rate-limited (429). One AIA test thread and the mock-plan update remain in demo data; no reset was run. Full Ruff still reports pre-existing findings in test_change_detector.py and test_pii_blocker.py.
+Blockers: Account registration test awaits Supabase email-rate-limit reset; core Docker demo flow is verified.
+---
+
+## 2026-10-20 | Copilot | Full Docker persona and login verification
+Status: Completed
+Done:
+- Rebuilt/restarted all production Compose services; web, scraper docs/mock page, and Mailpit respond successfully.
+- Signed out and manually signed back in with demo@fineprint.local / demo1234; login reaches `/compare`.
+- Exercised sandbox emails for helpful, slow, pushy, data-grabber, and injector personas. Helpful quote extraction now returns premium/coverage/waiting period; pushy/data-grabber/injector threads are flagged; slow persona correctly sends no first reply.
+- Verified mock-only scraper run updated the seeded plan and the audit chain passes with 81 entries.
+Files: TASK.MD
+Others need to know: Four additional test threads and local Mailpit messages were created; slow persona thread remains Sent pending follow-up. No outbound email left Mailpit. Do not reset demo data unless intentionally clearing these artifacts.
+Blockers: User signup still awaits Supabase Auth email-rate-limit reset; demo login is verified.
+---
+
+## 2026-10-20 | Copilot | Provision app profiles for Supabase Auth users
+Status: Completed
+Done:
+- Kept Supabase Auth as the sole credential verifier; after successful Auth identity resolution, create a missing app profile with free tier, no consent, and onboarding incomplete.
+- Never store the Supabase password in the app database; a random unusable password hash satisfies the legacy schema field.
+- Preserve existing rows by Auth UID/email and reject attempts to relink an email already bound to another Auth UID.
+- Uses a stable app-user ID derived from the Auth UID so concurrent provisioning of one identity converges on the same row.
+- Added auth facade regression tests for profile provisioning, UID lookup, and preventing identity relinking.
+Files: web/src/lib/{users,auth}.ts, web/src/app/_actions/auth.ts, web/src/__tests__/auth-facade.test.ts
+Others need to know: Auth-created users default to Free and must complete onboarding/upgrade for premium features. This change does not move CRM/application data out of PostgreSQL.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Brevo demo email delivery
+Status: Blocked
+Done:
+- Wired optional Brevo SMTP through Docker while retaining Mailpit as the default when SMTP is not configured.
+- Added a demo-only recipient override, actual delivery headers in CRM threads, and approval-screen sender/recipient display.
+- Restricted live sends to the Supabase account matching the configured sender; that account is provisioned premium and its JWT metadata refreshes on login.
+- Added a guard against sending seeded `.local` recipients externally, SMTP-auth health checks, and relay regression tests.
+- Validation: web tests 55 passed + production build passed; scraper tests 17 passed + targeted Ruff passed.
+Files: .env.example, AGENTS.md, docker-compose.yml, docs/{HANDOFF.md,PROJECT.MD}, scraper/app/{config.py,email_relay/relay.py,routers/email.py}, scraper/tests/test_relay.py, web/src/{app/(app)/outreach/page.tsx,app/_actions/auth.ts,app/api/outreach/send/route.ts,components/outreach/*,lib/mail.ts,lib/users.ts,__tests__/auth-facade.test.ts}
+Others need to know: No email was sent. Docker has Brevo config and the requested test recipient, but Brevo returned `535 5.7.8 Authentication failed`. Replace local `SMTP_USERNAME`/`SMTP_PASSWORD` with valid Brevo SMTP login/key (not the API key) before sending. The current password has an SMTP-key-like format but was rejected.
+Blockers: Brevo rejected SMTP authentication; live delivery awaits valid SMTP credentials.
+---
+
+## 2026-10-20 | Copilot | Brevo SMTP credential recheck
+Status: Blocked
+Done:
+- Rechecked the active Docker configuration; Brevo host, port, credentials, sender, and demo recipient are all passed to the right services.
+- Confirmed the environment values are unchanged between the main `.env` and Docker container (matched SHA-256 fingerprints without printing secrets).
+- Confirmed TLS connection succeeds but SMTP authentication is rejected with `535 5.7.8` on all supported Brevo ports (587, 2525, 465); no message was sent.
+- Confirmed the configured SMTP login currently matches the From address; no external email was sent.
+Files: TASK.MD
+Others need to know: Replace the SMTP login/key with the values shown in Brevo's SMTP & API → SMTP tab, then rebuild/restart scraper and web with the main checkout `.env`. The supplied SMTP-like key is rejected, so do not mark live delivery as verified.
+Blockers: Valid Brevo SMTP authentication is still required before end-to-end delivery can be tested.
+---
+
+## 2026-10-20 | Copilot | Local-only outreach email
+Status: Completed
+Done:
+- Removed external SMTP selection, credentials, recipient overrides, and sender-specific premium provisioning; outreach now always sends through Mailpit.
+- Restored masked relay and seeded insurer addresses in the UI; retained approval, PII screening, and AI disclosure safeguards.
+- Added a relay regression test proving legacy SMTP environment variables cannot redirect a send outside Mailpit.
+Files: docker-compose.yml, .env.example, AGENTS.md, docs/{HANDOFF.md,PROJECT.MD}, scraper/app/{config.py,email_relay/relay.py,routers/email.py}, scraper/tests/test_relay.py, web/src/{app/(app)/outreach/page.tsx,components/outreach/*,lib/{mail,users}.ts,__tests__/auth-facade.test.ts}
+Others need to know: External SMTP settings in local `.env` files were left untouched; Compose no longer forwards them to services.
+Blockers: None.
+---
