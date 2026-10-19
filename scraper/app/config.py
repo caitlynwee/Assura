@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     mailpit_smtp_host: str = "localhost"
     mailpit_smtp_port: int = 1025
 
+    # Database
+    database_url: str = ""
+
     # LLM
     anthropic_api_key: str = ""
     llm_model: str = "claude-haiku-4-5-20251001"
