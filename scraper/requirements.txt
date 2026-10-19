@@ -10,6 +10,7 @@ robotexclusionrulesparser>=1.7
 openai>=1.0
 playwright>=1.40
 playwright-stealth>=1.0
+duckduckgo-search>=6.0
 pdfplumber>=0.11
 aiosmtplib>=3.0
 sqlalchemy>=2.0

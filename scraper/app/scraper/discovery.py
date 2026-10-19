@@ -13,7 +13,6 @@ import json
 import os
 import re
 
-import httpx
 from openai import AsyncOpenAI
 
 from app.config import settings
@@ -47,38 +46,30 @@ def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-async def _search_brochure_url(insurer_name: str, plan_name: str, country: str) -> str:
-    """Use Jina Search to find the actual PDF brochure URL for a CI plan."""
-    from urllib.parse import quote
-    query = f'{insurer_name} {plan_name} {country} critical illness brochure filetype:pdf'
-    jina_url = f"https://s.jina.ai/{quote(query)}"
-    headers = {"Accept": "text/plain"}
-    api_key = os.environ.get("JINA_API_KEY")
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+def _search_brochure_url(insurer_name: str, plan_name: str, country: str) -> str:
+    """Use DuckDuckGo to find the actual PDF brochure URL for a CI plan."""
+    from duckduckgo_search import DDGS
 
+    query = f'{insurer_name} "{plan_name}" {country} critical illness brochure filetype:pdf'
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(jina_url, headers=headers)
-            resp.raise_for_status()
-            text = resp.text
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=10))
 
-        # Extract the first .pdf URL from search results
-        pdf_urls = re.findall(r'https?://[^\s\)\"\']+\.pdf', text, re.IGNORECASE)
-        if pdf_urls:
-            print(f"[discovery] Found PDF for {insurer_name}: {pdf_urls[0]}")
-            return pdf_urls[0]
-
-        # Fall back to first URL from the insurer's domain
-        website_domain = _slugify(insurer_name)
-        all_urls = re.findall(r'https?://[^\s\)\"\']+', text)
-        for url in all_urls:
-            if any(part in url.lower() for part in website_domain.split("-")):
-                print(f"[discovery] Fallback URL for {insurer_name}: {url}")
+        # Prefer results with .pdf in the URL
+        for r in results:
+            url = r.get("href", "")
+            if ".pdf" in url.lower():
+                print(f"[discovery] Found PDF for {insurer_name}: {url}")
                 return url
 
+        # Fall back to first result from any source
+        if results:
+            url = results[0].get("href", "")
+            print(f"[discovery] Fallback URL for {insurer_name}: {url}")
+            return url
+
     except Exception as exc:  # noqa: BLE001
-        print(f"[discovery] Jina search failed for {insurer_name}: {exc}")
+        print(f"[discovery] DuckDuckGo search failed for {insurer_name}: {exc}")
 
     return ""
 
@@ -117,8 +108,8 @@ async def discover_top_insurers(country: str) -> list[dict]:
         insurer_name = co.get("insurerName", insurer_id)
         plan_name = co.get("planName", "Critical Illness Plan")
 
-        # Step 2: Jina Search for the real PDF URL
-        brochure_url = await _search_brochure_url(insurer_name, plan_name, country)
+        # Step 2: DuckDuckGo search for the real PDF URL
+        brochure_url = _search_brochure_url(insurer_name, plan_name, country)
 
         print(f"[discovery] {insurer_name} → {brochure_url or '(no PDF found)'}")
         results.append({
