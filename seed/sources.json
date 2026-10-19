@@ -1,0 +1,72 @@
+[
+  {
+    "id": "src_aia_ci_power",
+    "insurerId": "aia",
+    "label": "AIA Critical Cover Power brochure",
+    "url": "https://www.aia.com.sg/en/our-products/critical-illness/aia-critical-cover-power.html",
+    "type": "product_page",
+    "planIds": ["aia_ci_power"],
+    "etag": null,
+    "lastModified": null,
+    "contentHash": null,
+    "lastChecked": null,
+    "lastChanged": null,
+    "status": "pending"
+  },
+  {
+    "id": "src_prudential_prucritical",
+    "insurerId": "prudential",
+    "label": "Prudential PRUCritical Protect brochure",
+    "url": "https://www.prudential.com.sg/products/life-protection/critical-illness/prucritical-protect",
+    "type": "product_page",
+    "planIds": ["prudential_prucritical"],
+    "etag": null,
+    "lastModified": null,
+    "contentHash": null,
+    "lastChecked": null,
+    "lastChanged": null,
+    "status": "pending"
+  },
+  {
+    "id": "src_ge_living_assurance",
+    "insurerId": "greateastern",
+    "label": "Great Eastern Living Assurance brochure",
+    "url": "https://www.greateasternlife.com/sg/en/personal-insurance/our-products/life-insurance/living-assurance.html",
+    "type": "product_page",
+    "planIds": ["ge_living_assurance"],
+    "etag": null,
+    "lastModified": null,
+    "contentHash": null,
+    "lastChecked": null,
+    "lastChanged": null,
+    "status": "pending"
+  },
+  {
+    "id": "src_income_ci_multiplier",
+    "insurerId": "income",
+    "label": "NTUC Income CI Multiplier brochure",
+    "url": "https://www.income.com.sg/life-insurance/ci-multiplier",
+    "type": "product_page",
+    "planIds": ["income_ci_multiplier"],
+    "etag": null,
+    "lastModified": null,
+    "contentHash": null,
+    "lastChecked": null,
+    "lastChanged": null,
+    "status": "pending"
+  },
+  {
+    "id": "src_mock_brochure",
+    "insurerId": "manulife",
+    "label": "Manulife ManuCare CI Saver (mock brochure — editable)",
+    "url": "http://localhost:8100/mock/brochure",
+    "type": "mock",
+    "planIds": ["manulife_ci_care"],
+    "etag": null,
+    "lastModified": null,
+    "contentHash": null,
+    "lastChecked": null,
+    "lastChanged": null,
+    "status": "pending"
+  }
+]

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "user_demo",
+    "email": "demo@fineprint.local",
+    "passwordHash": "$2b$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0/7D5r3NKDK",
+    "name": "Demo User",
+    "tier": "premium",
+    "maskedInbox": "user-demo@relay.fineprint.local",
+    "onboarded": true,
+    "consent": {
+      "shareAge": true,
+      "shareGender": true,
+      "shareSmokerStatus": true,
+      "shareCoverageNeeds": true,
+      "shareBudgetRange": true,
+      "shareOccupation": false,
+      "shareHealthHistory": false,
+      "shareIncome": false
+    },
+    "createdAt": "2026-10-01T00:00:00.000Z"
+  }
+]
