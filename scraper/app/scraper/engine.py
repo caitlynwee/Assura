@@ -128,6 +128,37 @@ async def run_scraper(
 
                 source_type = source_dict.get("type", "product_page")
                 text = extract_text(content, source_type=source_type)
+
+                # For product pages: look for PDF brochure links in the Jina
+                # markdown output and register them as sources for next run.
+                if source_type == "product_page":
+                    import re as _re
+                    pdf_links = list(dict.fromkeys(
+                        m.group(1) for m in _re.finditer(r'\(([^)]+\.pdf[^)]*)\)', text, _re.IGNORECASE)
+                    ))
+                    print(f"[engine] {source_dict['id']}: found {len(pdf_links)} PDF link(s) in Jina markdown: {pdf_links[:3]}")
+                    for i, pdf_url in enumerate(pdf_links[:3]):
+                        pdf_source_id = f"{source_dict['id']}_pdf_{i}"
+                        existing = session.query(Source).filter_by(id=pdf_source_id).first()
+                        if not existing:
+                            session.add(Source(
+                                id=pdf_source_id,
+                                insurer_id=source_dict["insurerId"],
+                                label=f"{source_dict.get('label', '')} Brochure",
+                                url=pdf_url,
+                                type="pdf",
+                                plan_ids=source_dict.get("planIds") or [],
+                                etag=None, last_modified=None, content_hash=None,
+                                last_checked=None, last_changed=None,
+                                status="pending",
+                                country=country,
+                            ))
+                            print(f"[engine] Registered PDF source: {pdf_source_id} → {pdf_url}")
+                    session.flush()
+
+                # Print a content snippet for debugging
+                print(f"[engine] {source_dict['id']} content snippet: {text[200:600]!r}")
+
                 plan_data = await convert_to_plan(text, source_dict)
 
                 # Fill insurerName from DB (converter always leaves it blank)
