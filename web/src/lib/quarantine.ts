@@ -9,10 +9,20 @@
  * prompt injection from insurer replies or scraped brochures.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { z } from "zod";
 
-const client = new Anthropic();
+let _client: OpenAI | null = null;
+
+function client(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({
+      baseURL: "https://api.deepseek.com",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    });
+  }
+  return _client;
+}
 
 const QUARANTINE_SYSTEM_PROMPT = `You are a data extraction assistant. Your ONLY job is to extract structured information from the provided text and return it as valid JSON matching the schema you are given.
 
@@ -37,11 +47,15 @@ export async function parseUntrustedText<T>(
   schema: z.ZodType<T>,
   extractionPrompt: string
 ): Promise<T> {
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const response = await client().chat.completions.create({
+    model: "deepseek-chat",
     max_tokens: 1024,
-    system: QUARANTINE_SYSTEM_PROMPT,
+    response_format: { type: "json_object" },
     messages: [
+      {
+        role: "system",
+        content: QUARANTINE_SYSTEM_PROMPT,
+      },
       {
         role: "user",
         content: `${extractionPrompt}\n\n---BEGIN UNTRUSTED TEXT---\n${untrustedText}\n---END UNTRUSTED TEXT---\n\nReturn only JSON.`,
@@ -50,8 +64,7 @@ export async function parseUntrustedText<T>(
     // No tools — the quarantined LLM has zero capability to take actions
   });
 
-  const raw =
-    response.content[0]?.type === "text" ? response.content[0].text : "";
+  const raw = response.choices[0]?.message?.content ?? "";
 
   let parsed: unknown;
   try {

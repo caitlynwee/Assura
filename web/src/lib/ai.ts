@@ -11,11 +11,21 @@
  * - Cite sources in responses
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import type { Plan, ChatMessage, ConsentFlags } from "./types";
 import { AI_DISCLOSURE_PREFIX } from "./constants";
 
-const client = new Anthropic();
+let _client: OpenAI | null = null;
+
+function client(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({
+      baseURL: "https://api.deepseek.com",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    });
+  }
+  return _client;
+}
 
 const FACTUAL_GUARDRAIL = `IMPORTANT: You provide factual information and comparisons only. You NEVER recommend that a user buy, choose, or purchase any specific plan. You NEVER provide financial advice. When describing plans, use neutral, factual language. Always cite the source plan name when referencing specific data.`;
 
@@ -38,19 +48,23 @@ export async function* chatWithPlans(
     )
     .join("\n\n---\n\n");
 
-  const stream = client.messages.stream({
-    model: "claude-sonnet-4-6",
+  const stream = await client().chat.completions.create({
+    model: "deepseek-chat",
     max_tokens: 1024,
-    system: `You are Fineprint's plan information assistant. You answer questions about critical illness insurance plans using only the plan data provided below. ${FACTUAL_GUARDRAIL}\n\nWhen citing plan data, always mention the plan name and insurer. Format citations as [Plan Name — Insurer].\n\n---PLAN DATA---\n${planContext}`,
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    stream: true,
+    messages: [
+      {
+        role: "system",
+        content: `You are Fineprint's plan information assistant. You answer questions about critical illness insurance plans using only the plan data provided below. ${FACTUAL_GUARDRAIL}\n\nWhen citing plan data, always mention the plan name and insurer. Format citations as [Plan Name — Insurer].\n\n---PLAN DATA---\n${planContext}`,
+      },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
   });
 
   for await (const chunk of stream) {
-    if (
-      chunk.type === "content_block_delta" &&
-      chunk.delta.type === "text_delta"
-    ) {
-      yield chunk.delta.text;
+    const delta = chunk.choices[0]?.delta?.content;
+    if (delta) {
+      yield delta;
     }
   }
 }
@@ -82,11 +96,14 @@ export async function draftOutreachEmail(params: {
   if (consent.shareBudgetRange && userContext.monthlyBudget)
     sharedDetails.push(`Monthly budget: SGD ${userContext.monthlyBudget}`);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+  const response = await client().chat.completions.create({
+    model: "deepseek-chat",
     max_tokens: 600,
-    system: `You are drafting an outreach email to an insurance company on behalf of a customer who is using Fineprint, an AI insurance comparison service. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. The email MUST start with this exact disclosure: "${AI_DISCLOSURE_PREFIX}"\n2. Be professional and concise.\n3. Only include the user details provided — do not invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases or appointments.\n5. End with a neutral sign-off.`,
     messages: [
+      {
+        role: "system",
+        content: `You are drafting an outreach email to an insurance company on behalf of a customer who is using Fineprint, an AI insurance comparison service. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. The email MUST start with this exact disclosure: "${AI_DISCLOSURE_PREFIX}"\n2. Be professional and concise.\n3. Only include the user details provided — do not invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases or appointments.\n5. End with a neutral sign-off.`,
+      },
       {
         role: "user",
         content: `Draft an email to ${insurerName}.\n\nPurpose: ${templatePromptHint}\n\nUser details to include:\n${sharedDetails.length > 0 ? sharedDetails.join("\n") : "No personal details to share at this time."}`,
@@ -94,7 +111,7 @@ export async function draftOutreachEmail(params: {
     ],
   });
 
-  return response.content[0]?.type === "text" ? response.content[0].text : "";
+  return response.choices[0]?.message?.content ?? "";
 }
 
 // ─── Quote Extraction (from thread — uses quarantine.ts) ──────────────────────
