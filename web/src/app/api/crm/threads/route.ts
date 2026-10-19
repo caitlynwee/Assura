@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { evaluateAction } from "@/lib/policy";
-import { readJSON } from "@/lib/db";
-import type { Thread } from "@/lib/types";
+import { getThreadsByUser } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -20,9 +19,7 @@ export async function GET(req: NextRequest) {
   }
 
   const status = req.nextUrl.searchParams.get("status");
-  let threads = readJSON<Thread[]>("threads.json").filter(
-    (t) => t.userId === userId
-  );
+  let threads = await getThreadsByUser(userId);
 
   if (status) {
     threads = threads.filter((t) => t.status === status);

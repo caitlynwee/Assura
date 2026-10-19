@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { readJSON } from "@/lib/db";
+import { getPlans } from "@/lib/db";
 import { planFilterSchema } from "@/lib/validators";
 import { evaluateAction } from "@/lib/policy";
-import type { Plan } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -26,7 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid filters" }, { status: 400 });
   }
 
-  let plans = readJSON<Plan[]>("plans.json");
+  let plans = await getPlans();
   const { insurerId, minCoverage, maxCoverage, earlyStage, sortBy, sortDir, search } =
     parsed.data;
 

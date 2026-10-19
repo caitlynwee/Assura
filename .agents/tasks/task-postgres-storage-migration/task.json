@@ -1,0 +1,7 @@
+{
+  "task_id": "task-postgres-storage-migration",
+  "task_description": "Migrate Assura storage from local JSON/JSONL files to a single shared PostgreSQL database. Schema is defined ONCE as source of truth: Drizzle ORM (web) owns the schema and migrations; SQLAlchemy 2.0 (scraper) only MAPS to the Drizzle-created tables (no DDL, no migrations). Connection via DATABASE_URL. FEAT-001 establishes the shared schema, the Drizzle data layer, the full web migration, the audit-chain-preserving storage, web test rewrite, and Docker/seed infra. FEAT-002 maps SQLAlchemy to those tables and migrates the three scraper storage call sites. FEAT-002 depends on FEAT-001 (tables must exist first).",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}

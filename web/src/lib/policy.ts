@@ -123,13 +123,15 @@ export function evaluateAction(
     };
   }
 
-  // Log every decision
-  logEvent(context.userId, `policy.${decision.outcome}`, {
+  // Log every decision. evaluateAction stays synchronous (the policy test and
+  // many route call sites depend on that), so the audit write is fire-and-forget.
+  // audit.logEvent serializes writes internally, so the hash chain stays intact.
+  void logEvent(context.userId, `policy.${decision.outcome}`, {
     action,
     tier,
     reason: decision.reason,
     userTier: context.userTier,
-  });
+  }).catch(() => {});
 
   return decision;
 }
