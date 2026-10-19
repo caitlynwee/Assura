@@ -29,8 +29,9 @@ usage() {
   Assura dev CLI
 
   DOCKER (all services together)
-    ./dev.sh up              Start everything  (docker compose up)
+    ./dev.sh up              Start everything  (docker compose up, dev/hot-reload web)
     ./dev.sh up --build      Start everything, rebuild images first
+    ./dev.sh up-prod         Start everything in Docker, web BUILT (no recompiling)
     ./dev.sh down            Stop everything
     ./dev.sh restart         down + up
     ./dev.sh build [svc]     Rebuild image(s)  svc: web | scraper
@@ -68,6 +69,14 @@ cmd_up() {
     info "Starting all services..."
     docker compose up
   fi
+}
+
+cmd_up_prod() {
+  # Whole stack in Docker with the web app BUILT (production) — no live
+  # recompiling. Uses the prod override which swaps web to Dockerfile.prod.
+  require_env
+  info "Starting all services with PRODUCTION web (building image)..."
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 }
 
 cmd_down() {
@@ -245,6 +254,7 @@ cmd_setup() {
 # ── Router ─────────────────────────────────────────────────────────────────
 case "${1:-}" in
   up)          cmd_up "${2:-}" ;;
+  up-prod)     cmd_up_prod ;;
   down)        cmd_down ;;
   restart)     cmd_restart "${2:-}" ;;
   build)       cmd_build "${2:-}" ;;
