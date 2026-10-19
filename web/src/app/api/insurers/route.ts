@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { readJSON } from "@/lib/db";
-import type { Insurer } from "@/lib/types";
+import { getInsurers } from "@/lib/db";
 
 export async function GET() {
   const session = await auth();
@@ -9,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const insurers = readJSON<Insurer[]>("insurers.json");
+  const insurers = await getInsurers();
 
   // Strip internal persona field from response
   const safe = insurers.map(({ id, name, agentEmail, logo, website }) => ({
