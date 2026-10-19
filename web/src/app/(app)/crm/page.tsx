@@ -1,19 +1,17 @@
 export const dynamic = "force-dynamic";
 
 import ThreadList from "@/components/crm/thread-list";
+import PageHeader from "@/components/layout/page-header";
 
-export const metadata = { title: "CRM — Fineprint" };
+export const metadata = { title: "CRM — Assura" };
 
 export default function CrmPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Inbox & CRM</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          All outreach threads with insurers. Track status, review quotes, and
-          flag suspicious replies.
-        </p>
-      </div>
+      <PageHeader
+        title="Inbox & CRM"
+        description="All outreach threads with insurers. Track status, review quotes, and flag suspicious replies."
+      />
       <ThreadList />
     </div>
   );

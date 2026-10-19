@@ -1,8 +1,9 @@
 export const dynamic = "force-dynamic";
 
 import ThreadDetail from "@/components/crm/thread-detail";
+import PageHeader from "@/components/layout/page-header";
 
-export const metadata = { title: "Thread — Fineprint" };
+export const metadata = { title: "Thread — Assura" };
 
 export default async function ThreadDetailPage({
   params,
@@ -13,10 +14,10 @@ export default async function ThreadDetailPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Thread</h1>
-        <p className="text-gray-400 font-mono text-xs mt-1">{threadId}</p>
-      </div>
+      <PageHeader
+        title="Thread"
+        description={<span className="font-mono text-xs">{threadId}</span>}
+      />
       <ThreadDetail threadId={threadId} />
     </div>
   );

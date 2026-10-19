@@ -1,9 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { CheckIcon } from "lucide-react";
 import { signupAction, type FormState } from "@/app/_actions/auth";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import Field from "./field";
+import FormError from "./form-error";
 import SubmitButton from "./submit-button";
 
 const PLANS = [
@@ -27,7 +31,7 @@ export default function SignupForm() {
   const fe = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <form action={formAction} className="grid gap-4" noValidate>
       <Field
         label="Name"
         name="name"
@@ -66,46 +70,43 @@ export default function SignupForm() {
         required
       />
 
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-gray-700">Plan</legend>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-2">
+        <Label id="plan-label">Plan</Label>
+        <RadioGroup
+          name="tier"
+          value={tier}
+          onValueChange={setTier}
+          aria-labelledby="plan-label"
+          className="grid-cols-2"
+        >
           {PLANS.map((p) => (
-            <label
+            <Label
               key={p.id}
+              htmlFor={`tier-${p.id}`}
               className={cn(
-                "cursor-pointer rounded-xl border bg-white p-3 text-sm transition",
-                tier === p.id
-                  ? "border-blue-500 ring-1 ring-blue-500"
-                  : "border-gray-200 hover:border-gray-300"
+                "flex cursor-pointer flex-col items-start gap-2 rounded-lg border bg-card p-3 font-normal transition-colors",
+                tier === p.id ? "border-primary ring-1 ring-primary" : "hover:bg-muted/50"
               )}
             >
-              <input
-                type="radio"
-                name="tier"
-                value={p.id}
-                checked={tier === p.id}
-                onChange={() => setTier(p.id)}
-                className="sr-only"
-              />
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="font-semibold text-gray-900">{p.title}</span>
-                <span className="text-[11px] text-gray-500">{p.tag}</span>
+              <span className="flex w-full items-center gap-2">
+                <RadioGroupItem id={`tier-${p.id}`} value={p.id} />
+                <span className="font-semibold">{p.title}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">{p.tag}</span>
               </span>
-              <ul className="mt-2 space-y-1 text-xs text-gray-600">
+              <ul className="space-y-1 text-xs text-muted-foreground">
                 {p.points.map((pt) => (
-                  <li key={pt}>✓ {pt}</li>
+                  <li key={pt} className="flex items-center gap-1.5">
+                    <CheckIcon className="size-3 text-primary" />
+                    {pt}
+                  </li>
                 ))}
               </ul>
-            </label>
+            </Label>
           ))}
-        </div>
-      </fieldset>
+        </RadioGroup>
+      </div>
 
-      {state.error && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
-        </p>
-      )}
+      <FormError message={state.error} />
 
       <SubmitButton className="w-full" pendingText="Creating account…">
         Create account

@@ -26,7 +26,10 @@ function isPublicPath(pathname: string): boolean {
     pathname === "/" ||
     AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
     pathname.startsWith("/api/auth") ||
-    pathname === "/auth/reset"
+    pathname === "/auth/reset" ||
+    // Server-to-server callbacks (Python outreach server → web). No user
+    // session exists; each route enforces the x-internal-api-key header itself.
+    pathname.startsWith("/api/internal/")
   );
 }
 

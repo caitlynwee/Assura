@@ -1,83 +1,118 @@
 "use client";
 
+import { ExternalLinkIcon, SearchXIcon, TriangleAlertIcon } from "lucide-react";
 import { usePlans } from "@/hooks/use-plans";
 import { formatCurrency } from "@/lib/utils";
-import Badge from "@/components/ui/badge";
-import Spinner from "@/components/ui/spinner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+const COLUMNS = [
+  { label: "Plan", className: "pl-4" },
+  { label: "Coverage", className: "text-right" },
+  { label: "Premium (M/30)", className: "text-right" },
+  { label: "Illnesses", className: "text-center" },
+  { label: "Early stage", className: "text-center" },
+  { label: "Source", className: "pr-4" },
+];
 
 export default function PlanTable() {
   const { plans, loading, error } = usePlans();
 
-  if (loading) {
+  if (error) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner />
-      </div>
+      <Alert variant="destructive">
+        <TriangleAlertIcon />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
     );
   }
 
-  if (error) {
-    return <p className="text-red-600 text-sm">{error}</p>;
-  }
-
-  if (!plans.length) {
-    return <p className="text-gray-400 text-sm">No plans match your filters.</p>;
-  }
-
   return (
-    <div className="overflow-x-auto rounded-xl border bg-white">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left">Plan</th>
-            <th className="px-4 py-3 text-right">Coverage</th>
-            <th className="px-4 py-3 text-right">Premium (M/30)</th>
-            <th className="px-4 py-3 text-center">Illnesses</th>
-            <th className="px-4 py-3 text-center">Early stage</th>
-            <th className="px-4 py-3 text-left">Source</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {plans.map((plan) => (
-            <tr key={plan.id} className="hover:bg-gray-50 transition">
-              <td className="px-4 py-3">
-                <p className="font-medium text-gray-900">{plan.planName}</p>
-                <p className="text-gray-400 text-xs">{plan.insurerName}</p>
-                {plan.updatedBadge && (
-                  <Badge variant="orange" className="mt-1">Updated</Badge>
-                )}
-              </td>
-              <td className="px-4 py-3 text-right font-medium">
-                {formatCurrency(plan.coverageAmount)}
-              </td>
-              <td className="px-4 py-3 text-right text-gray-600">
-                {plan.premiums.male_30_nonsmoker
-                  ? formatCurrency(plan.premiums.male_30_nonsmoker) + "/yr"
-                  : "—"}
-              </td>
-              <td className="px-4 py-3 text-center">{plan.illnessesCovered}</td>
-              <td className="px-4 py-3 text-center">
-                {plan.earlyStageConditions ? (
-                  <Badge variant="green">Yes</Badge>
-                ) : (
-                  <Badge variant="gray">No</Badge>
-                )}
-              </td>
-              <td className="px-4 py-3 text-xs">
-                <a
-                  href={plan.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline truncate block max-w-[160px]"
-                >
-                  Brochure
-                </a>
-                <span className="text-gray-400">as of {plan.dataAsOf}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Card className="gap-0 overflow-hidden py-0">
+      <Table>
+        <TableHeader className="bg-muted/50">
+          <TableRow className="hover:bg-transparent">
+            {COLUMNS.map((c) => (
+              <TableHead
+                key={c.label}
+                className={`text-xs uppercase tracking-wide text-muted-foreground ${c.className}`}
+              >
+                {c.label}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <TableRow key={i}>
+                {COLUMNS.map((c) => (
+                  <TableCell key={c.label} className="py-4">
+                    <Skeleton className="h-4 w-full max-w-28" />
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : plans.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={COLUMNS.length} className="py-12 text-center text-muted-foreground">
+                <SearchXIcon className="mx-auto mb-2 size-6" />
+                No plans match your filters.
+              </TableCell>
+            </TableRow>
+          ) : (
+            plans.map((plan) => (
+              <TableRow key={plan.id}>
+                <TableCell className="py-3 pl-4">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{plan.planName}</p>
+                    {plan.updatedBadge && <Badge variant="orange">Updated</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{plan.insurerName}</p>
+                </TableCell>
+                <TableCell className="text-right font-medium tabular-nums">
+                  {formatCurrency(plan.coverageAmount)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {plan.premiums.male_30_nonsmoker
+                    ? `${formatCurrency(plan.premiums.male_30_nonsmoker)}/yr`
+                    : "—"}
+                </TableCell>
+                <TableCell className="text-center tabular-nums">{plan.illnessesCovered}</TableCell>
+                <TableCell className="text-center">
+                  {plan.earlyStageConditions ? (
+                    <Badge variant="green">Yes</Badge>
+                  ) : (
+                    <Badge variant="gray">No</Badge>
+                  )}
+                </TableCell>
+                <TableCell className="pr-4 text-xs">
+                  <a
+                    href={plan.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                  >
+                    Brochure
+                    <ExternalLinkIcon className="size-3" />
+                  </a>
+                  <p className="text-muted-foreground">as of {plan.dataAsOf}</p>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </Card>
   );
 }
