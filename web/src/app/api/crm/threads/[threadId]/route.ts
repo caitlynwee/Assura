@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { threadUpdateSchema } from "@/lib/validators";
 import { assertAllowed } from "@/lib/policy";
-import { readJSON, writeJSON } from "@/lib/db";
-import type { Thread } from "@/lib/types";
+import { getThreadById, updateThread } from "@/lib/db";
 
 export async function GET(
   _req: NextRequest,
@@ -15,10 +14,7 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const threads = readJSON<Thread[]>("threads.json");
-  const thread = threads.find(
-    (t) => t.id === threadId && t.userId === session.user!.id
-  );
+  const thread = await getThreadById(threadId, session.user!.id!);
 
   if (!thread) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -53,21 +49,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
 
-  const threads = readJSON<Thread[]>("threads.json");
-  const idx = threads.findIndex(
-    (t) => t.id === threadId && t.userId === userId
-  );
-
-  if (idx === -1) {
+  const existing = await getThreadById(threadId, userId);
+  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { status, addedToComparison } = parsed.data;
-  if (status) threads[idx].status = status;
-  if (addedToComparison !== undefined) threads[idx].addedToComparison = addedToComparison;
-  threads[idx].updatedAt = new Date().toISOString();
+  const updatedAt = new Date().toISOString();
+  await updateThread(threadId, {
+    ...(status ? { status } : {}),
+    ...(addedToComparison !== undefined ? { addedToComparison } : {}),
+    updatedAt,
+  });
 
-  writeJSON("threads.json", threads);
-
-  return NextResponse.json({ thread: threads[idx] });
+  const updated = await getThreadById(threadId, userId);
+  return NextResponse.json({ thread: updated });
 }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { readJSON } from "@/lib/db";
-import type { Thread } from "@/lib/types";
+import { getThreadById } from "@/lib/db";
 
 const SCRAPER_URL = process.env.SCRAPER_URL ?? "http://localhost:8100";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key";
@@ -16,9 +15,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const thread = readJSON<Thread[]>("threads.json").find(
-    (candidate) => candidate.id === threadId && candidate.userId === session.user!.id
-  );
+  const thread = await getThreadById(threadId, session.user.id!);
   if (!thread) {
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { assertAllowed } from "@/lib/policy";
 import { extractQuoteFromThread } from "@/lib/ai";
-import { readJSON, writeJSON } from "@/lib/db";
+import { getThreadById, updateThread } from "@/lib/db";
 import { logEvent } from "@/lib/audit";
-import type { Thread } from "@/lib/types";
 
 export async function POST(
   _req: NextRequest,
@@ -26,28 +25,25 @@ export async function POST(
     return NextResponse.json({ error: (err as Error).message }, { status: 403 });
   }
 
-  const threads = readJSON<Thread[]>("threads.json");
-  const idx = threads.findIndex(
-    (t) => t.id === threadId && t.userId === userId
-  );
-
-  if (idx === -1) {
+  const thread = await getThreadById(threadId, userId);
+  if (!thread) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const thread = threads[idx];
   const quote = await extractQuoteFromThread(thread.messages);
 
-  threads[idx].extractedQuote = {
+  const extractedQuote = {
     ...quote,
     extractedAt: new Date().toISOString(),
   };
-  threads[idx].status = "info_received";
-  threads[idx].updatedAt = new Date().toISOString();
+  const updatedAt = new Date().toISOString();
+  await updateThread(threadId, {
+    extractedQuote,
+    status: "info_received",
+    updatedAt,
+  });
 
-  writeJSON("threads.json", threads);
+  await logEvent(userId, "quote.extracted", { threadId });
 
-  logEvent(userId, "quote.extracted", { threadId });
-
-  return NextResponse.json({ quote: threads[idx].extractedQuote });
+  return NextResponse.json({ quote: extractedQuote });
 }

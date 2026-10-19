@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readJSON, writeJSON } from "@/lib/db";
+import { appendThreadMessage, getDb } from "@/lib/db";
+import * as schema from "@/lib/schema";
+import { eq } from "drizzle-orm";
 import { logEvent } from "@/lib/audit";
-import type { Thread, ThreadMessage } from "@/lib/types";
+import type { ThreadMessage } from "@/lib/types";
 
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key";
 
@@ -21,20 +23,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid reply payload" }, { status: 400 });
   }
 
-  const threads = readJSON<Thread[]>("threads.json");
-  const index = threads.findIndex((thread) => thread.id === payload.threadId);
-  if (index === -1) {
+  const db = getDb();
+
+  // Fetch thread to verify existence and get userId for audit log.
+  const rows = await db
+    .select()
+    .from(schema.threads)
+    .where(eq(schema.threads.id, payload.threadId))
+    .limit(1);
+  const thread = rows[0];
+  if (!thread) {
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
-  const thread = threads[index];
-  thread.messages.push(payload.message);
-  thread.status = payload.riskFlag ? "flagged" : "replied";
-  if (payload.riskFlag && !thread.riskFlags.includes(payload.riskFlag)) {
-    thread.riskFlags.push(payload.riskFlag);
+  const now = new Date().toISOString();
+  const newStatus = payload.riskFlag ? "flagged" : "replied";
+
+  await appendThreadMessage(payload.threadId, payload.message, newStatus, now);
+
+  // Append the riskFlag if present (appendThreadMessage only updates status/updatedAt).
+  if (payload.riskFlag) {
+    const currentFlags = (thread.riskFlags as string[]) ?? [];
+    if (!currentFlags.includes(payload.riskFlag)) {
+      await db
+        .update(schema.threads)
+        .set({ riskFlags: [...currentFlags, payload.riskFlag] })
+        .where(eq(schema.threads.id, payload.threadId));
+    }
   }
-  thread.updatedAt = new Date().toISOString();
-  writeJSON("threads.json", threads);
+
   logEvent(thread.userId, "crm.reply.received", {
     threadId: thread.id,
     flagged: Boolean(payload.riskFlag),

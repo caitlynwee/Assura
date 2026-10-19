@@ -151,7 +151,7 @@ export async function upgradeToPremiumAction(formData: FormData): Promise<void> 
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  updateUser(session.user.id, (u) => {
+  await updateUser(session.user.id, (u) => {
     u.tier = "premium";
   });
   logEvent(session.user.id, "user.tier_changed", { from: "free", to: "premium", payment: "demo" });

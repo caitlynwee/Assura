@@ -8,7 +8,7 @@ export async function saveOnboardingAction(input: unknown): Promise<OnboardingRe
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "Please sign in again.", status: 401 };
 
-  const result = completeOnboarding(session.user.id, input);
+  const result = await completeOnboarding(session.user.id, input);
   if (result.ok) {
     await refreshSessionCookie();
     revalidatePath("/", "layout");
