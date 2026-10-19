@@ -1,30 +1,27 @@
 #!/usr/bin/env bash
-# reset.sh — Copies seed data into /data and creates required directories.
-# Run from any directory; script resolves paths relative to its own location.
+# reset.sh — Reset the database to seed state.
+# Run from any directory; paths resolve relative to this script.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-DATA_DIR="$REPO_ROOT/data"
+WEB_DIR="$REPO_ROOT/web"
 
-echo "Resetting data directory at $DATA_DIR ..."
+# Default to local dev Postgres; override with DATABASE_URL env var.
+export DATABASE_URL="${DATABASE_URL:-postgres://postgres:dev@localhost:5432/assura}"
+export SEED_DIR="$SCRIPT_DIR"
 
-# Create data directory structure
-mkdir -p "$DATA_DIR/versions"
+echo "Resetting database at $DATABASE_URL ..."
 
-# Copy seed JSON files
-cp "$SCRIPT_DIR/insurers.json"  "$DATA_DIR/insurers.json"
-cp "$SCRIPT_DIR/users.json"     "$DATA_DIR/users.json"
-cp "$SCRIPT_DIR/plans.json"     "$DATA_DIR/plans.json"
-cp "$SCRIPT_DIR/sources.json"   "$DATA_DIR/sources.json"
-cp "$SCRIPT_DIR/threads.json"   "$DATA_DIR/threads.json"
+# Apply any pending migrations (idempotent).
+cd "$WEB_DIR"
+npx tsx src/lib/migrate.ts
 
-# Reset append-only log files (empty)
-> "$DATA_DIR/audit.jsonl"
-> "$DATA_DIR/scraper_runs.jsonl"
+# Truncate all tables and re-insert seed rows.
+RESET=1 npx tsx src/lib/seed.ts
 
-# Ensure .gitkeep files exist so git tracks empty dirs
-touch "$DATA_DIR/.gitkeep"
-touch "$DATA_DIR/versions/.gitkeep"
+# Keep the versions directory for HTML snapshots (filesystem, not DB).
+mkdir -p "$REPO_ROOT/data/versions"
+touch "$REPO_ROOT/data/.gitkeep" "$REPO_ROOT/data/versions/.gitkeep"
 
-echo "Done. Data reset to seed state."
+echo "Done. Database reset to seed state."

@@ -164,6 +164,23 @@ export async function seedDatabase(
   }
 }
 
+/**
+ * Truncate all tables in reverse FK order, then re-seed.
+ * Used by seed/reset.sh to reset the database to a clean demo state.
+ */
+export async function resetDatabase(db: Database): Promise<void> {
+  // Reverse FK order: children before parents
+  await db.delete(schema.auditEntries);
+  await db.delete(schema.scraperRuns);
+  await db.delete(schema.threadMessages);
+  await db.delete(schema.threads);
+  await db.delete(schema.sources);
+  await db.delete(schema.plans);
+  await db.delete(schema.users);
+  await db.delete(schema.insurers);
+  await seedDatabase(db);
+}
+
 // ── CLI entrypoint (npm run db:seed) ──────────────────────────────────────────
 async function main() {
   const { drizzle } = await import("drizzle-orm/postgres-js");
@@ -174,6 +191,19 @@ async function main() {
 
   const sql = postgres(url, { max: 1 });
   const db = drizzle(sql, { schema });
+
+  // If RESET=1, truncate first (idempotent re-seed for dev/demo reset).
+  if (process.env.RESET === "1") {
+    console.log("[seed] truncating tables ...");
+    await db.delete(schema.auditEntries);
+    await db.delete(schema.scraperRuns);
+    await db.delete(schema.threadMessages);
+    await db.delete(schema.threads);
+    await db.delete(schema.sources);
+    await db.delete(schema.plans);
+    await db.delete(schema.users);
+    await db.delete(schema.insurers);
+  }
 
   console.log("[seed] loading seed data ...");
   await seedDatabase(db);
