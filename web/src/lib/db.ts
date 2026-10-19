@@ -189,8 +189,11 @@ export async function getInsurerById(id: string): Promise<Insurer | null> {
 
 // ─── plans ────────────────────────────────────────────────────────────────────
 
-export async function getPlans(): Promise<Plan[]> {
-  const rows = await getDb().select().from(schema.plans);
+export async function getPlans(country?: string): Promise<Plan[]> {
+  const db = getDb();
+  const rows = country
+    ? await db.select().from(schema.plans).where(eq(schema.plans.country, country))
+    : await db.select().from(schema.plans);
   return rows as Plan[];
 }
 

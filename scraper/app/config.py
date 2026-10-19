@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     llm_model: str = "deepseek-chat"
 
+    # Country — swap to any country name to scrape that market's top 5 CI plans
+    current_country: str = "Singapore"
+
     # Scraper behaviour
     scraper_rate_limit_delay: float = 2.0  # seconds between requests to same domain
     scraper_cron_hour: int = 0  # 00:00 SGT

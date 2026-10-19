@@ -38,6 +38,7 @@ class Insurer(Base):
     logo = Column(Text, nullable=False)
     persona = Column(Text, nullable=False)
     website = Column(Text, nullable=False)
+    country = Column(Text, nullable=False)
 
 
 # ── Plan ───────────────────────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ class Plan(Base):
     change_notes = Column(JSONB, nullable=False)
     version = Column(Integer, nullable=False)
     scraped_at = Column(Text, nullable=False)
+    country = Column(Text, nullable=False)
 
 
 # ── Source ─────────────────────────────────────────────────────────────────────
@@ -82,6 +84,7 @@ class Source(Base):
     last_checked = Column(Text)
     last_changed = Column(Text)
     status = Column(Text, nullable=False)
+    country = Column(Text, nullable=False)
 
 
 # ── Thread ─────────────────────────────────────────────────────────────────────

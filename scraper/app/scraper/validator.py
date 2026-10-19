@@ -5,29 +5,9 @@ from pydantic import ValidationError
 from app.schemas.plan import Plan
 
 
-def _lookup_insurer_name(insurer_id: str) -> str:
-    """Look up insurer display name from insurers.json by id."""
-    try:
-        from app.config import settings
-        from app.storage.json_store import read_json
-
-        insurers_path = settings.data_dir / "insurers.json"
-        if insurers_path.exists():
-            insurers = read_json(insurers_path)
-            match = next((i for i in insurers if i["id"] == insurer_id), None)
-            if match:
-                return match.get("name", "")
-    except Exception:  # noqa: BLE001, S110
-        pass
-    return ""
-
-
 def validate_plan(data: dict) -> dict:
     """Validate and normalize plan data. Raises ValueError if invalid."""
-    # Fill insurerName from insurers.json if empty
-    insurer_id = data.get("insurerId", "")
-    if not data.get("insurerName") and insurer_id:
-        data["insurerName"] = _lookup_insurer_name(insurer_id)
+    # insurerName is filled by engine.py from the DB before calling this function
 
     # Normalize camelCase keys to snake_case for Pydantic
     normalized = {

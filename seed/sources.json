@@ -5,13 +5,16 @@
     "label": "AIA Critical Cover Power brochure",
     "url": "https://www.aia.com.sg/en/our-products/critical-illness/aia-critical-cover-power.html",
     "type": "product_page",
-    "planIds": ["aia_ci_power"],
+    "planIds": [
+      "aia_ci_power"
+    ],
     "etag": null,
     "lastModified": null,
     "contentHash": null,
     "lastChecked": null,
     "lastChanged": null,
-    "status": "pending"
+    "status": "pending",
+    "country": "SG"
   },
   {
     "id": "src_prudential_prucritical",
@@ -19,13 +22,16 @@
     "label": "Prudential PRUCritical Protect brochure",
     "url": "https://www.prudential.com.sg/products/life-protection/critical-illness/prucritical-protect",
     "type": "product_page",
-    "planIds": ["prudential_prucritical"],
+    "planIds": [
+      "prudential_prucritical"
+    ],
     "etag": null,
     "lastModified": null,
     "contentHash": null,
     "lastChecked": null,
     "lastChanged": null,
-    "status": "pending"
+    "status": "pending",
+    "country": "SG"
   },
   {
     "id": "src_ge_living_assurance",
@@ -33,13 +39,16 @@
     "label": "Great Eastern Living Assurance brochure",
     "url": "https://www.greateasternlife.com/sg/en/personal-insurance/our-products/life-insurance/living-assurance.html",
     "type": "product_page",
-    "planIds": ["ge_living_assurance"],
+    "planIds": [
+      "ge_living_assurance"
+    ],
     "etag": null,
     "lastModified": null,
     "contentHash": null,
     "lastChecked": null,
     "lastChanged": null,
-    "status": "pending"
+    "status": "pending",
+    "country": "SG"
   },
   {
     "id": "src_income_ci_multiplier",
@@ -47,13 +56,16 @@
     "label": "NTUC Income CI Multiplier brochure",
     "url": "https://www.income.com.sg/life-insurance/ci-multiplier",
     "type": "product_page",
-    "planIds": ["income_ci_multiplier"],
+    "planIds": [
+      "income_ci_multiplier"
+    ],
     "etag": null,
     "lastModified": null,
     "contentHash": null,
     "lastChecked": null,
     "lastChanged": null,
-    "status": "pending"
+    "status": "pending",
+    "country": "SG"
   },
   {
     "id": "src_singlife_ci_protect",
@@ -61,26 +73,32 @@
     "label": "Singlife CI Protect brochure",
     "url": "https://singlife.com/en/insurance/critical-illness",
     "type": "product_page",
-    "planIds": ["singlife_ci_protect"],
+    "planIds": [
+      "singlife_ci_protect"
+    ],
     "etag": null,
     "lastModified": null,
     "contentHash": null,
     "lastChecked": null,
     "lastChanged": null,
-    "status": "pending"
+    "status": "pending",
+    "country": "SG"
   },
   {
-    "id": "src_mock_brochure",
+    "id": "src_manulife_ci_care",
     "insurerId": "manulife",
-    "label": "Manulife ManuCare CI Saver (mock brochure — editable)",
-    "url": "http://localhost:8100/mock/brochure",
-    "type": "mock",
-    "planIds": ["manulife_ci_care"],
+    "label": "Manulife ManuCare CI Saver",
+    "url": "https://www.manulife.com.sg/en/individual/products/health-insurance/manucare-ci-saver.html",
+    "type": "product_page",
+    "planIds": [
+      "manulife_ci_care"
+    ],
     "etag": null,
     "lastModified": null,
     "contentHash": null,
     "lastChecked": null,
     "lastChanged": null,
-    "status": "pending"
+    "status": "pending",
+    "country": "SG"
   }
 ]

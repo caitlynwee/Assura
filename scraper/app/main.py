@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import email, mock, scraper
+from app.routers import email, scraper
 
 
 @asynccontextmanager
@@ -49,7 +49,6 @@ def create_app() -> FastAPI:
 
     app.include_router(scraper.router, prefix="/scraper", tags=["scraper"])
     app.include_router(email.router, prefix="/email", tags=["email"])
-    app.include_router(mock.router, prefix="/mock", tags=["mock"])
 
     return app
 
