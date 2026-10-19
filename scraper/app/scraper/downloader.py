@@ -62,7 +62,7 @@ async def download_page(
     browser = await _get_browser()
     page = await browser.new_page(user_agent=USER_AGENT)
     try:
-        await page.goto(url, wait_until="networkidle", timeout=30_000)
+        await page.goto(url, wait_until="load", timeout=60_000)
         html = await page.content()
         _last_fetch[domain] = asyncio.get_event_loop().time()
         return html.encode("utf-8")
