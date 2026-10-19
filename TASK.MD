@@ -214,3 +214,57 @@ Files:
 Others need to know: Reads the app user profile and is independent of the auth provider — works under both NextAuth and the pending Supabase Auth. Stays out of auth/scraper/outreach/crm lanes and does not change the /api/plans response shape. Draft PR open, not merged.
 Blockers: None (live visual check against a logged-in demo user with a profile is the final confirmation)
 ---
+
+## 2026-10-20 | Dominic | Supabase Auth migration (replaces NextAuth v5)
+Status: Completed
+Done:
+- Supabase Auth is now the default runtime auth path; NextAuth v5 removed (auth.config.ts, next-auth.d.ts, api/auth/[...nextauth] deleted; next-auth dropped from package.json).
+- Kept the app `users` table as source of truth. Added nullable `users.auth_uid` column + Drizzle migration (0001_curly_grim_reaper.sql); preserved all TEXT ids (user_demo) and FKs. Link by auth_uid, email fallback + back-fill.
+- New guarded Supabase clients (lazy, no-throw keyless) in web/src/lib/supabase/{env,client,server,admin}.ts. Service-role key is server-only (never NEXT_PUBLIC_).
+- New @/lib/auth facade: auth()/signOut()/refreshSessionCookie() with the same { user: { id, tier, maskedInbox, onboarded, email, name } } shape; all ~16 call sites + crm-api.test.ts mock unchanged.
+- Server actions reimplemented on Supabase (login/demo/signup/logout/upgrade), same signatures; audit events preserved (auth.login.success|failed|locked, signup, logout, user.tier_changed) with maskEmail().
+- Edge middleware rewritten on @supabase/ssr + jose local HS256 verify of the access token (no getUser() round-trip); reads tier from app_metadata; same gating rules via pure evaluateRoute() in auth-routing.ts.
+- Idempotent demo identity: ensure-demo-user.ts + seed-auth.ts (npm db:seed-auth), wired into reset.sh and docker-compose db-migrate; early-returns (no throw) keyless.
+- Added auth-facade.test.ts (user-mapping + evaluateRoute rules).
+Files:
+- web/src/lib/{auth,auth-routing,session,db,users,types,schema}.ts
+- web/src/lib/supabase/{env,client,server,admin,ensure-demo-user}.ts
+- web/src/lib/seed-auth.ts, web/src/middleware.ts, web/src/types/session.d.ts
+- web/src/app/_actions/auth.ts, web/src/app/auth/reset/route.ts
+- web/drizzle/0001_curly_grim_reaper.sql (+ meta), web/package.json
+- .env.example, web/.env.local.example, docker-compose.yml, seed/reset.sh
+- web/src/__tests__/auth-facade.test.ts
+Others need to know:
+- Four new env vars before a live demo: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (browser-exposed, safe), SUPABASE_SERVICE_ROLE_KEY and SUPABASE_JWT_SECRET (server-only, NEVER NEXT_PUBLIC_).
+- One-click demo login now REQUIRES the Supabase identity to exist: run seed/reset.sh (or docker compose up db-migrate) against a live Supabase project so db:seed-auth creates demo@fineprint.local and links user_demo.auth_uid. Also disable email confirmation on the project.
+- Edge verify assumes HS256 access tokens signed with SUPABASE_JWT_SECRET; if the project uses asymmetric signing keys the middleware needs JWKS instead (flagged in a code comment).
+- Pre-existing lint error in web/src/hooks/use-plans.ts is untouched (Dominic's known item).
+Blockers: Live-key behaviours (real sign-in/up, edge cookie refresh, app_metadata propagation after upgrade, ensureDemoAuthUser) are not CI-verifiable keyless — covered by the design's demo-setup checklist.
+Verification (from web/, keyless): npm install OK; npm run build exit 0; npm test 30 passed / 5 suites (incl. new auth-facade.test.ts + unchanged crm-api.test.ts); npm run lint = 1 pre-existing use-plans.ts error, no new errors.
+---
+
+## 2026-10-19 | Jeff | Web auth → Supabase Auth
+Status: In Progress (code complete + reviewed/APPROVED; draft PR opened; live smoke test pending)
+Done:
+- Migrated web auth from NextAuth v5 (Credentials) to Supabase Auth as the runtime provider; NextAuth removed (auth.config.ts, next-auth.d.ts, api/auth/[...nextauth] deleted; next-auth dropped from package.json; jose added as a direct dep).
+- Kept the app `users` table as the source of truth. Added nullable `users.auth_uid` + Drizzle migration 0001_curly_grim_reaper.sql; preserved all TEXT ids (user_demo) and FKs; link by auth_uid with email fallback + back-fill.
+- New @/lib/auth facade (auth()/signOut()/refreshSessionCookie()) keeps the { user: { id, tier, maskedInbox, onboarded, email, name } } shape — all ~16 call sites + crm-api.test.ts mock unchanged.
+- Guarded, lazy, no-throw Supabase clients (env/client/server/admin); server actions reimplemented (login/demo/signup/logout/upgrade) with audit events preserved via maskEmail().
+- Edge middleware on @supabase/ssr + jose local HS256 verify (no getUser() round-trip); reads tier from app_metadata via pure evaluateRoute() in auth-routing.ts. Idempotent demo identity via ensure-demo-user.ts + seed-auth.ts (db:seed-auth), wired into reset.sh + docker-compose.
+- Verified keyless (from web/): npm install OK; npm run build exit 0; npm test 30 passed / 5 suites (incl. new auth-facade + unchanged crm-api); npm run lint = 1 pre-existing use-plans.ts error, no new errors. Code review verdict: APPROVED.
+Files:
+- web/src/lib/{auth,auth-routing,session,db,users,types,schema}.ts
+- web/src/lib/supabase/{env,client,server,admin,ensure-demo-user}.ts
+- web/src/lib/seed-auth.ts, web/src/middleware.ts, web/src/types/session.d.ts
+- web/src/app/_actions/auth.ts, web/src/app/api/auth/[...nextauth]/route.ts (deleted), web/src/lib/auth.config.ts (deleted), web/src/types/next-auth.d.ts (deleted)
+- web/drizzle/0001_curly_grim_reaper.sql (+ meta), web/package.json, web/package-lock.json
+- .env.example, web/.env.local.example, docker-compose.yml, seed/reset.sh
+- web/src/__tests__/auth-facade.test.ts
+Others need to know:
+- NEW ENV VARS everyone must set (from Supabase dashboard → Project Settings → API): NEXT_PUBLIC_SUPABASE_URL (Project URL) and NEXT_PUBLIC_SUPABASE_ANON_KEY (anon public key) are browser-exposed by design and safe; SUPABASE_SERVICE_ROLE_KEY (service_role key) is SERVER-ONLY — never prefix NEXT_PUBLIC_, never expose to the browser. (The edge premium-gating also reads SUPABASE_JWT_SECRET, server-only, for local HS256 token verification.)
+- Login is now Supabase-backed: Supabase Auth verifies the password and issues the session; NextAuth is gone.
+- Bridging approach: the app `users` table stays the source of truth; Supabase is a thin identity provider. App rows link to Supabase identities by auth_uid (email fallback + back-fill). App TEXT ids and all FKs are unchanged — no UUID re-keying.
+- One-click demo login REQUIRES the Supabase identity to exist: run seed/reset.sh (or `npm run db:seed-auth`, or docker compose up db-migrate) against a live Supabase project so ensureDemoAuthUser() creates demo@fineprint.local / demo1234 and links user_demo.auth_uid.
+- A LIVE smoke test is still pending (create the demo user via the service-role admin routine, set the keys, log in as demo@fineprint.local / demo1234). Live-key behaviours are not CI-verifiable keyless.
+Blockers: Live smoke test pending (needs a live Supabase project + the three/four keys). None blocking the draft PR.
+---
