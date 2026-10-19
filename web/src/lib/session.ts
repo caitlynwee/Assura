@@ -12,7 +12,7 @@ import type { PublicUser } from "./types";
 export async function getCurrentUser(): Promise<PublicUser | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
-  const user = findUserById(session.user.id);
+  const user = await findUserById(session.user.id);
   return user ? toPublicUser(user) : null;
 }
 

@@ -2,29 +2,17 @@ export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
-import { readJSON } from "@/lib/db";
+import { getInsurers, getThreadsByUser } from "@/lib/db";
 import OutreachWizard, { type InsurerOption } from "@/components/outreach/outreach-wizard";
 import type { Insurer, Thread } from "@/lib/types";
 
 export const metadata = { title: "Outreach — Assura" };
 
-function loadInsurers(userId: string): InsurerOption[] {
-  let insurers: Insurer[] = [];
-  let threads: Thread[] = [];
-  try {
-    insurers = readJSON<Insurer[]>("insurers.json");
-  } catch {
-    /* empty list renders a helpful message */
-  }
-  try {
-    threads = readJSON<Thread[]>("threads.json").filter((t) => t.userId === userId);
-  } catch {
-    /* no threads yet */
-  }
-
+function buildInsurerOptions(insurers: Insurer[], threads: Thread[], userId: string): InsurerOption[] {
+  const userThreads = threads.filter((t) => t.userId === userId);
   // Persona is internal (simulation) — never sent to the browser.
   return insurers.map(({ id, name, agentEmail, website }) => {
-    const latest = threads
+    const latest = userThreads
       .filter((t) => t.insurerId === id && t.status !== "closed")
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     return {
@@ -42,7 +30,20 @@ export default async function OutreachPage() {
   if (user.tier !== "premium") redirect("/upgrade?from=/outreach");
   if (!user.onboarded) redirect("/onboarding");
 
-  const insurers = loadInsurers(user.id);
+  let insurers: Insurer[] = [];
+  let threads: Thread[] = [];
+  try {
+    insurers = await getInsurers();
+  } catch {
+    /* empty list renders a helpful message */
+  }
+  try {
+    threads = await getThreadsByUser(user.id);
+  } catch {
+    /* no threads yet */
+  }
+
+  const insurerOptions = buildInsurerOptions(insurers, threads, user.id);
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -53,13 +54,13 @@ export default async function OutreachPage() {
           before anything is sent.
         </p>
       </div>
-      {insurers.length === 0 ? (
+      {insurerOptions.length === 0 ? (
         <div className="rounded-xl border bg-white p-6 text-sm text-gray-500">
           No insurers found. Run <code className="font-mono">bash seed/reset.sh</code> to load demo data.
         </div>
       ) : (
         <OutreachWizard
-          insurers={insurers}
+          insurers={insurerOptions}
           maskedInbox={user.maskedInbox}
           consent={user.consent}
           profile={user.profile ?? {}}
