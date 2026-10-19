@@ -29,3 +29,33 @@ Others need to know:
 - Outreach and onboarding pages are placeholder divs — components needed (Dominic/Jeff)
 Blockers: None
 ---
+
+## 2026-10-20 | Outreach/CRM integration slice
+Status: Completed
+Done:
+- Routed approved outbound email from Next.js through the authenticated Python outreach server.
+- Added internal-key protection to outreach send and simulator endpoints.
+- Added a backend callback for simulator replies so the web backend remains the CRM writer.
+- Added a CRM "Simulate insurer reply" control for the five demo personas.
+- Hardened send validation: approval is evaluated from the validated request, subject and body are PII-scanned, and invalid follow-up threads are rejected.
+Validation:
+- Python sources compile successfully.
+- Patch whitespace check passes.
+Notes:
+- Node and Python test dependencies are not installed in this checkout; `npm ci` was attempted but network access reset, and pytest could not start because pytest is unavailable.
+---
+
+## 2026-10-20 | CRM/outreach ownership split
+Status: Completed
+Done:
+- Fixed CRM reply simulation handler placement so the CRM component compiles and can refresh a thread after a simulated reply.
+- Added CRM-only close/flag actions.
+- Added CRM quote-to-comparison action with duplicate protection and audit logging.
+- Documented the ownership boundary and internal reply contract in README.md for parallel work.
+Validation:
+- Web TypeScript check passes in the running container.
+- Python sources and patch whitespace remain valid.
+Notes:
+- Existing repository-wide ESLint errors remain outside the CRM changes.
+- Existing Jest configuration currently parses TypeScript as plain JavaScript, so the baseline web tests fail before executing.
+---
