@@ -88,7 +88,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ## Architecture Decisions (do not change without team consensus)
 - **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
-- **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` — see `HANDOFF-postgres-migration.md`. Until that merges, JSON files remain the source of truth.
+- **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` (full handoff lives on that branch). Until that merges, JSON files remain the source of truth.
 - **Auth**: NextAuth v5, Credentials provider, JWT. `auth.config.ts` = edge-safe (middleware). `auth.ts` = full server-side (has bcrypt + db).
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.
