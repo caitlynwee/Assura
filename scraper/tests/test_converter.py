@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 
 MOCK_SOURCE = {
-    "id": "src_mock_brochure",
+    "id": "src_manulife_ci_care",
     "insurerId": "manulife",
     "planIds": ["manulife_ci_care"],
-    "url": "http://localhost:8100/mock/brochure",
+    "url": "https://www.manulife.com.sg/en/individual/products/health-insurance/manucare-ci-saver.html",
 }
 
 VALID_LLM_RESPONSE = {
@@ -72,7 +72,7 @@ async def test_converter_fills_metadata_from_source(monkeypatch):
 
     assert result["id"] == "manulife_ci_care"
     assert result["insurerId"] == "manulife"
-    assert result["sourceUrl"] == "http://localhost:8100/mock/brochure"
+    assert result["sourceUrl"] == "https://www.manulife.com.sg/en/individual/products/health-insurance/manucare-ci-saver.html"
     assert result["category"] == "critical_illness"
     assert result["updatedBadge"] is True
 

@@ -53,6 +53,8 @@ export async function seedDatabase(
         logo: i.logo,
         persona: i.persona,
         website: i.website,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        country: (i as any).country ?? "SG",
       }))
     );
   }
@@ -105,6 +107,8 @@ export async function seedDatabase(
         changeNotes: p.changeNotes,
         version: p.version,
         scrapedAt: p.scrapedAt,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        country: (p as any).country ?? "SG",
       }))
     );
   }
@@ -125,6 +129,8 @@ export async function seedDatabase(
         lastChecked: s.lastChecked,
         lastChanged: s.lastChanged,
         status: s.status,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        country: (s as any).country ?? "SG",
       }))
     );
   }

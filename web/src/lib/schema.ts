@@ -52,6 +52,7 @@ export const insurers = pgTable("insurers", {
   logo: text("logo").notNull(),
   persona: text("persona").notNull(), // PersonaType
   website: text("website").notNull(),
+  country: text("country").notNull(),
 });
 
 // ─── plans ────────────────────────────────────────────────────────────────────
@@ -79,6 +80,7 @@ export const plans = pgTable("plans", {
   changeNotes: jsonb("change_notes").notNull(), // string[]
   version: integer("version").notNull(),
   scrapedAt: text("scraped_at").notNull(), // ISO 8601
+  country: text("country").notNull(),
 });
 
 // ─── sources ────────────────────────────────────────────────────────────────
@@ -97,6 +99,7 @@ export const sources = pgTable("sources", {
   lastChecked: text("last_checked"),
   lastChanged: text("last_changed"),
   status: text("status").notNull(), // SourceStatus
+  country: text("country").notNull(),
 });
 
 // ─── threads ──────────────────────────────────────────────────────────────────
