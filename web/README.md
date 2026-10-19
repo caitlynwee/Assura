@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Assura — Web (Next.js)
 
-## Getting Started
+The Next.js 16 (App Router) frontend and API layer for Assura. This package contains all the
+web pages, the authenticated app, the API routes (business logic), auth, and the security
+libraries (policy engine, PII blocker, audit hash chain, quarantine reader).
 
-First, run the development server:
+> **Start from the repo root, not here.** Setup, Docker, Mailpit, seeding, and the full
+> architecture are documented in the root [`README.md`](../README.md). Run `./dev.sh setup`
+> once, then `./dev.sh up` (Docker) or `./dev.sh web` (local).
+
+## Local dev (web only)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# From the repo root (needs AUTH_SECRET + DEEPSEEK_API_KEY in web/.env.local):
+./dev.sh web            # → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Or directly:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev             # dev server
+npm run build           # production build (must pass in CI)
+npm run lint            # eslint
+npm test                # jest (added by the storage-migration branch)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
+```
+src/
+├── app/
+│   ├── (public)/       Landing + login
+│   ├── (app)/          Authenticated app: compare, chat, onboarding, outreach, crm, activity
+│   └── api/            All API routes (auth, plans, chat, outreach, crm, audit, scraper proxy)
+├── components/         UI by feature (layout, ui, compare, chat, crm, activity, outreach, onboarding)
+├── hooks/              Data-fetching hooks (use-plans, use-threads, use-chat, ...)
+├── lib/                auth, policy, blocker, audit, quarantine, ai, mail, db, validators, types
+└── middleware.ts       Edge auth guard
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Conventions (see root `CLAUDE.md` for the full list)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- All `(app)` pages export `export const dynamic = "force-dynamic";`
+- Next.js 16 dynamic route params are `Promise<{...}>` — always `await params`.
+- The DB access layer (`lib/db.ts`) is Node-runtime only — never import it from `middleware.ts`
+  or `auth.config.ts` (edge-safe boundary).
+- Every AI action goes through the policy engine (`lib/policy.ts`); all untrusted external text
+  goes through the quarantine reader (`lib/quarantine.ts`). Factual comparison only — never
+  financial advice.
+- AI calls use DeepSeek (`DEEPSEEK_API_KEY`) via the OpenAI-compatible SDK.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## See also
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Root [`README.md`](../README.md) — setup, Docker, URLs, env, tests, CI
+- [`../CLAUDE.md`](../CLAUDE.md) — architecture decisions, team lanes, security requirements
+- [`AGENTS.md`](./AGENTS.md) — Next.js version notes for AI agents
