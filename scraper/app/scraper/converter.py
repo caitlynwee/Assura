@@ -68,10 +68,15 @@ async def convert_to_plan(text: str, source: dict) -> dict:
 
     raw = response.choices[0].message.content or ""
 
+    print(f"[converter] source={source.get('id')} extracted_text_len={len(text)}")
+    print(f"[converter] llm_response={raw[:500]}")
+
     try:
         parsed = json.loads(raw.strip())
     except json.JSONDecodeError as e:
         raise ValueError(f"LLM returned non-JSON: {raw[:200]}") from e
+
+    print(f"[converter] parsed coverageAmount={parsed.get('coverageAmount')} illnessesCovered={parsed.get('illnessesCovered')} planName={parsed.get('planName')}")
 
     # Merge with source metadata
     from app.utils.time import now_utc_iso
