@@ -48,6 +48,9 @@ export default function ThreadDetail({ threadId }: Props) {
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [quote, setQuote] = useState<ExtractedQuote | null>(null);
+  const [simulating, setSimulating] = useState(false);
+  const [simulateError, setSimulateError] = useState<string | null>(null);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
 
   async function handleExtractQuote() {
     setExtracting(true);
@@ -61,6 +64,7 @@ export default function ThreadDetail({ threadId }: Props) {
         setExtractError(data.error ?? "Could not extract a quote. Please try again.");
         return;
       }
+
       const data = await res.json();
       const extracted: ExtractedQuote | null = data.quote ?? null;
       setQuote(extracted);
@@ -77,6 +81,49 @@ export default function ThreadDetail({ threadId }: Props) {
     } finally {
       setExtracting(false);
     }
+  }
+
+  async function handleSimulateReply() {
+    setSimulating(true);
+    setSimulateError(null);
+    try {
+      const res = await fetch(`/api/crm/threads/${threadId}/reply`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSimulateError(data.error ?? "Could not simulate an insurer reply.");
+        return;
+      }
+      const refreshed = await fetch(`/api/crm/threads/${threadId}`);
+      const refreshedData = await refreshed.json();
+      if (refreshed.ok && refreshedData.thread) setThread(refreshedData.thread);
+    } catch {
+      setSimulateError("Could not simulate an insurer reply.");
+    } finally {
+      setSimulating(false);
+    }
+  }
+
+  async function updateStatus(status: "closed" | "flagged") {
+    const res = await fetch(`/api/crm/threads/${threadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.thread) setThread(data.thread);
+  }
+
+  async function addToComparison() {
+    setComparisonError(null);
+    const res = await fetch(`/api/crm/threads/${threadId}/quote/comparison`, {
+      method: "POST",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setComparisonError(data.error ?? "Could not add quote to comparison.");
+      return;
+    }
+    if (data.thread) setThread(data.thread);
   }
 
   if (loading) {
@@ -114,6 +161,33 @@ export default function ThreadDetail({ threadId }: Props) {
           </Badge>
         </div>
         <p className="text-sm text-gray-500">{thread.subject}</p>
+        <div className="pt-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={simulating}
+            onClick={handleSimulateReply}
+            disabled={thread.status === "closed"}
+          >
+            Simulate insurer reply
+          </Button>
+          <p className="mt-1 text-xs text-gray-400">
+            Demo only: runs this insurer&apos;s configured persona through the outreach server.
+          </p>
+          {simulateError && <p className="mt-1 text-sm text-red-600">{simulateError}</p>}
+          <div className="flex gap-2 pt-2">
+            {thread.status !== "closed" && (
+              <Button variant="secondary" size="sm" onClick={() => updateStatus("closed")}>
+                Close thread
+              </Button>
+            )}
+            {thread.status !== "flagged" && thread.riskFlags.length > 0 && (
+              <Button variant="secondary" size="sm" onClick={() => updateStatus("flagged")}>
+                Flag for review
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Prominent risk flags */}
@@ -159,6 +233,19 @@ export default function ThreadDetail({ threadId }: Props) {
         </p>
         {extractError && <p className="text-red-600 text-sm">{extractError}</p>}
         {displayedQuote && <QuoteCard quote={displayedQuote} />}
+        {displayedQuote && (
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={addToComparison}
+              disabled={thread.addedToComparison}
+            >
+              {thread.addedToComparison ? "Added to comparison" : "Add to comparison"}
+            </Button>
+            {comparisonError && <p className="text-sm text-red-600">{comparisonError}</p>}
+          </div>
+        )}
       </section>
     </div>
   );

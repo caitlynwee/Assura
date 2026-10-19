@@ -173,9 +173,9 @@ docker compose up -d mailpit web
 ```
 ┌─────────────────────────── docker compose network ──────────────────────────┐
 │                                                                               │
-│   web (Next.js :3000)  ──── http://scraper:8100 ──── scraper (FastAPI :8100) │
-│          │                                                    │               │
-│          └──────────────── mailpit:1025 (SMTP) ──────────────┘               │
+│   web (Next.js :3000)  ──── authenticated HTTP ──── scraper (FastAPI :8100)  │
+│                                                            │                  │
+│                                                            └── mailpit:1025  │
 │                                                                               │
 │   mailpit (:1025 SMTP, :8025 UI)                                             │
 │                                                                               │
@@ -197,6 +197,37 @@ docker compose up -d mailpit web
 ├── TASK.MD       Cross-session task log (update when you complete work)
 └── PROJECT.MD    Full product spec
 ```
+
+### CRM and outreach ownership boundary
+
+These surfaces are separated so they can be developed in parallel.
+
+**CRM-owned files**
+
+- `web/src/app/(app)/crm/`
+- `web/src/app/api/crm/`
+- `web/src/app/api/internal/crm/`
+- `web/src/components/crm/`
+- `web/src/hooks/use-thread*.ts`
+
+The CRM owns `threads.json`, quote extraction, risk flags, thread statuses,
+comparison entries, and audit events. It is the only service that writes CRM
+state.
+
+**Outreach-owned files**
+
+- `web/src/app/(app)/outreach/`
+- `web/src/app/api/outreach/`
+- `web/src/components/outreach/`
+- `scraper/app/email_relay/`
+- `scraper/app/personas/`
+- `scraper/app/routers/email.py`
+
+Outreach owns draft generation, consent filtering, Mailpit delivery, and the
+simulated insurer personas. It must not write `threads.json` directly. After a
+simulated reply, it calls the authenticated `POST /api/internal/crm/replies`
+endpoint with an inbound message and optional risk flag; the CRM performs the
+state transition and audit logging.
 
 **Startup order:**
 
