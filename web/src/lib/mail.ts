@@ -4,26 +4,16 @@
  * Sends from per-user relay addresses to Mailpit sandbox.
  * Nothing leaves the machine.
  *
- * Every email is prefixed with the AI disclosure text.
- * Rate limits are enforced here.
+ * The outreach service prefixes the AI disclosure and owns SMTP delivery.
+ * Rate limits are enforced here before forwarding an approved send.
  */
 
-import nodemailer from "nodemailer";
-import { AI_DISCLOSURE_PREFIX, MAX_EMAILS_PER_USER_PER_DAY, FOLLOWUP_COOLDOWN_MS } from "./constants";
+import { MAX_EMAILS_PER_USER_PER_DAY, FOLLOWUP_COOLDOWN_MS } from "./constants";
 import { getThreadsByUser, getThreadById } from "./db";
 import { logEvent } from "./audit";
 
-const MAILPIT_HOST = process.env.MAILPIT_SMTP_HOST ?? "localhost";
-const MAILPIT_PORT = parseInt(process.env.MAILPIT_SMTP_PORT ?? "1025", 10);
-
-function createTransport() {
-  return nodemailer.createTransport({
-    host: MAILPIT_HOST,
-    port: MAILPIT_PORT,
-    secure: false,
-    auth: undefined, // Mailpit requires no auth
-  });
-}
+const SCRAPER_URL = process.env.SCRAPER_URL ?? "http://localhost:8100";
+const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key";
 
 export function generateMaskedAddress(userId: string): string {
   // Deterministic: same userId always gets same relay address
@@ -51,25 +41,35 @@ export async function sendEmail(params: SendEmailParams): Promise<string> {
     await checkFollowUpCooldown(userId, threadId);
   }
 
-  const transport = createTransport();
-
-  const fullBody = `${AI_DISCLOSURE_PREFIX}\n\n${"─".repeat(60)}\n\n${body}`;
-
-  const info = await transport.sendMail({
-    from,
-    to,
-    subject,
-    text: fullBody,
+  const response = await fetch(`${SCRAPER_URL}/email/send`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-internal-api-key": INTERNAL_API_SECRET,
+    },
+    body: JSON.stringify({
+      from_address: from,
+      to_address: to,
+      subject,
+      body,
+      user_id: userId,
+      thread_id: threadId,
+    }),
   });
 
-  await logEvent(userId, "email.sent", {
-    messageId: info.messageId,
-    to,
-    subject,
-    threadId: threadId ?? null,
-  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`Outreach server rejected email (${response.status}): ${detail}`);
+  }
 
-  return info.messageId as string;
+  const result = (await response.json()) as { message_id?: string };
+  const messageId = result.message_id;
+  if (!messageId) {
+    throw new Error("Outreach server returned no message ID.");
+  }
+
+  logEvent(userId, "email.sent", { messageId, to, subject, threadId: threadId ?? null });
+  return messageId;
 }
 
 async function checkDailyLimit(userId: string): Promise<void> {
