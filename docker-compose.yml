@@ -46,6 +46,14 @@ services:
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
+      # Optional real SMTP delivery — when SMTP_HOST is set, outreach emails go
+      # to real inboxes (e.g. Gmail) instead of Mailpit. Leave empty to keep
+      # everything in the local sandbox ("nothing leaves the machine").
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       LLM_MODEL: deepseek-chat
     depends_on:

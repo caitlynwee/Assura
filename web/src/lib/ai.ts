@@ -13,7 +13,7 @@
 
 import OpenAI from "openai";
 import type { Plan, ChatMessage, ConsentFlags } from "./types";
-import { AI_DISCLOSURE_PREFIX } from "./constants";
+
 
 let _client: OpenAI | null = null;
 
@@ -75,6 +75,7 @@ export async function draftOutreachEmail(params: {
   insurerName: string;
   templatePromptHint: string;
   consent: ConsentFlags;
+  userName?: string;
   userContext: {
     age?: number;
     gender?: string;
@@ -83,7 +84,8 @@ export async function draftOutreachEmail(params: {
     monthlyBudget?: number;
   };
 }): Promise<string> {
-  const { insurerName, templatePromptHint, consent, userContext } = params;
+  const { insurerName, templatePromptHint, consent, userName, userContext } = params;
+  const signOffName = (userName ?? "").trim() || "A prospective customer";
 
   // Only include what the user consented to share
   const sharedDetails: string[] = [];
@@ -102,11 +104,11 @@ export async function draftOutreachEmail(params: {
     messages: [
       {
         role: "system",
-        content: `You are drafting an outreach email to an insurance company on behalf of a customer who is using Fineprint, an AI insurance comparison service. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. The email MUST start with this exact disclosure: "${AI_DISCLOSURE_PREFIX}"\n2. Be professional and concise.\n3. Only include the user details provided — do not invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases or appointments.\n5. End with a neutral sign-off.`,
+        content: `You are writing an email IN THE FIRST PERSON AS the customer (named below) — as if the customer themselves is reaching out to the insurer to enquire about critical illness cover. Write it the way a real person would: first person ("I'm looking at...", "Could you tell me..."), warm but concise, no corporate boilerplate. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. Write in the first person as the customer. Sign off with the customer's name: "${signOffName}".\n2. Do NOT describe yourself as an AI or assistant in the body, and do NOT say "on behalf of" — the customer is speaking directly. (A short system disclosure footer is appended separately; you do not write it.)\n3. Only include the personal details explicitly provided below. NEVER invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases, sign-ups, or appointments.\n5. Keep it to a few short paragraphs.`,
       },
       {
         role: "user",
-        content: `Draft an email to ${insurerName}.\n\nPurpose: ${templatePromptHint}\n\nUser details to include:\n${sharedDetails.length > 0 ? sharedDetails.join("\n") : "No personal details to share at this time."}`,
+        content: `Write my email to ${insurerName}.\n\nWhat I want to ask about: ${templatePromptHint}\n\nDetails about me I'm willing to share:\n${sharedDetails.length > 0 ? sharedDetails.join("\n") : "No personal details to share at this time."}\n\nSign off as: ${signOffName}`,
       },
     ],
   });
