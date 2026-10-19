@@ -291,7 +291,7 @@ All other variables (service URLs, Mailpit host, ports) are pre-set in `docker-c
 
 > **Coming with the storage migration:** once the JSON → PostgreSQL migration lands, a
 > `DATABASE_URL` is also required (a `postgres` service is added to `docker-compose.yml`).
-> See `HANDOFF-postgres-migration.md`.
+> The migration is in progress on branch `migrate/postgres-storage`.
 
 ### `web/.env.local` — used when running web locally
 
