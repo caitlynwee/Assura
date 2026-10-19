@@ -46,10 +46,12 @@ usage() {
     ./dev.sh infra-web       Start mailpit in Docker, run web locally
 
   UTILITIES
-    ./dev.sh seed            Reset ./data from ./seed
+    ./dev.sh seed            Reset database to seed state (needs DATABASE_URL)
+    ./dev.sh db:migrate      Apply Drizzle migrations
+    ./dev.sh db:seed         Load seed data (RESET=1 truncates first)
     ./dev.sh test            Run scraper test suite (pytest)
     ./dev.sh lint            Lint scraper/app with ruff
-    ./dev.sh setup           First-time setup (venv, deps, .env files, seed)
+    ./dev.sh setup           First-time setup (venv, deps, .env files)
 
 EOF
 }
@@ -125,9 +127,19 @@ cmd_infra_web() {
 }
 
 cmd_seed() {
-  info "Seeding ./data from ./seed..."
+  info "Resetting database to seed state..."
   bash "$ROOT/seed/reset.sh"
   info "Done."
+}
+
+cmd_db_migrate() {
+  info "Applying Drizzle migrations..."
+  cd "$ROOT/web" && npx tsx src/lib/migrate.ts
+}
+
+cmd_db_seed() {
+  info "Loading seed data..."
+  cd "$ROOT/web" && npx tsx src/lib/seed.ts
 }
 
 cmd_test() {
@@ -150,7 +162,7 @@ cmd_setup() {
   # ── Root .env ────────────────────────────────────────────────
   if [ ! -f "$ROOT/.env" ]; then
     cp "$ROOT/.env.example" "$ROOT/.env"
-    warn ".env created — fill in AUTH_SECRET and ANTHROPIC_API_KEY before running docker."
+    warn ".env created — fill in AUTH_SECRET, DEEPSEEK_API_KEY, HERMES_API_KEY, DATABASE_URL before running docker."
   else
     echo "  .env already exists, skipping."
   fi
@@ -158,7 +170,7 @@ cmd_setup() {
   # ── web/.env.local ───────────────────────────────────────────
   if [ ! -f "$ROOT/web/.env.local" ]; then
     cp "$ROOT/web/.env.local.example" "$ROOT/web/.env.local"
-    warn "web/.env.local created — fill in AUTH_SECRET and ANTHROPIC_API_KEY for local dev."
+    warn "web/.env.local created — fill in AUTH_SECRET, HERMES_API_KEY, DATABASE_URL for local dev."
   else
     echo "  web/.env.local already exists, skipping."
   fi
@@ -177,17 +189,17 @@ cmd_setup() {
   info "Installing web dependencies..."
   cd "$ROOT/web" && npm install --silent
 
-  # ── Seed data ────────────────────────────────────────────────
-  info "Seeding ./data..."
-  bash "$ROOT/seed/reset.sh"
+  # ── Create data directories (versions/ stays on filesystem) ──
+  mkdir -p "$ROOT/data/versions"
+  touch "$ROOT/data/.gitkeep" "$ROOT/data/versions/.gitkeep"
 
   echo ""
   echo -e "${GREEN}Setup complete.${NC}"
   echo ""
   echo "  Next steps:"
-  echo "  1. Edit .env  (AUTH_SECRET + ANTHROPIC_API_KEY)"
-  echo "  2. ./dev.sh up          ← Docker (all services)"
-  echo "     ./dev.sh web         ← local web only"
+  echo "  1. Edit .env  (AUTH_SECRET + DEEPSEEK_API_KEY + HERMES_API_KEY + DATABASE_URL)"
+  echo "  2. ./dev.sh up          ← Docker (starts Postgres, migrates, seeds, all services)"
+  echo "     ./dev.sh seed        ← Reset DB to seed state (needs Postgres running)"
   echo ""
 }
 
@@ -204,6 +216,8 @@ case "${1:-}" in
   infra)       cmd_infra ;;
   infra-web)   cmd_infra_web ;;
   seed)        cmd_seed ;;
+  db:migrate)  cmd_db_migrate ;;
+  db:seed)     cmd_db_seed ;;
   test)        cmd_test ;;
   lint)        cmd_lint ;;
   setup)       cmd_setup ;;
