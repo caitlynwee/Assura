@@ -42,6 +42,10 @@ export const users = pgTable("users", {
   shareHealthHistory: boolean("share_health_history").notNull(),
   shareIncome: boolean("share_income").notNull(),
   createdAt: text("created_at").notNull(), // ISO 8601 string
+  // Supabase auth.users.id (uuid as text) linking this app row to a Supabase
+  // identity. Nullable — seed rows and pre-existing rows link lazily on first
+  // login (email fallback → back-fill) or eagerly via the demo-user seed step.
+  authUid: text("auth_uid"),
 });
 
 // ─── insurers ─────────────────────────────────────────────────────────────────

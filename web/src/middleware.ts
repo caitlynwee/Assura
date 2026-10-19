@@ -1,46 +1,106 @@
 /**
- * middleware.ts — Edge middleware for auth protection.
+ * middleware.ts — Edge middleware for auth gating (Supabase Auth).
  *
- * Uses the edge-safe auth config (no Node.js APIs). Route rules live in
- * auth.config.ts `authorized()`:
- *   - signed-out → /login (pages) or JSON 401 (APIs)
- *   - free tier on premium pages → /upgrade
- *   - signed-in on /login or /signup → /compare
+ * Reads the Supabase session from the request cookies via @supabase/ssr and
+ * verifies the access-token signature LOCALLY with jose (HS256 against
+ * SUPABASE_JWT_SECRET) — it deliberately does NOT call supabase.auth.getUser(),
+ * which would be a per-request network round-trip to the Supabase Auth server.
+ * Local verification closes the forgery gap (getSession() alone trusts the
+ * cookie) while keeping edge gating purely local-crypto (no DB, no network).
  *
- * Why the wrapper: Auth.js re-issues the session cookie on *every* middleware
- * response (rolling refresh). A background prefetch that is in flight when the
- * user signs out then lands after logout and resurrects the session. We strip
- * that refresh, so the session cookie is only ever written by sign-in,
- * explicit session updates, and sign-out. Sessions therefore have an absolute
- * lifetime (session.maxAge in auth.config.ts) rather than a sliding one.
+ * `tier`/`onboarded` are read from the verified token's app_metadata claim and
+ * fed to the pure evaluateRoute() rules in auth-routing.ts, reproducing every
+ * previous gating rule. Refreshed Supabase cookies are written back onto the
+ * response via the ssr setAll callback.
  *
- * (Next 16 deprecates `middleware` in favour of `proxy`, but proxy can't run on
- * the edge runtime this config relies on — keep as middleware for now.)
+ * Keyless-safe: if Supabase env or the JWT secret is absent, every request is
+ * treated as signed-out, so `next build`'s route analysis never crashes.
+ *
+ * Edge runtime — imports only @supabase/ssr, jose, next/server, and the pure
+ * edge-safe auth-routing module. NEVER import db.ts / next-auth / next/headers.
  */
 
-import NextAuth from "next-auth";
-import type { NextFetchEvent, NextRequest } from "next/server";
-import { authConfig } from "@/lib/auth.config";
+import { createServerClient } from "@supabase/ssr";
+import { jwtVerify } from "jose";
+import { NextResponse, type NextRequest } from "next/server";
+import { evaluateRoute } from "@/lib/auth-routing";
+import type { UserTier } from "@/lib/types";
 
-const authMiddleware = NextAuth(authConfig).auth as unknown as (
-  req: NextRequest,
-  ev: NextFetchEvent
-) => Promise<Response>;
+interface EdgeSession {
+  isLoggedIn: boolean;
+  tier: UserTier;
+}
 
-const SESSION_COOKIE = /^(__Secure-)?authjs\.session-token(\.\d+)?=/;
+const SIGNED_OUT: EdgeSession = { isLoggedIn: false, tier: "free" };
 
-export default async function middleware(req: NextRequest, ev: NextFetchEvent) {
-  const res = await authMiddleware(req, ev);
+export default async function middleware(req: NextRequest) {
+  const res = NextResponse.next({ request: { headers: req.headers } });
 
-  const setCookies = res.headers.getSetCookie();
-  if (!setCookies.some((c) => SESSION_COOKIE.test(c))) return res;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET?.trim();
 
-  const headers = new Headers(res.headers);
-  headers.delete("set-cookie");
-  for (const c of setCookies) {
-    if (!SESSION_COOKIE.test(c)) headers.append("set-cookie", c);
+  let session = SIGNED_OUT;
+
+  if (url && anonKey && jwtSecret) {
+    const supabase = createServerClient(url, anonKey, {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          for (const { name, value, options } of cookiesToSet) {
+            res.cookies.set(name, value, options);
+          }
+        },
+      },
+    });
+
+    // Local cookie decode (no network). getUser() is intentionally NOT used.
+    const {
+      data: { session: sbSession },
+    } = await supabase.auth.getSession();
+
+    if (sbSession?.access_token) {
+      session = await verifyAccessToken(sbSession.access_token, jwtSecret);
+    }
   }
-  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+
+  const action = evaluateRoute({
+    pathname: req.nextUrl.pathname,
+    isLoggedIn: session.isLoggedIn,
+    tier: session.tier,
+  });
+
+  switch (action.type) {
+    case "allow":
+      return res;
+    case "json401":
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    case "redirect": {
+      const to = new URL(action.to, req.nextUrl);
+      return NextResponse.redirect(to);
+    }
+  }
+}
+
+/** Verify the access-token signature locally (HS256) and extract tier. */
+async function verifyAccessToken(
+  accessToken: string,
+  jwtSecret: string
+): Promise<EdgeSession> {
+  try {
+    const key = new TextEncoder().encode(jwtSecret);
+    const { payload } = await jwtVerify(accessToken, key, {
+      algorithms: ["HS256"],
+    });
+    const appMetadata = (payload.app_metadata ?? {}) as { tier?: string };
+    const tier: UserTier = appMetadata.tier === "premium" ? "premium" : "free";
+    return { isLoggedIn: true, tier };
+  } catch {
+    // Expired / forged / wrong-algorithm tokens → treat as signed-out.
+    return SIGNED_OUT;
+  }
 }
 
 export const config = {

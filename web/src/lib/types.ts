@@ -35,6 +35,8 @@ export interface User {
   consent: ConsentFlags;
   profile?: UserProfile;
   createdAt: string; // ISO 8601
+  /** Supabase auth.users.id (uuid as text); undefined until linked. */
+  authUid?: string;
 }
 
 /** User object safe to send to the client — never includes passwordHash. */
