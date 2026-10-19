@@ -129,3 +129,17 @@ Others need to know:
 - This branch now includes the latest `main` updates (auth/docs/CI scaffolding) and is no longer in a conflicted state.
 Blockers: None
 ---
+
+## 2026-10-20 | Copilot | Fix CI scraper lint failure
+Status: Completed
+Done:
+- Investigated failing GitHub Actions job `scraper (lint · test)` (run 39292050598, job 118195268118) and identified `ruff` F821 (`threads_path` undefined) in `scraper/app/personas/simulator.py`.
+- Added the missing `threads_path = settings.data_dir / "threads.json"` assignment before loading threads.
+- Validated with `ruff check app/` and `pytest -v` in `/scraper` (16 passed).
+Files:
+- scraper/app/personas/simulator.py
+- TASK.MD
+Others need to know:
+- Failure was limited to lint; no behavior change beyond restoring intended thread loading path.
+Blockers: None
+---
