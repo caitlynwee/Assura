@@ -2,8 +2,40 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import Button from "@/components/ui/button";
-import Badge from "@/components/ui/badge";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  BotIcon,
+  CheckCircle2Icon,
+  CheckIcon,
+  FileTextIcon,
+  LockIcon,
+  RefreshCwIcon,
+  SendIcon,
+  ShieldBanIcon,
+  SparklesIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   AI_DISCLOSURE_PREFIX,
@@ -84,7 +116,15 @@ function apiContext(ctx: OutreachContext) {
   return out;
 }
 
-const STATUS_BADGE: Record<DraftStatus, { label: string; variant: "gray" | "blue" | "green" | "red" | "yellow" }> = {
+function toInt(v: string): number | undefined {
+  const n = parseInt(v.replace(/\D/g, ""), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+const STATUS_BADGE: Record<
+  DraftStatus,
+  { label: string; variant: "gray" | "blue" | "green" | "red" | "yellow" }
+> = {
   drafting: { label: "Drafting…", variant: "gray" },
   ready: { label: "Ready for review", variant: "blue" },
   sending: { label: "Sending…", variant: "yellow" },
@@ -92,6 +132,17 @@ const STATUS_BADGE: Record<DraftStatus, { label: string; variant: "gray" | "blue
   blocked: { label: "Blocked", variant: "red" },
   failed: { label: "Failed", variant: "red" },
 };
+
+function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <CardTitle className="flex items-center gap-2">
+      <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+        {n}
+      </span>
+      {children}
+    </CardTitle>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -224,13 +275,13 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
         consentKey: "shareAge",
         label: "Age",
         input: (
-          <input
+          <Input
+            id="ctx-age"
             type="number"
             min={18}
             max={80}
             value={ctx.age ?? ""}
             onChange={(e) => setCtx({ ...ctx, age: e.target.value ? Number(e.target.value) : undefined })}
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
           />
         ),
       },
@@ -239,18 +290,19 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
         consentKey: "shareGender",
         label: "Gender",
         input: (
-          <select
+          <Select
             value={ctx.gender ?? ""}
-            onChange={(e) =>
-              setCtx({ ...ctx, gender: (e.target.value || undefined) as OutreachContext["gender"] })
-            }
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            onValueChange={(v) => setCtx({ ...ctx, gender: (v || undefined) as OutreachContext["gender"] })}
           >
-            <option value="">—</option>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
-            <option value="prefer_not_to_say">Prefer not to say</option>
-          </select>
+            <SelectTrigger id="ctx-gender">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+            </SelectContent>
+          </Select>
         ),
       },
       {
@@ -258,17 +310,18 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
         consentKey: "shareSmokerStatus",
         label: "Smoker",
         input: (
-          <select
+          <Select
             value={ctx.smoker === undefined ? "" : ctx.smoker ? "yes" : "no"}
-            onChange={(e) =>
-              setCtx({ ...ctx, smoker: e.target.value === "" ? undefined : e.target.value === "yes" })
-            }
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            onValueChange={(v) => setCtx({ ...ctx, smoker: v === "" ? undefined : v === "yes" })}
           >
-            <option value="">—</option>
-            <option value="no">Non-smoker</option>
-            <option value="yes">Smoker</option>
-          </select>
+            <SelectTrigger id="ctx-smoker">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="no">Non-smoker</SelectItem>
+              <SelectItem value="yes">Smoker</SelectItem>
+            </SelectContent>
+          </Select>
         ),
       },
       {
@@ -276,14 +329,11 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
         consentKey: "shareCoverageNeeds",
         label: "Cover (SGD)",
         input: (
-          <input
+          <Input
+            id="ctx-coverageNeeded"
             inputMode="numeric"
             value={ctx.coverageNeeded ?? ""}
-            onChange={(e) => {
-              const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
-              setCtx({ ...ctx, coverageNeeded: Number.isFinite(n) ? n : undefined });
-            }}
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            onChange={(e) => setCtx({ ...ctx, coverageNeeded: toInt(e.target.value) })}
           />
         ),
       },
@@ -292,14 +342,11 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
         consentKey: "shareBudgetRange",
         label: "Budget/mo (SGD)",
         input: (
-          <input
+          <Input
+            id="ctx-monthlyBudget"
             inputMode="numeric"
             value={ctx.monthlyBudget ?? ""}
-            onChange={(e) => {
-              const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
-              setCtx({ ...ctx, monthlyBudget: Number.isFinite(n) ? n : undefined });
-            }}
-            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+            onChange={(e) => setCtx({ ...ctx, monthlyBudget: toInt(e.target.value) })}
           />
         ),
       },
@@ -308,133 +355,145 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
     return (
       <div className="space-y-6">
         {/* 1 — Insurers */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-semibold text-gray-900">1. Choose insurers</h2>
-            <span className="text-sm text-gray-500">
-              {selected.length}/{MAX_INSURERS_PER_OUTREACH} selected
-            </span>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {insurers.map((ins) => {
-              const isOn = selected.includes(ins.id);
-              const disabled = !isOn && selected.length >= MAX_INSURERS_PER_OUTREACH;
-              return (
-                <button
-                  key={ins.id}
-                  type="button"
-                  onClick={() => toggleInsurer(ins.id)}
-                  disabled={disabled}
-                  aria-pressed={isOn}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl border p-3 text-left transition",
-                    isOn
-                      ? "border-blue-500 bg-blue-50/60 ring-1 ring-blue-500"
-                      : "border-gray-200 hover:border-gray-300",
-                    disabled && "cursor-not-allowed opacity-50"
-                  )}
-                >
-                  <span
+        <Card>
+          <CardHeader>
+            <StepTitle n={1}>Choose insurers</StepTitle>
+            <CardDescription>The AI writes one email per insurer.</CardDescription>
+            <CardAction>
+              <Badge variant={selected.length ? "blue" : "secondary"}>
+                {selected.length}/{MAX_INSURERS_PER_OUTREACH} selected
+              </Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {insurers.map((ins) => {
+                const isOn = selected.includes(ins.id);
+                const disabled = !isOn && selected.length >= MAX_INSURERS_PER_OUTREACH;
+                return (
+                  <button
+                    key={ins.id}
+                    type="button"
+                    onClick={() => toggleInsurer(ins.id)}
+                    disabled={disabled}
+                    aria-pressed={isOn}
                     className={cn(
-                      "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-sm font-semibold",
-                      isOn ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"
+                      "flex items-center gap-3 rounded-lg border bg-card p-3 text-left outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      isOn ? "border-primary bg-accent/60 ring-1 ring-primary" : "hover:bg-muted/50",
+                      disabled && "cursor-not-allowed opacity-50"
                     )}
-                    aria-hidden="true"
                   >
-                    {isOn ? "✓" : initials(ins.name)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-gray-900">{ins.name}</span>
-                    {ins.existingThread ? (
-                      <span className="block truncate text-xs text-amber-700">
-                        Already contacted · {THREAD_STATUS_LABELS[ins.existingThread.status]}
-                      </span>
-                    ) : (
-                      <span className="block truncate text-xs text-gray-500">{ins.agentEmail}</span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+                    <span
+                      className={cn(
+                        "flex size-10 shrink-0 items-center justify-center rounded-md text-sm font-semibold",
+                        isOn ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}
+                      aria-hidden="true"
+                    >
+                      {isOn ? <CheckIcon className="size-4" /> : initials(ins.name)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{ins.name}</span>
+                      {ins.existingThread ? (
+                        <span className="block truncate text-xs text-amber-700">
+                          Already contacted · {THREAD_STATUS_LABELS[ins.existingThread.status]}
+                        </span>
+                      ) : (
+                        <span className="block truncate text-xs text-muted-foreground">{ins.agentEmail}</span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 2 — Template */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-6">
-          <h2 className="font-semibold text-gray-900">2. What do you want to ask?</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {OUTREACH_TEMPLATES.filter((t) => t.id !== "follow_up").map((t) => (
-              <label
-                key={t.id}
-                className={cn(
-                  "cursor-pointer rounded-xl border p-3 transition",
-                  templateId === t.id
-                    ? "border-blue-500 bg-blue-50/60 ring-1 ring-blue-500"
-                    : "border-gray-200 hover:border-gray-300"
-                )}
-              >
-                <input
-                  type="radio"
-                  name="template"
-                  value={t.id}
-                  checked={templateId === t.id}
-                  onChange={() => setTemplateId(t.id)}
-                  className="sr-only"
-                />
-                <span className="block text-sm font-medium text-gray-900">{t.label}</span>
-                <span className="mt-0.5 block text-xs text-gray-500">{t.description}</span>
-              </label>
-            ))}
-          </div>
+        <Card>
+          <CardHeader>
+            <StepTitle n={2}>What do you want to ask?</StepTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <RadioGroup
+              value={templateId}
+              onValueChange={setTemplateId}
+              aria-label="Question template"
+              className="sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {OUTREACH_TEMPLATES.filter((t) => t.id !== "follow_up").map((t) => (
+                <Label
+                  key={t.id}
+                  htmlFor={`tpl-${t.id}`}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 font-normal transition-colors",
+                    templateId === t.id ? "border-primary bg-accent/60 ring-1 ring-primary" : "hover:bg-muted/50"
+                  )}
+                >
+                  <RadioGroupItem id={`tpl-${t.id}`} value={t.id} className="mt-0.5" />
+                  <span>
+                    <span className="block text-sm font-medium">{t.label}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{t.description}</span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
 
-          <label className="mt-4 block space-y-1">
-            <span className="text-sm font-medium text-gray-700">Notes for insurers (optional)</span>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              maxLength={1000}
-              placeholder="e.g. I'd like to understand how payouts work for early-stage conditions."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <span className="text-xs text-gray-500">Added to every draft. You can still edit each email.</span>
-          </label>
-        </section>
+            <div className="grid gap-2">
+              <Label htmlFor="notes">Notes for insurers (optional)</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                maxLength={1000}
+                placeholder="e.g. I'd like to understand how payouts work for early-stage conditions."
+              />
+              <p className="text-xs text-muted-foreground">Added to every draft. You can still edit each email.</p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 3 — Shared details */}
-        <section className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="font-semibold text-gray-900">3. Details the AI may use</h2>
-            <Link href="/onboarding" className="text-sm text-blue-600 hover:underline">
-              Change consent
-            </Link>
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            Only fields you consented to share are editable here. Everything else stays private.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {ctxFields.map((f) => (
-              <div key={f.key} className="space-y-1">
-                <span className="text-xs font-medium text-gray-600">{f.label}</span>
-                {consent[f.consentKey] ? (
-                  f.input
-                ) : (
-                  <div className="rounded-md border border-dashed border-gray-200 px-2 py-1.5 text-xs text-gray-400">
-                    🔒 Not shared
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+        <Card>
+          <CardHeader>
+            <StepTitle n={3}>Details the AI may use</StepTitle>
+            <CardDescription>
+              Only fields you consented to share are editable here. Everything else stays private.
+            </CardDescription>
+            <CardAction>
+              <Button asChild variant="link" size="sm" className="h-auto p-0">
+                <Link href="/onboarding">Change consent</Link>
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {ctxFields.map((f) => (
+                <div key={f.key} className="grid gap-1.5">
+                  <Label htmlFor={`ctx-${f.key}`} className="text-xs text-muted-foreground">
+                    {f.label}
+                  </Label>
+                  {consent[f.consentKey] ? (
+                    f.input
+                  ) : (
+                    <div className="flex h-9 items-center gap-1.5 rounded-md border border-dashed px-3 text-xs text-muted-foreground">
+                      <LockIcon className="size-3" />
+                      Not shared
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" onClick={generateDrafts} disabled={selected.length === 0}>
-            ✨ Draft {selected.length || ""} email{selected.length === 1 ? "" : "s"} with AI
+            <SparklesIcon />
+            Draft {selected.length || ""} email{selected.length === 1 ? "" : "s"} with AI
           </Button>
-          <p className="text-xs text-gray-500">
-            Drafting has no side effects. Nothing is sent until you approve.
-          </p>
+          <p className="text-xs text-muted-foreground">Drafting has no side effects. Nothing is sent until you approve.</p>
         </div>
       </div>
     );
@@ -451,22 +510,30 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" onClick={() => setStep("compose")} disabled={anySending}>
-          ← Back
+          <ArrowLeftIcon />
+          Back
         </Button>
-        <p className="text-sm text-gray-500">
-          From <span className="font-mono text-gray-700">{maskedInbox}</span>
+        <p className="text-sm text-muted-foreground">
+          From <span className="font-mono text-foreground">{maskedInbox}</span>
         </p>
       </div>
 
       {sentCount > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          <span>
-            ✓ {sentCount} email{sentCount === 1 ? "" : "s"} sent. Replies will appear in your CRM.
-          </span>
-          <Link href="/crm" className="font-medium underline">
-            Open CRM →
-          </Link>
-        </div>
+        <Alert variant="success">
+          <CheckCircle2Icon />
+          <AlertTitle>
+            {sentCount} email{sentCount === 1 ? "" : "s"} sent
+          </AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+            <p>Replies will appear in your CRM.</p>
+            <Button asChild size="sm" variant="outline" className="bg-card">
+              <Link href="/crm">
+                Open CRM
+                <ArrowRightIcon />
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {list.map((d) => {
@@ -474,123 +541,148 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
         const hits = d.status === "drafting" ? [] : previewPII(`${d.subject}\n${d.body}`);
         const locked = d.status === "sending" || d.status === "sent";
         const badge = STATUS_BADGE[d.status];
+        const approveId = `approve-${d.insurerId}`;
 
         return (
-          <article
+          <Card
             key={d.insurerId}
+            role="article"
+            aria-label={`Email to ${insurer.name}`}
             className={cn(
-              "rounded-2xl border bg-white p-5",
-              d.status === "blocked" ? "border-red-300" : d.status === "sent" ? "border-green-300" : "border-gray-200"
+              d.status === "blocked" && "border-red-300",
+              d.status === "sent" && "border-green-300"
             )}
           >
-            <header className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="font-semibold text-gray-900">{insurer.name}</h3>
-                <p className="text-xs text-gray-500">To {insurer.agentEmail}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {d.source === "template" && d.status !== "drafting" && (
-                  <Badge variant="gray">Template draft · AI unavailable</Badge>
-                )}
-                {d.source === "ai" && d.status !== "drafting" && <Badge variant="purple">AI draft</Badge>}
+            <CardHeader>
+              <CardTitle>{insurer.name}</CardTitle>
+              <CardDescription>To {insurer.agentEmail}</CardDescription>
+              <CardAction className="flex items-center gap-2">
+                {d.status !== "drafting" &&
+                  (d.source === "template" ? (
+                    <Badge variant="gray">
+                      <FileTextIcon />
+                      Template draft · AI unavailable
+                    </Badge>
+                  ) : (
+                    <Badge variant="purple">
+                      <BotIcon />
+                      AI draft
+                    </Badge>
+                  ))}
                 <Badge variant={badge.variant}>{badge.label}</Badge>
-              </div>
-            </header>
+              </CardAction>
+            </CardHeader>
 
             {d.status === "drafting" ? (
-              <div className="mt-4 space-y-2" aria-busy="true">
-                <div className="h-3 w-2/3 animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-full animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-5/6 animate-pulse rounded bg-gray-100" />
-              </div>
+              <CardContent className="space-y-2" aria-busy="true">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardContent>
             ) : (
-              <div className="mt-4 space-y-3">
-                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                  <span className="font-medium text-gray-600">Added automatically: </span>
-                  {AI_DISCLOSURE_PREFIX}
-                </div>
-
-                <label className="block space-y-1">
-                  <span className="text-xs font-medium text-gray-600">Subject</span>
-                  <input
-                    value={d.subject}
-                    onChange={(e) => patchDraft(d.insurerId, { subject: e.target.value, approved: false })}
-                    disabled={locked}
-                    maxLength={200}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs font-medium text-gray-600">Message</span>
-                  <textarea
-                    value={d.body}
-                    onChange={(e) =>
-                      patchDraft(d.insurerId, {
-                        body: e.target.value,
-                        approved: false,
-                        ...(d.status === "blocked" || d.status === "failed"
-                          ? { status: "ready" as const, error: undefined }
-                          : {}),
-                      })
-                    }
-                    disabled={locked}
-                    rows={10}
-                    maxLength={5000}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-[13px] leading-relaxed disabled:bg-gray-50"
-                  />
-                </label>
-
-                {d.status === "blocked" && (
-                  <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                    <p className="font-semibold">🛑 Blocked by the personal-data guard</p>
-                    <p className="mt-0.5">{d.error}</p>
-                    <p className="mt-1 text-xs text-red-700">
-                      Nothing was sent. This attempt was recorded in your activity log.
-                    </p>
+              <>
+                <CardContent className="space-y-4">
+                  <div className="rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Added automatically: </span>
+                    {AI_DISCLOSURE_PREFIX}
                   </div>
-                )}
-                {d.status === "failed" && (
-                  <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {d.error}
-                  </p>
-                )}
-                {hits.length > 0 && d.status !== "blocked" && !locked && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                    <p className="font-medium">⚠ This email looks like it contains personal data and will be blocked:</p>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {hits.map((h, i) => (
-                        <span key={`${h.type}-${h.value}-${i}`} className="rounded bg-white px-1.5 py-0.5 font-mono text-xs ring-1 ring-amber-200">
-                          {h.type}: {h.value}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
-                <footer className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="grid gap-2">
+                    <Label htmlFor={`subject-${d.insurerId}`}>Subject</Label>
+                    <Input
+                      id={`subject-${d.insurerId}`}
+                      value={d.subject}
+                      onChange={(e) => patchDraft(d.insurerId, { subject: e.target.value, approved: false })}
+                      disabled={locked}
+                      maxLength={200}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`body-${d.insurerId}`}>Message</Label>
+                    <Textarea
+                      id={`body-${d.insurerId}`}
+                      value={d.body}
+                      onChange={(e) =>
+                        patchDraft(d.insurerId, {
+                          body: e.target.value,
+                          approved: false,
+                          ...(d.status === "blocked" || d.status === "failed"
+                            ? { status: "ready" as const, error: undefined }
+                            : {}),
+                        })
+                      }
+                      disabled={locked}
+                      rows={10}
+                      maxLength={5000}
+                      className="font-mono text-[13px] leading-relaxed"
+                    />
+                  </div>
+
+                  {d.status === "blocked" && (
+                    <Alert variant="destructive">
+                      <ShieldBanIcon />
+                      <AlertTitle>Blocked by the personal-data guard</AlertTitle>
+                      <AlertDescription>
+                        <p>{d.error}</p>
+                        <p className="text-xs">Nothing was sent. This attempt was recorded in your activity log.</p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {d.status === "failed" && (
+                    <Alert variant="destructive">
+                      <TriangleAlertIcon />
+                      <AlertDescription>{d.error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {hits.length > 0 && d.status !== "blocked" && !locked && (
+                    <Alert variant="warning">
+                      <TriangleAlertIcon />
+                      <AlertTitle>This email contains personal data and will be blocked</AlertTitle>
+                      <AlertDescription>
+                        <div className="flex flex-wrap gap-1.5">
+                          {hits.map((h, i) => (
+                            <Badge
+                              key={`${h.type}-${h.value}-${i}`}
+                              variant="outline"
+                              className="border-amber-300 bg-card font-mono font-normal"
+                            >
+                              {h.type}: {h.value}
+                            </Badge>
+                          ))}
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+
+                <CardFooter className="flex-wrap justify-between gap-3 border-t">
                   {d.status === "sent" ? (
-                    <Link
-                      href={d.threadId ? `/crm/${d.threadId}` : "/crm"}
-                      className="text-sm font-medium text-green-700 hover:underline"
-                    >
-                      ✓ Sent — view thread →
-                    </Link>
+                    <Button asChild variant="link" className="h-auto p-0 text-green-700">
+                      <Link href={d.threadId ? `/crm/${d.threadId}` : "/crm"}>
+                        <CheckCircle2Icon />
+                        Sent — view thread
+                        <ArrowRightIcon />
+                      </Link>
+                    </Button>
                   ) : (
-                    <label className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="checkbox"
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={approveId}
                         checked={d.approved}
                         disabled={locked}
-                        onChange={(e) => patchDraft(d.insurerId, { approved: e.target.checked })}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        onCheckedChange={(c) => patchDraft(d.insurerId, { approved: c === true })}
                       />
-                      I&apos;ve reviewed this email and approve sending it
-                    </label>
+                      <Label htmlFor={approveId} className="font-normal">
+                        I&apos;ve reviewed this email and approve sending it
+                      </Label>
+                    </div>
                   )}
                   {!locked && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => draftOne(d.insurerId)}>
-                        ↻ Redraft
+                        <RefreshCwIcon />
+                        Redraft
                       </Button>
                       <Button
                         variant="ghost"
@@ -604,19 +696,20 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
                           });
                         }}
                       >
+                        <Trash2Icon />
                         Remove
                       </Button>
                     </div>
                   )}
-                </footer>
-              </div>
+                </CardFooter>
+              </>
             )}
-          </article>
+          </Card>
         );
       })}
 
-      <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white/95 px-6 py-3 backdrop-blur">
-        <p className="text-sm text-gray-600">
+      <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-between gap-3 border-t bg-card/95 px-6 py-3 backdrop-blur">
+        <p className="text-sm text-muted-foreground">
           {approvedDrafts.length} of {list.filter((d) => d.status !== "sent").length} approved
         </p>
         <Button
@@ -624,6 +717,7 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
           disabled={approvedDrafts.length === 0 || anyDrafting || anySending}
           loading={anySending}
         >
+          <SendIcon />
           Send {approvedDrafts.length || ""} approved
         </Button>
       </div>

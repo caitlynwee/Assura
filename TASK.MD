@@ -181,3 +181,27 @@ Others need to know:
 - Failure was limited to lint; no behavior change beyond restoring intended thread loading path.
 Blockers: None
 ---
+
+## 2026-10-20 | Dominic | UI migrated to shadcn/ui
+Status: Completed (branch `feat/dominic-shadcn`)
+Done:
+- shadcn/ui (new-york, Tailwind v4) set up: `web/components.json`, theme tokens in `globals.css` (Assura blue primary, light-only), deps radix-ui / lucide-react / class-variance-authority / tw-animate-css
+- Components in `components/ui/`: alert, avatar, badge, button, card, checkbox, dialog, dropdown-menu, input, label, radio-group, select, separator, skeleton, spinner, switch, table, tabs, textarea, tooltip (hand-written from shadcn source — registry is blocked from our build env; `npx shadcn add` works normally on your machine)
+- Every page converted: home, login/signup, upgrade, 404, sidebar (lucide icons + tooltips), topbar (avatar account dropdown with sign-out), compare (Table + Select filters + search), chat (suggested questions, avatars, citation badges), onboarding, outreach wizard + approval Dialog, CRM list/detail (two-column, actions card), activity log (colour-coded actions, prev/next hash)
+- New shared `components/layout/page-header.tsx` for consistent page titles
+- No logic changes: hooks, API calls, server actions and handlers are untouched
+- **Fix:** middleware returned 401 for `/api/internal/*` (no user session), so "Simulate insurer reply" always failed. `/api/internal/*` now skips the session check; the route still enforces `x-internal-api-key`.
+- Verified: tsc ✅, build ✅, jest 12/12 ✅, 23-step Playwright run ✅ (web + Python outreach server + SMTP sink), screenshots of every page
+Files: web/src/components/**, web/src/app/**, web/src/lib/auth.config.ts, web/package.json, web/components.json
+Others need to know:
+- **Run `npm install` in web/ after pulling** (new packages).
+- Use `@/components/ui/*` for new UI and theme classes (`bg-card`, `text-muted-foreground`, `bg-primary`) instead of `gray-*`/`blue-*`. Badge keeps colour variants (blue/green/red/…), Button keeps `primary`/`danger` aliases and `loading`.
+- Jeff: CRM components restyled only (handlers identical); STATUS_LABELS/VARIANTS now exported from `crm/thread-card.tsx` and reused by thread-detail. "Extract quote" needs DEEPSEEK_API_KEY.
+- `components/outreach/outreach-form.tsx` is unused (replaced by outreach-wizard) — left untouched; safe to delete.
+- Sign-out moved into the account menu (avatar, top right).
+- Re-verified on top of the Postgres/Supabase main (b219e07): 23-step run passes against a real Postgres.
+- **Marcus — 2 bugs found on main (not fixed, your files):**
+  1. `scraper/requirements.txt` has `sqlalchemy>=2.0` + `psycopg2-binary`, but SQLAlchemy 2.1 makes `postgresql://` default to the *psycopg (v3)* driver → `ModuleNotFoundError: psycopg` on every scraper DB call ("Simulate insurer reply" 500s). Fix: pin `sqlalchemy>=2.0,<2.1`, or add `psycopg[binary]`, or use `postgresql+psycopg2://` in the scraper's DATABASE_URL.
+  2. `users.ts` doesn't persist `profile` (age/gender/budget…) — onboarding accepts it but it's dropped, so Outreach can't pre-fill. Needs profile columns (or a jsonb `profile` column) in schema.ts.
+Blockers: None
+---

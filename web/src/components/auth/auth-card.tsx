@@ -1,4 +1,5 @@
 import { ShieldMark } from "@/components/brand/logo";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AuthCard({
   title,
@@ -14,13 +15,15 @@ export default function AuthCard({
   return (
     <div className="flex min-h-[80vh] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <ShieldMark className="mx-auto h-10 w-10" />
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight text-gray-900">{title}</h1>
-          <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">{children}</div>
-        {footer && <div className="mt-4 text-center text-sm text-gray-500">{footer}</div>}
+        <Card>
+          <CardHeader className="text-center">
+            <ShieldMark className="mx-auto mb-2 h-10 w-10" />
+            <CardTitle className="text-2xl tracking-tight">{title}</CardTitle>
+            <CardDescription>{subtitle}</CardDescription>
+          </CardHeader>
+          <CardContent>{children}</CardContent>
+        </Card>
+        {footer && <div className="mt-4 text-center text-sm text-muted-foreground">{footer}</div>}
       </div>
     </div>
   );
