@@ -181,3 +181,18 @@ Others need to know:
 - Failure was limited to lint; no behavior change beyond restoring intended thread loading path.
 Blockers: None
 ---
+
+## 2026-10-19 | Jeff | CRM polish: refresh/polling, status error handling, quote review, API tests
+Status: Completed
+Done:
+- Thread refresh/polling: thread detail now auto-polls for inbound replies (handles slow-persona delay) and refreshes the timeline after a simulated reply.
+- Status error handling: close/flag status actions surface failures to the user instead of failing silently.
+- Quote review gate: quote-to-comparison action requires explicit review, with duplicate protection and audit logging.
+- API tests: added CRM API test coverage (crm-api.test.ts) over the thread/status/quote endpoints.
+Files:
+- web/src/components/crm/thread-detail.tsx
+- web/src/hooks/use-thread.ts
+- web/src/__tests__/crm-api.test.ts
+Others need to know: Touches ONLY CRM-owned paths; does not affect Marcus's scraper or Dominic's website/auth/outreach work. Delivered as a draft PR off jeff/crm-polish (not merged).
+Blockers: Live simulate-reply/extract smoke test still needed (requires DEEPSEEK_API_KEY + running scraper + Mailpit) to fully confirm the slow-persona polling UX.
+---
