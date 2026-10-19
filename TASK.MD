@@ -53,7 +53,7 @@ Done:
 - Added GitHub Actions CI (.github/workflows/ci.yml): web (npm ci → lint → build → optional jest) + scraper (uv install → ruff → pytest), both with a Postgres 16 service container for the incoming migration. Web lint is non-blocking for now (2 pre-existing errors on main); build must pass.
 - Added .github/pull_request_template.md (mirrors the CLAUDE.md pre-commit checklist + security-impact prompt).
 - Added .github/CODEOWNERS mapping the 4 team lanes to paths (usernames are @placeholders except @caitlynwee — fill in real GitHub handles for @dominic/@marcus/@jeff).
-- Added .pre-commit-config.yaml: ruff (scraper) + eslint (web, non-blocking) + hygiene hooks (trailing ws, EOF, merge-conflict, large-file, detect-private-key). Install with `uv tool install pre-commit && pre-commit install`.
+- Added .pre-commit-config.yaml: ruff (scraper) + eslint (web, non-blocking) + hygiene hooks (trailing ws, EOF, merge-conflict, large-file, detect-private-key). Install with `uv tool install pre-commit && pre-commit install`
 - Switched dev.sh to uv (uv venv + uv pip install, replacing python venv + pip). Added `./dev.sh ci` to run all checks locally. Fixed stale ANTHROPIC_API_KEY → DEEPSEEK_API_KEY in setup messages.
 Files:
 - .github/workflows/ci.yml, .github/pull_request_template.md, .github/CODEOWNERS, .pre-commit-config.yaml, dev.sh, TASK.MD
@@ -80,6 +80,7 @@ Done:
 - Removed _save_versioned() + data_dir (HTML snapshots dropped — not part of demo flow)
 - Deleted dead code: json_store.py, jsonl_append.py, test_hash_chain.py
 - All 12 scraper tests pass; ruff lint clean
+- Merged 6 commits from origin/main: resolved 8 conflicts; wired Dominic's auth flow (brute-force, audit events) to async DB calls; rewrote users.ts to use Drizzle; made onboarding.ts async
 Files:
 - docker-compose.yml, seed/reset.sh, web/src/lib/seed.ts, dev.sh
 - .env.example, web/.env.local.example, scraper/.env.example
@@ -87,6 +88,9 @@ Files:
 - scraper/app/scraper/engine.py, scraper/app/personas/simulator.py, scraper/app/routers/scraper.py
 - scraper/app/config.py (removed data_dir), scraper/requirements.txt (added sqlalchemy + psycopg2-binary)
 - scraper/tests/conftest.py, scraper/tests/test_engine.py
+- web/src/lib/auth.ts, web/src/lib/users.ts, web/src/lib/onboarding.ts
+- web/src/app/api/onboarding/route.ts, web/src/app/_actions/auth.ts
+- web/jest.config.js, web/src/__tests__/setup.ts
 Others need to know:
 - EVERYONE must now run Postgres — `docker compose up` starts it automatically
 - Set DATABASE_URL=postgres://postgres:dev@localhost:5432/assura in .env (Docker) and web/.env.local (local dev)
@@ -94,5 +98,29 @@ Others need to know:
 - Audit tamper SQL for demo: UPDATE audit_entries SET action='tampered' WHERE id=(SELECT MIN(id) FROM audit_entries);
 - jeff/outreach-crm branch (PR #1) needs rebase onto this migration — its api/crm/* and api/outreach/* routes still use old readJSON/writeJSON which no longer exist
 - Postgres verify (db:migrate + db:seed against real DB) pending — run when Docker is available on your machine
+- users.ts profile field (UserProfile) has no DB column — not persisted yet; add a jsonb column if needed
 Blockers: None
+---
+
+## 2026-10-19 | Dominic | Auth flow, onboarding, outreach UI, Free/Premium gating
+Status: Completed (branch `feat/dominic-web-auth`)
+Done:
+- Auth: sign up (Free or Premium-demo), login, demo login, logout as Server Actions; brute-force lockout (5 fails/15 min); login/signup/logout/lockout events in audit chain; open-redirect-safe callbackUrl; JSON 401 for unauthenticated /api/*
+- Gating: middleware sends Free users on /onboarding, /outreach, /crm, /activity to new /upgrade page (demo upgrade, no payment); sidebar shows 🔒; APIs still enforced by policy engine
+- Onboarding: profile + consent form, health/income locked as Tier 3, live "insurers will see" preview, masked inbox reveal
+- Outreach: insurer picker (max 5), template, consented details, AI drafts w/ template fallback when no API key, editable drafts, live PII preview, approval dialog, send, inline "Blocked by PII guard", links to CRM threads
+- Rebrand Fineprint → Assura in UI; self-hosted Geist font (no Google Fonts call → works offline at venue)
+- Verified with 23-step Playwright run against `next start` + fake SMTP; audit chain verifies
+Files: web/src/app/_actions/*, web/src/app/(public)/{login,signup}, web/src/app/(app)/{layout,upgrade,onboarding,outreach}, web/src/app/auth/reset, web/src/components/{auth,brand,onboarding,outreach,layout}/*, web/src/lib/{auth,auth.config,users,session,onboarding,demo}.ts, web/src/middleware.ts, web/src/types/next-auth.d.ts
+Others need to know:
+- **seed/users.json demo hash was wrong — demo1234 never worked.** Fixed in seed. Everyone: run `bash seed/reset.sh` (Docker only seeds when data/plans.json is missing).
+- Middleware now strips Auth.js's rolling session-cookie refresh (it resurrected sessions after logout via in-flight prefetches). Sessions = absolute 8h.
+- `session.user.tier/onboarded/maskedInbox` are typed now (types/next-auth.d.ts) — no more `as any`. In pages use `requireUser()` from lib/session.ts (fresh from users.json, no passwordHash).
+- User type gained optional `profile`; onboardingSchema accepts optional `profile`. Tier-3 consent fields are forced false server-side.
+- Jeff: approval dialog is components/outreach/approval-dialog.tsx — extend freely. Draft body has the AI disclosure stripped for display because mail.ts already prepends it (ai.ts prompt also asks the model to include it → was duplicated).
+- Jeff/security: HEALTH_KEYWORDS blocks normal CI enquiries — "cancer" (riders template mentions early-stage cancer), "pre-existing", "treatment". Riders/exclusions AI drafts will likely be blocked. Suggest only blocking first-person disclosures ("I have/was diagnosed…").
+- AI_DISCLOSURE_PREFIX (constants.ts) and relay domain (mail.ts) still say Fineprint; demo email is still demo@fineprint.local.
+- Pre-existing lint error in hooks (react-hooks/set-state-in-effect, use-plans) — not touched.
+- Marcus updated auth.ts, users.ts, onboarding.ts to use async DB (Drizzle) calls — the abstractions are the same, just async now.
+Blockers: None. AI drafting needs Jeff's DeepSeek wiring; UI falls back to template drafts until then.
 ---

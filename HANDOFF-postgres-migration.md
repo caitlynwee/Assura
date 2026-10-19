@@ -53,6 +53,17 @@ Completed from scratch:
 
 **Also removed:** `_save_versioned()` (HTML snapshots to `data/versions/`) — not part of the demo flow, removed to simplify infra. The `data/` folder is no longer needed.
 
+### Merge with main ✅
+Merged `origin/main` (6 commits) into branch. Resolved conflicts across:
+- `HANDOFF-postgres-migration.md`, `TASK.MD`
+- `web/jest.config.js`, `web/package.json`, `web/package-lock.json`
+- `web/src/__tests__/setup.ts`
+- `web/src/app/api/onboarding/route.ts`, `web/src/lib/auth.ts`
+
+Dominic's auth flow (brute-force throttle, audit events, timing protection) was merged into auth.ts
+using async DB calls. `users.ts` was rewritten to use Drizzle instead of JSON readJSON/writeJSON.
+`onboarding.ts` was made async to match the DB-backed `updateUser`.
+
 ---
 
 ## What Still Needs Doing Before Merging

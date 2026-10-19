@@ -49,7 +49,16 @@ Thumbs.db
 # ─── Misc ────────────────────────────────────────────────────────────────────
 *.tsbuildinfo
 .turbo/
+
+# ─── AI assistant local dirs (tool-agnostic — ignore all) ────────────────────
 .claude/
+.kiro/
+.cursor/
+.github/copilot/
+.aider*
+
+# ─── Agent/workflow scratch artifacts (task plans, feature specs, reports) ───
+.agents/
 
 # ─── Git worktrees (local only, never commit) ────────────────────────────────
 .worktrees/

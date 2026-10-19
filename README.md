@@ -215,7 +215,7 @@ pre-commit run --all-files    # run them once across the repo
 ├── seed/         Source-of-truth seed data + reset.sh
 ├── dev.sh        Development CLI (start here)
 ├── docker-compose.yml
-├── CLAUDE.md     AI agent instructions (read this if using Claude)
+├── AGENTS.md     AI agent instructions (tool-agnostic: Claude, Kiro, Copilot, ...)
 ├── TASK.MD       Cross-session task log (update when you complete work)
 └── PROJECT.MD    Full product spec
 ```
@@ -243,7 +243,7 @@ init-data (seeds ./data if empty, then exits)
 | **Jeff** | AI agent, outreach & CRM | `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `scraper/app/personas/`, `scraper/app/email_relay/` |
 | **Caitlyn** | Docs & presentation | Architecture diagram, security write-up, slide deck |
 
-Read `CLAUDE.md` for the full breakdown and the `TASK.MD` protocol.
+Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 
 ---
 
