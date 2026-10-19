@@ -13,6 +13,17 @@ export interface ConsentFlags {
   shareIncome: boolean;
 }
 
+/** Optional profile captured at onboarding. Only fields the user consented to
+ *  share are ever placed into an outreach draft (enforced server-side in ai.ts). */
+export interface UserProfile {
+  age?: number;
+  gender?: "male" | "female" | "prefer_not_to_say";
+  smoker?: boolean;
+  coverageNeeded?: number; // SGD
+  monthlyBudget?: number; // SGD
+  occupation?: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -22,8 +33,12 @@ export interface User {
   maskedInbox: string;
   onboarded: boolean;
   consent: ConsentFlags;
+  profile?: UserProfile;
   createdAt: string; // ISO 8601
 }
+
+/** User object safe to send to the client — never includes passwordHash. */
+export type PublicUser = Omit<User, "passwordHash">;
 
 // ─── Insurance Plans ──────────────────────────────────────────────────────────
 
