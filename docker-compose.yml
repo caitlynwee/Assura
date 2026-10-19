@@ -45,6 +45,7 @@ services:
     environment:
       DATA_DIR: /data
       WEB_BASE_URL: http://web:3000
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
       # NOTE: scraper LLM still on Anthropic in code (Marcus's pending DeepSeek port).
@@ -75,6 +76,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       SCRAPER_URL: http://scraper:8100
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
       DATA_DIR_OVERRIDE: /data

@@ -1,8 +1,9 @@
 """email.py — HTTP endpoints for sending emails and triggering insurer replies."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
+from app.config import settings
 from app.email_relay.relay import send_email
 from app.personas.simulator import simulate_reply
 
@@ -23,9 +24,18 @@ class ReplyRequest(BaseModel):
     insurer_id: str
 
 
+def _require_internal_key(api_key: str | None) -> None:
+    if api_key != settings.internal_api_secret:
+        raise HTTPException(status_code=403, detail="Invalid internal API key")
+
+
 @router.post("/send")
-async def send_outreach_email(body: SendRequest):
+async def send_outreach_email(
+    body: SendRequest,
+    x_internal_api_key: str | None = Header(default=None),
+):
     """Send an approved outreach email via Mailpit."""
+    _require_internal_key(x_internal_api_key)
     message_id = await send_email(
         from_address=body.from_address,
         to_address=body.to_address,
@@ -36,8 +46,12 @@ async def send_outreach_email(body: SendRequest):
 
 
 @router.post("/reply")
-async def trigger_reply(body: ReplyRequest):
+async def trigger_reply(
+    body: ReplyRequest,
+    x_internal_api_key: str | None = Header(default=None),
+):
     """Trigger a simulated insurer reply (for demo purposes)."""
+    _require_internal_key(x_internal_api_key)
     result = await simulate_reply(
         thread_id=body.thread_id,
         insurer_id=body.insurer_id,
