@@ -1,21 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// Self-hosted Geist (bundled from node_modules) — no runtime call to Google
+// Fonts, so builds and demos work on restricted or flaky venue networks.
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Fineprint — AI Insurance Comparison",
+  title: "Assura — AI Insurance Assistant",
   description:
-    "Compare critical illness insurance plans and let AI reach out to insurers on your behalf.",
+    "Compare critical illness insurance plans and let AI contact insurers on your behalf — with your approval at every step.",
 };
 
 export default function RootLayout({
@@ -26,7 +19,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-gray-50 text-gray-900">{children}</body>
     </html>

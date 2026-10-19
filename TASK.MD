@@ -64,3 +64,25 @@ Others need to know:
 - Two follow-ups once the Postgres migration + web `test` script land: (1) remove the `|| true` on web lint in ci.yml and .pre-commit-config.yaml to make lint blocking after the 2 pre-existing errors are fixed; (2) the jest step auto-activates when the `test` script exists.
 Blockers: None
 ---
+
+## 2026-10-19 | Dominic | Auth flow, onboarding, outreach UI, Free/Premium gating
+Status: Completed (branch `feat/dominic-web-auth`)
+Done:
+- Auth: sign up (Free or Premium-demo), login, demo login, logout as Server Actions; brute-force lockout (5 fails/15 min); login/signup/logout/lockout events in audit chain; open-redirect-safe callbackUrl; JSON 401 for unauthenticated /api/*
+- Gating: middleware sends Free users on /onboarding, /outreach, /crm, /activity to new /upgrade page (demo upgrade, no payment); sidebar shows 🔒; APIs still enforced by policy engine
+- Onboarding: profile + consent form, health/income locked as Tier 3, live "insurers will see" preview, masked inbox reveal
+- Outreach: insurer picker (max 5), template, consented details, AI drafts w/ template fallback when no API key, editable drafts, live PII preview, approval dialog, send, inline "Blocked by PII guard", links to CRM threads
+- Rebrand Fineprint → Assura in UI; self-hosted Geist font (no Google Fonts call → works offline at venue)
+- Verified with 23-step Playwright run against `next start` + fake SMTP; audit chain verifies
+Files: web/src/app/_actions/*, web/src/app/(public)/{login,signup}, web/src/app/(app)/{layout,upgrade,onboarding,outreach}, web/src/app/auth/reset, web/src/components/{auth,brand,onboarding,outreach,layout}/*, web/src/lib/{auth,auth.config,users,session,onboarding,demo}.ts, web/src/middleware.ts, web/src/types/next-auth.d.ts
+Others need to know:
+- **seed/users.json demo hash was wrong — demo1234 never worked.** Fixed in seed. Everyone: run `bash seed/reset.sh` (Docker only seeds when data/plans.json is missing).
+- Middleware now strips Auth.js's rolling session-cookie refresh (it resurrected sessions after logout via in-flight prefetches). Sessions = absolute 8h.
+- `session.user.tier/onboarded/maskedInbox` are typed now (types/next-auth.d.ts) — no more `as any`. In pages use `requireUser()` from lib/session.ts (fresh from users.json, no passwordHash).
+- User type gained optional `profile`; onboardingSchema accepts optional `profile`. Tier-3 consent fields are forced false server-side.
+- Jeff: approval dialog is components/outreach/approval-dialog.tsx — extend freely. Draft body has the AI disclosure stripped for display because mail.ts already prepends it (ai.ts prompt also asks the model to include it → was duplicated).
+- Jeff/security: HEALTH_KEYWORDS blocks normal CI enquiries — "cancer" (riders template mentions early-stage cancer), "pre-existing", "treatment". Riders/exclusions AI drafts will likely be blocked. Suggest only blocking first-person disclosures ("I have/was diagnosed…").
+- AI_DISCLOSURE_PREFIX (constants.ts) and relay domain (mail.ts) still say Fineprint; demo email is still demo@fineprint.local.
+- Pre-existing lint error in hooks (react-hooks/set-state-in-effect, use-plans) — not touched.
+Blockers: None. AI drafting needs Jeff's DeepSeek wiring; UI falls back to template drafts until then.
+---
