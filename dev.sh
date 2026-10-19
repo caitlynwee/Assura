@@ -37,7 +37,8 @@ usage() {
     ./dev.sh logs  [svc]     Tail logs         svc: web | scraper | mailpit
 
   LOCAL (single service, no Docker)
-    ./dev.sh web             Run Next.js on :3000
+    ./dev.sh web             Run Next.js on :3000 (dev, hot-reload)
+    ./dev.sh demo            Build + run Next.js in production (no live recompiling)
     ./dev.sh scraper         Run FastAPI on :8100
     ./dev.sh mailpit         Run Mailpit  SMTP :1025  UI :8025
 
@@ -92,6 +93,17 @@ cmd_web() {
   info "Starting Next.js on :3000..."
   cd "$ROOT/web"
   npm run dev
+}
+
+cmd_demo() {
+  # Production mode for the demo: build once, then `next start` — NO on-demand
+  # compiling (unlike `next dev`), so no "Compiling..." pauses while presenting.
+  # Reads web/.env.local for AUTH_SECRET / DEEPSEEK_API_KEY / DATABASE_URL etc.
+  info "Building web for production (one-time)..."
+  cd "$ROOT/web"
+  npm run build
+  info "Starting Next.js (production) on :3000 — no live recompiling..."
+  npm run start
 }
 
 cmd_scraper() {
@@ -229,6 +241,7 @@ case "${1:-}" in
   build)       cmd_build "${2:-}" ;;
   logs)        cmd_logs "${2:-}" ;;
   web)         cmd_web ;;
+  demo)        cmd_demo ;;
   scraper)     cmd_scraper ;;
   mailpit)     cmd_mailpit ;;
   infra)       cmd_infra ;;
