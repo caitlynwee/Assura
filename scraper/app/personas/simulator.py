@@ -23,6 +23,7 @@ PERSONA_MAP = {
 
 async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
     """Simulate an insurer reply for the given thread."""
+    threads_path = settings.data_dir / "threads.json"
     insurers_path = settings.data_dir / "insurers.json"
 
     threads = read_json(threads_path)
