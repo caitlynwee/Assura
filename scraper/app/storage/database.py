@@ -150,7 +150,9 @@ def get_engine():
         # Force psycopg2 driver — replace postgresql:// and postgres:// schemes
         url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
         url = url.replace("postgres://", "postgresql+psycopg2://", 1)
-        _engine = create_engine(url, pool_pre_ping=True)
+        is_local = "localhost" in url or "127.0.0.1" in url
+        connect_args = {} if is_local else {"sslmode": "require"}
+        _engine = create_engine(url, pool_pre_ping=True, connect_args=connect_args)
     return _engine
 
 
