@@ -18,7 +18,7 @@ from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
 from app.scraper.discovery import discover_top_insurers
 from app.scraper.downloader import download_page
-from app.scraper.extractor import extract_text, find_pdf_links
+from app.scraper.extractor import extract_text
 from app.scraper.validator import validate_plan
 from app.storage.database import (
     Insurer,
@@ -128,34 +128,6 @@ async def run_scraper(
 
                 source_type = source_dict.get("type", "product_page")
                 text = extract_text(content, source_type=source_type)
-
-                # If a product page returns very little text, it's probably
-                # bot-blocked or JS-heavy. Find PDF links instead and register
-                # them as sources for the next run.
-                if source_type == "product_page" and len(text) < 3000:
-                    pdf_links = find_pdf_links(content, source_dict["url"])
-                    print(f"[engine] {source_dict['id']}: page too short ({len(text)} chars), found {len(pdf_links)} PDF link(s): {pdf_links[:3]}")
-                    for i, pdf_url in enumerate(pdf_links[:3]):
-                        pdf_source_id = f"{source_dict['id']}_pdf_{i}"
-                        existing = session.query(Source).filter_by(id=pdf_source_id).first()
-                        if not existing:
-                            session.add(Source(
-                                id=pdf_source_id,
-                                insurer_id=source_dict["insurerId"],
-                                label=f"{source_dict.get('label', '')} Brochure",
-                                url=pdf_url,
-                                type="pdf",
-                                plan_ids=source_dict.get("planIds") or [],
-                                etag=None, last_modified=None, content_hash=None,
-                                last_checked=None, last_changed=None,
-                                status="pending",
-                                country=country,
-                            ))
-                            print(f"[engine] Registered PDF source: {pdf_source_id} → {pdf_url}")
-                    session.flush()
-                    errors.append({"sourceId": source_dict["id"], "message": f"Page too short ({len(text)} chars) — {len(pdf_links)} PDF source(s) queued for next run"})
-                    continue
-
                 plan_data = await convert_to_plan(text, source_dict)
 
                 # Fill insurerName from DB (converter always leaves it blank)

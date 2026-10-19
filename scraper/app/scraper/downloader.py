@@ -1,15 +1,19 @@
 """downloader.py — Fetch page content respecting robots.txt and rate limits.
 
 Routing:
-  source_type == "mock"         → plain httpx (fast, for localhost mock brochure)
-  source_type == "product_page" → Playwright headless Chromium (renders JS SPAs)
+  source_type == "mock"                    → plain httpx (localhost only)
+  source_type == "product_page" or "pdf"  → Jina Reader API (handles JS + PDFs)
+
+Jina Reader (r.jina.ai) proxies any URL through their rendering infrastructure
+and returns clean markdown. No Playwright, no bot detection issues, works for
+both web pages and PDF brochures.
 """
 
 import asyncio
+import os
 from urllib.parse import urlparse
 
 import httpx
-from playwright.async_api import Browser, Playwright, async_playwright
 
 from app.config import settings
 from app.utils.http_client import USER_AGENT, get_client
@@ -17,17 +21,7 @@ from app.utils.http_client import USER_AGENT, get_client
 # Per-domain last-fetch timestamp for rate limiting
 _last_fetch: dict[str, float] = {}
 
-# Playwright singletons (lazy-initialised, reused across scrape runs)
-_playwright: Playwright | None = None
-_browser: Browser | None = None
-
-
-async def _get_browser() -> Browser:
-    global _playwright, _browser
-    if _browser is None or not _browser.is_connected():
-        _playwright = await async_playwright().start()
-        _browser = await _playwright.chromium.launch(headless=True)
-    return _browser
+JINA_BASE = "https://r.jina.ai"
 
 
 async def download_page(
@@ -35,10 +29,11 @@ async def download_page(
     existing_response: httpx.Response | None = None,
     source_type: str = "product_page",
 ) -> bytes:
-    """Download a URL and return raw bytes.
+    """Download a URL and return clean text bytes via Jina Reader.
 
-    Uses plain httpx for mock sources (fast).
-    Uses Playwright for product_page sources (renders JS-heavy insurer SPAs).
+    Mock sources use plain httpx (fast, localhost only).
+    All other sources go through Jina Reader which handles JS rendering,
+    bot bypassing, and PDF text extraction transparently.
     """
     domain = _get_domain(url)
 
@@ -47,9 +42,8 @@ async def download_page(
 
     await _rate_limit(domain)
 
-    if source_type in ("mock", "pdf"):
-        # PDFs and mock sources: plain httpx download (no JS rendering needed)
-        if source_type == "mock" and existing_response is not None and existing_response.status_code == 200:
+    if source_type == "mock":
+        if existing_response is not None and existing_response.status_code == 200:
             _last_fetch[domain] = asyncio.get_event_loop().time()
             return existing_response.content
         client = get_client()
@@ -58,20 +52,21 @@ async def download_page(
         _last_fetch[domain] = asyncio.get_event_loop().time()
         return response.content
 
-    # product_page — use Playwright with stealth to render JS SPAs without
-    # triggering bot detection (hides navigator.webdriver, spoofs fingerprints)
-    from playwright_stealth import stealth_async
+    # product_page + pdf → Jina Reader
+    jina_url = f"{JINA_BASE}/{url}"
+    headers = {"Accept": "text/plain", "User-Agent": USER_AGENT}
+    api_key = os.environ.get("JINA_API_KEY")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
-    browser = await _get_browser()
-    page = await browser.new_page(user_agent=USER_AGENT)
-    try:
-        await stealth_async(page)
-        await page.goto(url, wait_until="load", timeout=60_000)
-        html = await page.content()
-        _last_fetch[domain] = asyncio.get_event_loop().time()
-        return html.encode("utf-8")
-    finally:
-        await page.close()
+    # Jina can take longer on heavy pages/PDFs — use a separate long-timeout client
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0), follow_redirects=True) as client:
+        response = await client.get(jina_url, headers=headers)
+        response.raise_for_status()
+
+    _last_fetch[domain] = asyncio.get_event_loop().time()
+    print(f"[downloader] Jina fetched {url} → {len(response.content)} bytes")
+    return response.content
 
 
 async def _rate_limit(domain: str) -> None:
