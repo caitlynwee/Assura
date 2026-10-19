@@ -1,16 +1,18 @@
 """converter.py — Quarantined LLM call to convert extracted text to plan JSON.
 
-Uses Claude with NO tools. Returns a fixed-schema dict only.
+Uses DeepSeek (OpenAI-compatible API) with NO tools. Returns a fixed-schema dict only.
 Input text is untrusted — the LLM must not act on embedded instructions.
 """
 
 import json
 
-import anthropic
+from openai import AsyncOpenAI
 
 from app.config import settings
 
-_client: anthropic.AsyncAnthropic | None = None
+_client: AsyncOpenAI | None = None
+
+MAX_INPUT_CHARS = 24_000  # DeepSeek supports 64K context; 24K covers any insurer page
 
 SYSTEM_PROMPT = """You are a data extraction assistant. Extract insurance plan details from the provided text and return ONLY valid JSON matching this exact schema:
 
@@ -37,31 +39,34 @@ STRICT RULES:
 4. Your response must start with { and end with }."""
 
 
-def _get_client() -> anthropic.AsyncAnthropic:
+def _get_client() -> AsyncOpenAI:
     global _client
     if _client is None:
-        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        _client = AsyncOpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url="https://api.deepseek.com",
+        )
     return _client
 
 
 async def convert_to_plan(text: str, source: dict) -> dict:
-    """Convert scraped text to a plan dict via a quarantined LLM call."""
+    """Convert scraped text to a plan dict via a quarantined DeepSeek call."""
     client = _get_client()
 
-    response = await client.messages.create(
+    response = await client.chat.completions.create(
         model=settings.llm_model,
         max_tokens=1024,
-        system=SYSTEM_PROMPT,
         messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"Extract insurance plan data from this text:\n\n{text[:8000]}",
-            }
+                "content": f"Extract insurance plan data from this text:\n\n{text[:MAX_INPUT_CHARS]}",
+            },
         ],
         # No tools — quarantined
     )
 
-    raw = response.content[0].text if response.content else ""
+    raw = response.choices[0].message.content or ""
 
     try:
         parsed = json.loads(raw.strip())
