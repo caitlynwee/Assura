@@ -21,6 +21,9 @@ const MESSAGES: Record<string, { type: "success" | "error" | "info"; text: strin
   onboarded: { type: "success", text: "Preferences saved." },
   loggedout: { type: "info", text: "You've been signed out." },
   "signin-failed": { type: "error", text: "Invalid email or password." },
+  "account-deleted": { type: "success", text: "Your account has been deleted." },
+  "delete-unconfirmed": { type: "error", text: "Account deletion not confirmed." },
+  "delete-demo-blocked": { type: "error", text: "The demo account can't be deleted." },
 };
 
 export default function ToastOnParam({ param = "toast" }: { param?: string }) {

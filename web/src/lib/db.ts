@@ -14,7 +14,7 @@
  */
 
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import postgres from "postgres";
 import * as schema from "./schema";
 import type {
@@ -391,4 +391,38 @@ export async function getAuditRows(): Promise<AuditRow[]> {
     .from(schema.auditEntries)
     .orderBy(schema.auditEntries.id);
   return rows as AuditRow[];
+}
+
+/**
+ * Delete a user and ALL their FK-dependent data, in FK-safe order, inside a
+ * single transaction:
+ *   thread_messages (of the user's threads) → threads → the users row.
+ * Audit entries are intentionally LEFT INTACT — the append-only audit chain
+ * must not be mutated (deleting links would break verifyChain), and the
+ * account-deletion event itself is logged by the caller.
+ *
+ * Returns true if a user row was deleted, false if no such user existed.
+ */
+export async function deleteUserCascade(userId: string): Promise<boolean> {
+  return getDb().transaction(async (tx: Database) => {
+    const threadRows = (await tx
+      .select({ id: schema.threads.id })
+      .from(schema.threads)
+      .where(eq(schema.threads.userId, userId))) as Array<{ id: string }>;
+    const threadIds = threadRows.map((r) => r.id);
+
+    if (threadIds.length > 0) {
+      await tx
+        .delete(schema.threadMessages)
+        .where(inArray(schema.threadMessages.threadId, threadIds));
+      await tx.delete(schema.threads).where(eq(schema.threads.userId, userId));
+    }
+
+    const deleted = await tx
+      .delete(schema.users)
+      .where(eq(schema.users.id, userId))
+      .returning({ id: schema.users.id });
+
+    return deleted.length > 0;
+  });
 }
