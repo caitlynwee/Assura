@@ -214,3 +214,16 @@ Files:
 Others need to know: Reads the app user profile and is independent of the auth provider — works under both NextAuth and the pending Supabase Auth. Stays out of auth/scraper/outreach/crm lanes and does not change the /api/plans response shape. Draft PR open, not merged.
 Blockers: None (live visual check against a logged-in demo user with a profile is the final confirmation)
 ---
+
+## 2026-10-20 | Jeff | Supabase Auth + outreach email + handoff
+Status: In Progress (PR #7 open, not merged)
+Done:
+- PR #7 (feat/supabase-auth): NextAuth → Supabase Auth (app users table stays source of truth, linked by auth_uid; auth() facade unchanged shape). Edge JWT verified via JWKS/ES256 (project signs ES256, not HS256). Toasts (sonner). Self-service delete account. Production Docker (`./dev.sh up-prod`). Outreach emails now first-person in the user's voice + optional real SMTP (Brevo). All build + test green keyless.
+Files: see docs/HANDOFF-supabase-auth-pr7.md (full handoff for the next agent).
+Others need to know:
+- PR #7 is NOT merged — needs a LIVE smoke test (register→login→land in app; outreach→real inbox) before merge. It replaces the working auth on main.
+- Env: NEXT_PUBLIC_SUPABASE_URL must be the bare host (no /rest/v1/). SUPABASE_JWT_SECRET now UNUSED (JWKS). Optional SMTP_* for real email (Brevo).
+- seed/insurers.json AIA agentEmail was set to 2603062.sit@gmail.com for a real-email test — REVERT before the demo.
+- Continue from docs/HANDOFF-supabase-auth-pr7.md.
+Blockers: Awaiting live smoke test (needs real Supabase + Brevo keys, user-run).
+---
