@@ -1,0 +1,85 @@
+services:
+
+  # ── Data init ─────────────────────────────────────────────────────────────
+  # Runs once at startup. Seeds ./data from ./seed if plans.json is missing.
+  # Both web and scraper wait for this to finish before starting.
+  init-data:
+    image: bash:5.2
+    volumes:
+      - ./seed:/seed:ro
+      - ./data:/data
+    command: >
+      bash -c "
+        if [ ! -f /data/plans.json ]; then
+          cp /seed/*.json /data/ &&
+          touch /data/audit.jsonl /data/scraper_runs.jsonl &&
+          mkdir -p /data/versions &&
+          echo '[init] Seeded data from seed/.';
+        else
+          echo '[init] Data already present, skipping seed.';
+        fi
+      "
+
+  # ── Mailpit email sandbox ──────────────────────────────────────────────────
+  # SMTP on :1025 (internal), web UI on :8025 (host-accessible).
+  # Nothing ever leaves the machine — all outbound email is captured here.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # ── Python FastAPI scraper ─────────────────────────────────────────────────
+  scraper:
+    build:
+      context: ./scraper
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./scraper/app:/app/app                       # hot reload
+      - ./scraper/mock_brochure:/app/mock_brochure   # editable mock brochure
+      - ./data:/data                                  # shared data dir
+    environment:
+      DATA_DIR: /data
+      WEB_BASE_URL: http://web:3000
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: 1025
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      LLM_MODEL: claude-haiku-4-5-20251001
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
+  # ── Next.js web app ────────────────────────────────────────────────────────
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web/src:/app/src         # hot reload
+      - ./web/public:/app/public   # static assets
+      - ./data:/data               # shared data dir
+    environment:
+      HOSTNAME: "0.0.0.0"
+      NEXTAUTH_URL: http://localhost:3000
+      AUTH_SECRET: ${AUTH_SECRET}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SCRAPER_URL: http://scraper:8100
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: 1025
+      DATA_DIR_OVERRIDE: /data
+    depends_on:
+      init-data:
+        condition: service_completed_successfully
+      scraper:
+        condition: service_started
+      mailpit:
+        condition: service_started
