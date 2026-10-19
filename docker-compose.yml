@@ -20,6 +20,18 @@ services:
         fi
       "
 
+  # ── Supabase schema and seed initialization ────────────────────────────────
+  db-migrate:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    volumes:
+      - ./seed:/app/seed:ro
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+    command: sh -c "npm run db:migrate && npm run db:seed"
+    restart: "no"
+
   # ── Mailpit email sandbox ──────────────────────────────────────────────────
   # SMTP on :1025 (internal), web UI on :8025 (host-accessible).
   # Nothing ever leaves the machine — all outbound email is captured here.
@@ -71,13 +83,14 @@ services:
       HOSTNAME: "0.0.0.0"
       NEXTAUTH_URL: http://localhost:3000
       AUTH_SECRET: ${AUTH_SECRET}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
       HERMES_API_KEY: ${HERMES_API_KEY}
       SCRAPER_URL: http://scraper:8100
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
       DATA_DIR_OVERRIDE: /data
     depends_on:
-      init-data:
+      db-migrate:
         condition: service_completed_successfully
       scraper:
         condition: service_started
