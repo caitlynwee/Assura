@@ -10,9 +10,27 @@ import { z } from "zod";
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().trim().email().max(254),
+  password: z.string().min(1).max(200),
 });
+
+export const signupSchema = z
+  .object({
+    name: z.string().trim().min(1, "Please enter your name.").max(80),
+    email: z.string().trim().toLowerCase().email("Please enter a valid email.").max(254),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters.")
+      .max(200)
+      .regex(/[A-Za-z]/, "Password must contain a letter.")
+      .regex(/\d/, "Password must contain a number."),
+    confirmPassword: z.string(),
+    tier: z.enum(["free", "premium"]).default("premium"),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
@@ -86,7 +104,17 @@ export const threadUpdateSchema = z.object({
 
 // ─── Onboarding ───────────────────────────────────────────────────────────────
 
+export const profileSchema = z.object({
+  age: z.number().int().min(18).max(80).optional(),
+  gender: z.enum(["male", "female", "prefer_not_to_say"]).optional(),
+  smoker: z.boolean().optional(),
+  coverageNeeded: z.number().int().positive().max(10_000_000).optional(),
+  monthlyBudget: z.number().int().positive().max(100_000).optional(),
+  occupation: z.string().trim().max(80).optional(),
+});
+
 export const onboardingSchema = z.object({
+  profile: profileSchema.optional(),
   consent: z.object({
     shareAge: z.boolean(),
     shareGender: z.boolean(),
