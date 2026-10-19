@@ -51,7 +51,8 @@ export function getDb(): Database {
       "DATABASE_URL is not set. Point it at a PostgreSQL instance before using the data layer."
     );
   }
-  sqlClient = postgres(url);
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
+  sqlClient = postgres(url, { ssl: isLocal ? false : "require" });
   dbInstance = drizzlePostgres(sqlClient, { schema });
   return dbInstance;
 }
