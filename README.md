@@ -215,9 +215,10 @@ pre-commit run --all-files    # run them once across the repo
 ├── seed/         Source-of-truth seed data + reset.sh
 ├── dev.sh        Development CLI (start here)
 ├── docker-compose.yml
+├── docs/         Product spec, handoffs, hackathon reference docs
 ├── AGENTS.md     AI agent instructions (tool-agnostic: Claude, Kiro, Copilot, ...)
 ├── TASK.MD       Cross-session task log (update when you complete work)
-└── PROJECT.MD    Full product spec
+└── README.md     This file
 ```
 
 ### CRM and outreach ownership boundary
