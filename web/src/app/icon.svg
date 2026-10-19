@@ -40,9 +40,9 @@
         fill="url(#shield)"/>
 
   <g clip-path="url(#shieldClip)">
-    <rect x="372" y="520" width="76" height="140" rx="20" fill="#EAF7F4" opacity="0.92"/>
-    <rect x="474" y="452" width="76" height="208" rx="20" fill="#FFFFFF"/>
-    <rect x="576" y="384" width="76" height="276" rx="20" fill="#5EEAD4"/>
+    <rect x="372" y="520" width="80" height="140" rx="18" fill="#FFFFFF"/>
+    <rect x="472" y="452" width="80" height="208" rx="18" fill="#FFFFFF"/>
+    <rect x="572" y="384" width="80" height="276" rx="18" fill="#5EEAD4"/>
   </g>
 
   <path d="M512 196
