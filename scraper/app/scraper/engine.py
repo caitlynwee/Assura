@@ -183,10 +183,12 @@ async def run_scraper(
                         scraped_at=started_at,
                         country=country,
                     )
-                    session.add(new_plan)
+                    session.merge(new_plan)
                     plans_by_id[new_plan.id] = new_plan
 
-                updated_source_dict = update_source_metadata(source_dict, response, content)
+                # Hash the httpx response body (what has_changed compares against),
+                # not the Playwright-rendered HTML, so the hash stays consistent.
+                updated_source_dict = update_source_metadata(source_dict, response, response.content)
                 apply_source_update(source, updated_source_dict)
 
                 changed += 1
