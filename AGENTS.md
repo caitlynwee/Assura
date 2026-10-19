@@ -1,4 +1,9 @@
-# Assura — Claude Agent Instructions
+# Assura — AI Agent Instructions
+
+> Tool-agnostic guide for any AI coding assistant working in this repo (Claude, Kiro, Copilot,
+> Cursor, etc.). `AGENTS.md` is the cross-tool standard filename; most assistants read it
+> automatically. Read this plus `TASK.MD` (current state) and `PROJECT.MD` (product spec) at the
+> start of every session.
 
 ## Goal: Win the 2026 Shenzhen FinTechathon
 International Track · Topic D (Insurance Assistant) · Theme: "AI as a Financial Participant"
@@ -74,7 +79,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ├── scraper/      Python FastAPI — scraper, email relay, personas
 ├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
 ├── seed/         Seed data + reset.sh (source of truth for demo state)
-├── CLAUDE.md     ← you are here
+├── AGENTS.md     ← you are here (AI agent instructions, any tool)
 ├── TASK.MD       ← cross-session task log (UPDATE THIS when you finish something)
 └── PROJECT.MD    ← product spec
 ```

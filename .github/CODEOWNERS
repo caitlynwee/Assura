@@ -1,5 +1,5 @@
 # CODEOWNERS — auto-requests review from the lane owner on matching paths.
-# Team lanes mirror CLAUDE.md. Replace the @placeholders with real GitHub usernames.
+# Team lanes mirror AGENTS.md. Replace the @placeholders with real GitHub usernames.
 #
 #   Dominic  — Website & Auth
 #   Marcus   — Scraper & data pipeline
@@ -38,7 +38,7 @@
 # ── Caitlyn — docs & deck ────────────────────────────────────────────────────
 /README.md                          @caitlynwee
 /PROJECT.MD                         @caitlynwee
-/CLAUDE.md                          @caitlynwee
+/AGENTS.md                          @caitlynwee
 *.md                                @caitlynwee
 
 # ── DevOps / infra — shared, owner reviews ───────────────────────────────────

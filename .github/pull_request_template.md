@@ -8,7 +8,7 @@
 
 ## Checklist
 
-<!-- From CLAUDE.md "Before You Commit Anything" -->
+<!-- From AGENTS.md "Before You Commit Anything" -->
 - [ ] Serves the 4-minute demo flow (or justified why it's worth the time)
 - [ ] Respects the policy engine tiers (0 read / 1 draft / 2 send-with-approval / 3 blocked)
 - [ ] Shows a source citation or "data as of" date where applicable

@@ -1,6 +1,6 @@
 # Handoff: PostgreSQL Storage Migration → Marcus
 
-**From:** Jeff (via Kiro) · **Date:** 2026-10-19 · **For:** Marcus (continuing with Claude)
+**From:** Jeff · **Date:** 2026-10-19 · **For:** Marcus (continuing the migration)
 
 You're picking up the JSON → PostgreSQL storage migration. This doc tells you exactly where
 it stands, what's trustworthy, what isn't, and how to finish it.
@@ -157,7 +157,7 @@ Verify: `./dev.sh lint` (ruff) and `./dev.sh test` (pytest) green against a seed
 
 ## When you're done
 
-1. Commit on `migrate/postgres-storage`, append a `TASK.MD` entry per the CLAUDE.md protocol,
+1. Commit on `migrate/postgres-storage`, append a `TASK.MD` entry per the AGENTS.md protocol,
    rebase onto latest `main`, then ff-merge + push `main` (the team is waiting on this).
 2. In your `TASK.MD` "Others need to know": everyone must now run Postgres (`docker compose up`
    includes it) and set `DATABASE_URL`; how to reset demo data (new `seed/reset.sh`); the audit
