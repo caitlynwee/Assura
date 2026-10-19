@@ -9,11 +9,12 @@ export function ShieldMark({ className }: { className?: string }) {
         d="M12 2.5 4 5.6v6.1c0 4.9 3.4 8.6 8 9.8 4.6-1.2 8-4.9 8-9.8V5.6L12 2.5Z"
         className="fill-primary"
       />
-      {/* Three ascending comparison bars, in the shield's foreground color */}
+      {/* Three ascending comparison bars, solid foreground color for crisp
+          legibility at small (navbar/favicon) sizes — no opacity washout. */}
       <g className="fill-primary-foreground">
-        <rect x="7.3" y="12.2" width="2.5" height="4.2" rx="0.8" opacity="0.65" />
-        <rect x="10.75" y="10.2" width="2.5" height="6.2" rx="0.8" opacity="0.85" />
-        <rect x="14.2" y="8.2" width="2.5" height="8.2" rx="0.8" />
+        <rect x="7" y="13" width="2.8" height="3.5" rx="0.6" />
+        <rect x="10.6" y="11" width="2.8" height="5.5" rx="0.6" />
+        <rect x="14.2" y="9" width="2.8" height="7.5" rx="0.6" />
       </g>
     </svg>
   );
