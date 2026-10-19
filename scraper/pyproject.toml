@@ -16,8 +16,10 @@ dependencies = [
     "pydantic-settings>=2.3",
     "apscheduler>=3.10",
     "robotexclusionrulesparser>=1.7",
-    "anthropic>=0.30",
+    "openai>=1.30",
     "aiosmtplib>=3.0",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]

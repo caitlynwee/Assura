@@ -54,7 +54,7 @@ export async function seedDatabase(
         persona: i.persona,
         website: i.website,
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── users (ConsentFlags flattened to 8 booleans) ──
@@ -78,7 +78,7 @@ export async function seedDatabase(
         shareIncome: u.consent.shareIncome,
         createdAt: u.createdAt,
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── plans ──
@@ -106,7 +106,7 @@ export async function seedDatabase(
         version: p.version,
         scrapedAt: p.scrapedAt,
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── sources ──
@@ -126,7 +126,7 @@ export async function seedDatabase(
         lastChanged: s.lastChanged,
         status: s.status,
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── threads + thread_messages ──
@@ -143,7 +143,7 @@ export async function seedDatabase(
       addedToComparison: t.addedToComparison,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
-    });
+    }).onConflictDoNothing();
     for (let i = 0; i < t.messages.length; i++) {
       const m = t.messages[i];
       await db.insert(schema.threadMessages).values({
@@ -159,7 +159,7 @@ export async function seedDatabase(
         aiGenerated: m.aiGenerated,
         flagged: m.flagged,
         flagReason: m.flagReason ?? null,
-      });
+      }).onConflictDoNothing();
     }
   }
 }

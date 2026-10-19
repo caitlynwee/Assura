@@ -21,7 +21,7 @@ import {
   createUser,
   EmailTakenError,
   findUserByEmail,
-  linkAuthUid,
+  resolveOrCreateAuthUser,
   updateUser,
 } from "@/lib/users";
 import { logEvent } from "@/lib/audit";
@@ -65,24 +65,6 @@ function isRateLimited(err: any): boolean {
   );
 }
 
-/**
- * Resolve (and link) the app user for a just-authenticated Supabase identity.
- * Prefers auth_uid, falls back to email + back-fill. Returns null if no app row.
- */
-async function resolveAppUser(
-  authUid: string | undefined,
-  email: string
-): Promise<User | null> {
-  const byEmail = await findUserByEmail(email);
-  if (byEmail) {
-    if (authUid && byEmail.authUid !== authUid) {
-      await linkAuthUid(byEmail.id, authUid);
-    }
-    return byEmail;
-  }
-  return null;
-}
-
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 export async function loginAction(
@@ -117,13 +99,15 @@ export async function loginAction(
     return { error: "Invalid email or password.", values: { email } };
   }
 
-  const appUser = await resolveAppUser(data.user?.id, email);
+  const appUser = await resolveOrCreateAuthUser(data.user);
   if (!appUser) {
     // Authenticated with Supabase but no app row — treat as failed login.
     logEvent("system", "auth.login.failed", { email: maskEmail(email) });
     return { error: "Invalid email or password.", values: { email } };
   }
 
+  await syncAuthMetadata(appUser.id);
+  await supabase.auth.refreshSession();
   logEvent(appUser.id, "auth.login.success", {});
   redirect(withToast(redirectTo, "login")); // NEXT_REDIRECT — propagates
 }
@@ -153,13 +137,15 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
     redirect("/login?error=demo");
   }
 
-  const appUser = await resolveAppUser(data.user?.id, DEMO_EMAIL);
+  const appUser = await resolveOrCreateAuthUser(data.user);
   if (!appUser) {
     logEvent("system", "auth.login.failed", { email: maskEmail(DEMO_EMAIL) });
     redirect("/login?error=demo");
   }
 
-  logEvent(appUser!.id, "auth.login.success", {});
+  await syncAuthMetadata(appUser.id);
+  await supabase.auth.refreshSession();
+  logEvent(appUser.id, "auth.login.success", {});
   redirect(withToast(redirectTo, "login"));
 }
 

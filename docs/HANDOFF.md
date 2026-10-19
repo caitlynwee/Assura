@@ -9,7 +9,7 @@ demo for the 2026 Shenzhen FinTechathon. It has three runtime services:
   persistence, policy engine, and audit log.
 - **Outreach/scraper:** Python FastAPI service for Mailpit delivery, insurer
   personas, simulated replies, and brochure scraping.
-- **Mailpit:** Local-only email sandbox. No email leaves the machine.
+- **Email delivery:** Mailpit is the only delivery transport. Messages remain in the local sandbox and are never sent to real insurers or external inboxes.
 
 The full product requirements are in [PROJECT.MD](./PROJECT.MD).
 
@@ -251,7 +251,7 @@ The current repository validation status:
 ## Important security rules
 
 - Never put real credentials in JSON seed files.
-- Never send real email; Mailpit is the only permitted email destination.
+- Email delivery is local-only through Mailpit. Keep the approval, PII screening, and disclosure safeguards in place.
 - Never allow the AI to directly decide whether an email is sent.
 - Sending requires `userApproved: true`.
 - Outbound subject and body must pass the PII blocker.

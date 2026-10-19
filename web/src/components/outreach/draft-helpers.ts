@@ -1,4 +1,4 @@
-import { AI_DISCLOSURE_PREFIX } from "@/lib/constants";
+import { AI_DISCLOSURE_FOOTER } from "@/lib/constants";
 import type { OutreachTemplate } from "@/lib/types";
 
 export interface OutreachContext {
@@ -9,11 +9,11 @@ export interface OutreachContext {
   monthlyBudget?: number;
 }
 
-/** mail.ts prepends the AI disclosure on send, so drop it from the editable body. */
+/** The relay appends the AI disclosure footer on send, so drop it from the editable body. */
 export function stripDisclosure(body: string): string {
   const trimmed = body.trimStart();
-  if (trimmed.startsWith(AI_DISCLOSURE_PREFIX)) {
-    return trimmed.slice(AI_DISCLOSURE_PREFIX.length).replace(/^[\s─-]+/, "");
+  if (trimmed.startsWith(AI_DISCLOSURE_FOOTER)) {
+    return trimmed.slice(AI_DISCLOSURE_FOOTER.length).replace(/^[\s─-]+/, "");
   }
   return body.trim();
 }
