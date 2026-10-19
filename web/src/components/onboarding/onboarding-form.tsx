@@ -2,8 +2,23 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import {
+  ArrowRightIcon,
+  CheckCircle2Icon,
+  CopyIcon,
+  LockIcon,
+  MoveRightIcon,
+  ShieldBanIcon,
+} from "lucide-react";
 import { saveOnboardingAction } from "@/app/_actions/onboarding";
-import Button from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ConsentFlags, UserProfile } from "@/lib/types";
 
@@ -111,221 +126,239 @@ export default function OnboardingForm({
   // ─── Success state ──────────────────────────────────────────────────────────
   if (savedInbox) {
     return (
-      <div className="rounded-2xl border border-green-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-medium text-green-700">✓ Outreach is set up</p>
-        <h2 className="mt-1 text-lg font-semibold text-gray-900">Your masked inbox is ready</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Insurers will only ever see this relay address. Replies land in your Assura CRM.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-gray-50 p-3">
-          <code className="flex-1 break-all font-mono text-sm text-gray-900">{savedInbox}</code>
-          <Button variant="secondary" size="sm" onClick={() => copyInbox(savedInbox)}>
-            {copied ? "Copied" : "Copy"}
-          </Button>
-        </div>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            href="/outreach"
-            className="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Continue to outreach →
-          </Link>
-          <Button variant="ghost" onClick={() => setSavedInbox(null)}>
-            Edit preferences
-          </Button>
-        </div>
-      </div>
+      <Card className="border-green-200">
+        <CardHeader>
+          <p className="flex items-center gap-1.5 text-sm font-medium text-green-700">
+            <CheckCircle2Icon className="size-4" />
+            Outreach is set up
+          </p>
+          <CardTitle className="text-lg">Your masked inbox is ready</CardTitle>
+          <CardDescription>
+            Insurers will only ever see this relay address. Replies land in your Assura CRM.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted p-3">
+            <code className="flex-1 break-all font-mono text-sm">{savedInbox}</code>
+            <Button variant="outline" size="sm" onClick={() => copyInbox(savedInbox)}>
+              <CopyIcon />
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href="/outreach">
+                Continue to outreach
+                <ArrowRightIcon />
+              </Link>
+            </Button>
+            <Button variant="ghost" onClick={() => setSavedInbox(null)}>
+              Edit preferences
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   // ─── Form ───────────────────────────────────────────────────────────────────
-  const inputCls =
-    "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
-
   return (
     <form onSubmit={submit} className="space-y-6">
       {/* 1 — Masked inbox */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="font-semibold text-gray-900">1. Your masked inbox</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Assura emails insurers from a relay address, so your real contact details stay private.
-        </p>
-        <div className="mt-4 grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
-          <div className="rounded-xl bg-gray-50 p-3">
-            <p className="text-[11px] uppercase tracking-wide text-gray-400">Your email (private)</p>
-            <p className="mt-0.5 font-mono text-sm text-gray-700">{realEmailMasked}</p>
+      <Card>
+        <CardHeader>
+          <CardTitle>1. Your masked inbox</CardTitle>
+          <CardDescription>
+            Assura emails insurers from a relay address, so your real contact details stay private.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+            <div className="rounded-lg border bg-muted/50 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Your email (private)</p>
+              <p className="mt-0.5 font-mono text-sm">{realEmailMasked}</p>
+            </div>
+            <MoveRightIcon className="mx-auto size-5 text-muted-foreground" aria-hidden="true" />
+            <div className="rounded-lg border border-primary/30 bg-accent p-3">
+              <p className="text-[11px] uppercase tracking-wide text-accent-foreground">What insurers see</p>
+              <p className="mt-0.5 break-all font-mono text-sm text-accent-foreground">{maskedInbox}</p>
+            </div>
           </div>
-          <span className="text-center text-gray-400" aria-hidden="true">→</span>
-          <div className="rounded-xl bg-blue-50 p-3">
-            <p className="text-[11px] uppercase tracking-wide text-blue-500">What insurers see</p>
-            <p className="mt-0.5 break-all font-mono text-sm text-blue-900">{maskedInbox}</p>
-          </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* 2 — Profile */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="font-semibold text-gray-900">2. About you (optional)</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Used to tailor enquiries. Nothing here is sent unless you allow it in step 3.
-        </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-gray-700">Age</span>
-            <input
-              type="number"
-              min={18}
-              max={80}
-              inputMode="numeric"
-              value={profile.age ?? ""}
-              onChange={(e) => set("age", toInt(e.target.value))}
-              className={inputCls}
-              placeholder="32"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-gray-700">Gender</span>
-            <select
-              value={profile.gender ?? ""}
-              onChange={(e) => set("gender", (e.target.value || undefined) as UserProfile["gender"])}
-              className={inputCls}
-            >
-              <option value="">Select…</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
-            </select>
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-gray-700">Smoker</span>
-            <select
-              value={profile.smoker === undefined ? "" : profile.smoker ? "yes" : "no"}
-              onChange={(e) =>
-                set("smoker", e.target.value === "" ? undefined : e.target.value === "yes")
-              }
-              className={inputCls}
-            >
-              <option value="">Select…</option>
-              <option value="no">Non-smoker</option>
-              <option value="yes">Smoker</option>
-            </select>
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-gray-700">Occupation</span>
-            <input
-              value={profile.occupation ?? ""}
-              onChange={(e) => set("occupation", e.target.value)}
-              maxLength={80}
-              className={inputCls}
-              placeholder="Software engineer"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-gray-700">Coverage needed (SGD)</span>
-            <input
-              inputMode="numeric"
-              value={profile.coverageNeeded ?? ""}
-              onChange={(e) => set("coverageNeeded", toInt(e.target.value))}
-              className={inputCls}
-              placeholder="200000"
-            />
-          </label>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium text-gray-700">Monthly budget (SGD)</span>
-            <input
-              inputMode="numeric"
-              value={profile.monthlyBudget ?? ""}
-              onChange={(e) => set("monthlyBudget", toInt(e.target.value))}
-              className={inputCls}
-              placeholder="150"
-            />
-          </label>
-        </div>
-      </section>
-
-      {/* 3 — Consent */}
-      <section className="rounded-2xl border border-gray-200 bg-white p-6">
-        <h2 className="font-semibold text-gray-900">3. What Assura may share with insurers</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          The AI can only include what you tick. You still review and approve every email.
-        </p>
-
-        <div className="mt-4 grid gap-6 lg:grid-cols-2">
-          <ul className="space-y-2">
-            {SHAREABLE.map((s) => {
-              const value = s.describe(profile);
-              return (
-                <li key={s.key}>
-                  <label
-                    className={cn(
-                      "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-sm transition",
-                      consent[s.key] ? "border-blue-300 bg-blue-50/50" : "border-gray-200 hover:bg-gray-50"
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={consent[s.key]}
-                      onChange={(e) => setConsent((c) => ({ ...c, [s.key]: e.target.checked }))}
-                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="flex-1 font-medium text-gray-800">{s.label}</span>
-                    <span className="text-xs text-gray-400">{value ?? "not provided"}</span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="space-y-4">
-            <div className="rounded-xl border border-red-100 bg-red-50/60 p-4">
-              <p className="text-sm font-semibold text-red-800">Never shared — blocked by policy</p>
-              <p className="mt-0.5 text-xs text-red-700">
-                Tier 3 actions. The AI cannot send these even if asked; outgoing emails are scanned
-                and blocked if they appear.
-              </p>
-              <ul className="mt-2 space-y-1">
-                {NEVER_SHARED.map((n) => (
-                  <li key={n} className="flex items-center gap-2 text-sm text-red-900">
-                    <span aria-hidden="true">🔒</span>
-                    {n}
-                  </li>
-                ))}
-              </ul>
+      <Card>
+        <CardHeader>
+          <CardTitle>2. About you (optional)</CardTitle>
+          <CardDescription>Used to tailor enquiries. Nothing here is sent unless you allow it in step 3.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="age">Age</Label>
+              <Input
+                id="age"
+                type="number"
+                min={18}
+                max={80}
+                inputMode="numeric"
+                value={profile.age ?? ""}
+                onChange={(e) => set("age", toInt(e.target.value))}
+                placeholder="32"
+              />
             </div>
-
-            <div className="rounded-xl bg-gray-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Insurers will see
-              </p>
-              {preview.length ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {preview.map((p) => (
-                    <span key={p} className="rounded-full bg-white px-2.5 py-1 text-xs text-gray-700 ring-1 ring-gray-200">
-                      {p}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-gray-500">
-                  Only your question — no personal details.
-                </p>
-              )}
+            <div className="grid gap-2">
+              <Label htmlFor="gender">Gender</Label>
+              <Select
+                value={profile.gender ?? ""}
+                onValueChange={(v) => set("gender", (v || undefined) as UserProfile["gender"])}
+              >
+                <SelectTrigger id="gender">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="smoker">Smoker</Label>
+              <Select
+                value={profile.smoker === undefined ? "" : profile.smoker ? "yes" : "no"}
+                onValueChange={(v) => set("smoker", v === "" ? undefined : v === "yes")}
+              >
+                <SelectTrigger id="smoker">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">Non-smoker</SelectItem>
+                  <SelectItem value="yes">Smoker</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="occupation">Occupation</Label>
+              <Input
+                id="occupation"
+                value={profile.occupation ?? ""}
+                onChange={(e) => set("occupation", e.target.value)}
+                maxLength={80}
+                placeholder="Software engineer"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="coverage">Coverage needed (SGD)</Label>
+              <Input
+                id="coverage"
+                inputMode="numeric"
+                value={profile.coverageNeeded ?? ""}
+                onChange={(e) => set("coverageNeeded", toInt(e.target.value))}
+                placeholder="200000"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="budget">Monthly budget (SGD)</Label>
+              <Input
+                id="budget"
+                inputMode="numeric"
+                value={profile.monthlyBudget ?? ""}
+                onChange={(e) => set("monthlyBudget", toInt(e.target.value))}
+                placeholder="150"
+              />
             </div>
           </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
+
+      {/* 3 — Consent */}
+      <Card>
+        <CardHeader>
+          <CardTitle>3. What Assura may share with insurers</CardTitle>
+          <CardDescription>The AI can only include what you tick. You still review and approve every email.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ul className="space-y-2">
+              {SHAREABLE.map((s) => {
+                const value = s.describe(profile);
+                const id = `consent-${s.key}`;
+                return (
+                  <li key={s.key}>
+                    <Label
+                      htmlFor={id}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 font-normal transition-colors",
+                        consent[s.key] ? "border-primary/40 bg-accent/60" : "hover:bg-muted/50"
+                      )}
+                    >
+                      <Checkbox
+                        id={id}
+                        checked={consent[s.key]}
+                        onCheckedChange={(c) => setConsent((prev) => ({ ...prev, [s.key]: c === true }))}
+                      />
+                      <span className="flex-1 font-medium">{s.label}</span>
+                      <span className="text-xs text-muted-foreground">{value ?? "not provided"}</span>
+                    </Label>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <ShieldBanIcon />
+                <AlertTitle>Never shared — blocked by policy</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    Tier 3 actions. The AI cannot send these even if asked; outgoing emails are scanned and
+                    blocked if they appear.
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {NEVER_SHARED.map((n) => (
+                      <li key={n} className="flex items-center gap-2">
+                        <LockIcon className="size-3.5" aria-hidden="true" />
+                        {n}
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Insurers will see
+                </p>
+                {preview.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {preview.map((p) => (
+                      <Badge key={p} variant="outline" className="bg-card font-normal">
+                        {p}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">Only your question — no personal details.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {error && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       <div className="flex items-center gap-3">
         <Button type="submit" loading={pending}>
           {alreadyOnboarded ? "Save preferences" : "Save & create masked inbox"}
         </Button>
-        <p className="text-xs text-gray-500">Saved choices are recorded in your audit log.</p>
+        <p className="text-xs text-muted-foreground">Saved choices are recorded in your audit log.</p>
       </div>
     </form>
   );

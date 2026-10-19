@@ -2,24 +2,18 @@ export const dynamic = "force-dynamic";
 
 import AuditEventList from "@/components/activity/audit-event-list";
 import VerifyChainButton from "@/components/activity/verify-chain-button";
+import PageHeader from "@/components/layout/page-header";
 
 export const metadata = { title: "Activity Log — Assura" };
 
 export default function ActivityPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Activity Log
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Every action taken by Assura is logged here with a tamper-evident
-            hash chain.
-          </p>
-        </div>
-        <VerifyChainButton />
-      </div>
+      <PageHeader
+        title="Activity Log"
+        description="Every action taken by Assura is logged here in a tamper-evident SHA-256 hash chain."
+        actions={<VerifyChainButton />}
+      />
       <AuditEventList />
     </div>
   );
