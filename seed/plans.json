@@ -483,5 +483,42 @@
     "changeNotes": [],
     "version": 1,
     "scrapedAt": "2026-10-01T00:00:00.000Z"
+  },
+  {
+    "id": "singlife_ci_protect",
+    "insurerId": "singlife",
+    "insurerName": "Singlife",
+    "planName": "Singlife CI Protect",
+    "category": "critical_illness",
+    "coverageAmount": 200000,
+    "premiums": {
+      "male_30_nonsmoker": 1050,
+      "male_40_nonsmoker": 1920,
+      "female_30_nonsmoker": 860,
+      "female_40_nonsmoker": 1580
+    },
+    "premiumFrequency": "annual",
+    "coverageTerms": ["to_age_65", "to_age_70"],
+    "illnessesCovered": 37,
+    "earlyStageConditions": true,
+    "payoutType": "lump_sum",
+    "keyBenefits": [
+      "Covers 37 critical illnesses across early, intermediate and advanced stages",
+      "100% lump sum payout upon diagnosis",
+      "Premium waiver upon claim",
+      "Guaranteed renewable up to age 85"
+    ],
+    "exclusions": [
+      "Pre-existing conditions",
+      "Congenital conditions",
+      "Self-inflicted injuries",
+      "90-day waiting period for most conditions"
+    ],
+    "sourceUrl": "https://singlife.com/en/insurance/critical-illness",
+    "dataAsOf": "2026-09-30",
+    "updatedBadge": false,
+    "changeNotes": [],
+    "version": 1,
+    "scrapedAt": "2026-10-01T00:00:00.000Z"
   }
 ]

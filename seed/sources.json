@@ -56,6 +56,20 @@
     "status": "pending"
   },
   {
+    "id": "src_singlife_ci_protect",
+    "insurerId": "singlife",
+    "label": "Singlife CI Protect brochure",
+    "url": "https://singlife.com/en/insurance/critical-illness",
+    "type": "product_page",
+    "planIds": ["singlife_ci_protect"],
+    "etag": null,
+    "lastModified": null,
+    "contentHash": null,
+    "lastChecked": null,
+    "lastChanged": null,
+    "status": "pending"
+  },
+  {
     "id": "src_mock_brochure",
     "insurerId": "manulife",
     "label": "Manulife ManuCare CI Saver (mock brochure — editable)",
