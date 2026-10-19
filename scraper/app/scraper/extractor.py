@@ -14,10 +14,16 @@ _REMOVE_TAGS = {"script", "style", "nav", "footer", "header", "noscript", "ifram
 
 
 def extract_text(content: bytes, source_type: str = "product_page") -> str:
-    """Extract readable text from content bytes."""
-    if source_type == "pdf":
-        return _extract_pdf(content)
-    return _extract_html(content)
+    """Extract readable text from content bytes.
+
+    For Jina-fetched sources (product_page, pdf): content is already clean
+    markdown — just decode it.
+    For mock sources: parse HTML with BeautifulSoup.
+    """
+    if source_type == "mock":
+        return _extract_html(content)
+    # Jina Reader returns clean UTF-8 markdown for both pages and PDFs
+    return content.decode("utf-8", errors="replace")
 
 
 def _extract_pdf(pdf_bytes: bytes) -> str:
