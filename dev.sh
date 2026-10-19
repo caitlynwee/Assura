@@ -98,9 +98,18 @@ cmd_web() {
 cmd_demo() {
   # Production mode for the demo: build once, then `next start` — NO on-demand
   # compiling (unlike `next dev`), so no "Compiling..." pauses while presenting.
-  # Reads web/.env.local for AUTH_SECRET / DEEPSEEK_API_KEY / DATABASE_URL etc.
-  info "Building web for production (one-time)..."
+  #
+  # Env: uses the SAME root .env you already fill in for Docker. We export its
+  # values into the environment so Next.js picks them up directly (process env
+  # beats .env.local), so there's just ONE env file to maintain.
+  require_env
+  info "Loading env from root .env..."
+  set -a                       # auto-export everything sourced
+  # shellcheck disable=SC1090
+  . "$ROOT/.env"
+  set +a
   cd "$ROOT/web"
+  info "Building web for production (one-time)..."
   npm run build
   info "Starting Next.js (production) on :3000 — no live recompiling..."
   npm run start
