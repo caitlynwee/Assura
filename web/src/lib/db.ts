@@ -13,9 +13,13 @@
  * src/__tests__/setup.ts.
  */
 
+import { setDefaultResultOrder } from "node:dns";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import { eq, and, desc } from "drizzle-orm";
 import postgres from "postgres";
+
+// Force IPv4 DNS — Docker on macOS resolves Supabase to IPv6 which is unreachable.
+setDefaultResultOrder("ipv4first");
 import * as schema from "./schema";
 import type {
   User,
