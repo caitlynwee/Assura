@@ -50,3 +50,6 @@ Thumbs.db
 *.tsbuildinfo
 .turbo/
 .claude/
+
+# ─── Git worktrees (local only, never commit) ────────────────────────────────
+.worktrees/

@@ -29,3 +29,20 @@ Others need to know:
 - Outreach and onboarding pages are placeholder divs — components needed (Dominic/Jeff)
 Blockers: None
 ---
+
+## 2026-10-19 | Jeff | Storage migration (JSON → PostgreSQL) — handed off to Marcus
+Status: In Progress (handed off)
+Done:
+- Scoped + designed the full JSON → PostgreSQL migration (Drizzle for web, SQLAlchemy 2.0 for scraper, one shared DB via DATABASE_URL). Design is complete; implementation is partial and UNVERIFIED.
+- Branch `migrate/postgres-storage` pushed to origin. One WIP commit (427c1e7) = started FEAT-001 (Drizzle schema, generated migration, seed/migrate scripts, started db.ts + route/audit rewrites). NOT built, NOT tested. FEAT-002 (scraper) not started.
+- Full handoff written: see `HANDOFF-postgres-migration.md` at repo root. Design + call-site map in `.agents/tasks/investigation.md` and FEAT-001/FEAT-002 specs (on the branch).
+Files:
+- HANDOFF-postgres-migration.md (read this first), branch migrate/postgres-storage, .gitignore (added .worktrees/)
+Others need to know:
+- MARCUS is continuing this. Start at HANDOFF-postgres-migration.md.
+- Decisions locked: PostgreSQL + Drizzle (web, owns schema/migrations) + SQLAlchemy 2.0 (scraper, maps only, no DDL). Do not relitigate.
+- #1 risk = audit hash chain: store `detail` and `timestamp` as TEXT (not jsonb/timestamptz) or "Verify chain" breaks. Details in the handoff.
+- Once this lands on main, everyone must run Postgres (docker compose will include it) + set DATABASE_URL; demo-data reset moves from JSON copy to a DB reset in seed/reset.sh.
+- Separate branch `jeff/outreach-crm` (Outreach/CRM UI + DeepSeek AI port, PR #1) is built on the OLD JSON storage and still needs rebasing onto this migration afterward — its api/crm/* and api/outreach/* routes rewire to the Drizzle layer. Coordinate with Jeff.
+Blockers: Migration implementation is unverified WIP — Marcus to finish + verify (build/test/real Postgres) before merging to main.
+---
