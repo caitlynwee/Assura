@@ -124,7 +124,15 @@ export async function loginAction(
   }
 
   logEvent(appUser.id, "auth.login.success", {});
-  redirect(redirectTo); // NEXT_REDIRECT — propagates
+  redirect(withToast(redirectTo, "login")); // NEXT_REDIRECT — propagates
+}
+
+/** Append ?toast=<key> to a path, preserving any existing query string. */
+function withToast(path: string, key: string): string {
+  const [base, query = ""] = path.split("?");
+  const params = new URLSearchParams(query);
+  params.set("toast", key);
+  return `${base}?${params.toString()}`;
 }
 
 export async function demoLoginAction(formData: FormData): Promise<void> {
@@ -151,7 +159,7 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
   }
 
   logEvent(appUser!.id, "auth.login.success", {});
-  redirect(redirectTo);
+  redirect(withToast(redirectTo, "login"));
 }
 
 // ─── Sign up ──────────────────────────────────────────────────────────────────
@@ -233,7 +241,9 @@ export async function signupAction(
   await syncAuthMetadata(appUser.id);
   logEvent(appUser.id, "auth.signup", { tier: appUser.tier });
 
-  redirect(parsed.data.tier === "premium" ? "/onboarding" : "/compare");
+  redirect(
+    parsed.data.tier === "premium" ? "/onboarding?toast=signup" : "/compare?toast=signup"
+  );
 }
 
 // ─── Sign out ─────────────────────────────────────────────────────────────────
@@ -241,7 +251,7 @@ export async function signupAction(
 export async function logoutAction(): Promise<void> {
   const session = await auth();
   if (session?.user?.id) logEvent(session.user.id, "auth.logout", {});
-  await signOut({ redirectTo: "/" });
+  await signOut({ redirectTo: "/?toast=loggedout" });
 }
 
 // ─── Free → Premium (demo, no payment) ────────────────────────────────────────
@@ -256,7 +266,7 @@ export async function upgradeToPremiumAction(formData: FormData): Promise<void> 
   logEvent(session.user.id, "user.tier_changed", { from: "free", to: "premium", payment: "demo" });
   await refreshSessionCookie();
 
-  const back = safeCallback(formData.get("returnTo"), "/onboarding");
+  const back = withToast(safeCallback(formData.get("returnTo"), "/onboarding"), "upgraded");
   revalidatePath("/", "layout");
   redirect(back);
 }
