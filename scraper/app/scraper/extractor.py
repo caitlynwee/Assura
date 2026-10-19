@@ -6,6 +6,7 @@ Supports:
 """
 
 import io
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -40,3 +41,22 @@ def _extract_html(html: bytes) -> str:
     text = soup.get_text(separator="\n", strip=True)
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     return "\n".join(lines)
+
+
+def find_pdf_links(html: bytes, base_url: str) -> list[str]:
+    """Find all same-domain PDF links in a rendered HTML page."""
+    soup = BeautifulSoup(html, "lxml")
+    base_netloc = urlparse(base_url).netloc
+    seen: set[str] = set()
+    results: list[str] = []
+    for a in soup.find_all("a", href=True):
+        href: str = a["href"]
+        if ".pdf" not in href.lower():
+            continue
+        full = urljoin(base_url, href).split("?")[0]  # strip query params
+        if urlparse(full).netloc != base_netloc:
+            continue
+        if full not in seen:
+            seen.add(full)
+            results.append(full)
+    return results
