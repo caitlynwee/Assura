@@ -1,12 +1,12 @@
 /**
  * users.ts — User record helpers (Node.js runtime only; uses db.ts / Drizzle).
  *
- * Never import from middleware / auth.config.ts.
+ * Never import from middleware / edge code.
  */
 
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
-import { getDb, getUserById, getUserByEmail } from "./db";
+import { getDb, getUserById, getUserByEmail, linkAuthUid } from "./db";
 import * as schema from "./schema";
 import { generateId } from "./utils";
 import { generateMaskedAddress } from "./mail";
@@ -23,7 +23,7 @@ export const DEFAULT_CONSENT: ConsentFlags = {
   shareIncome: false,        // Tier 3 — never shareable by the AI
 };
 
-export { getUserById as findUserById, getUserByEmail as findUserByEmail };
+export { getUserById as findUserById, getUserByEmail as findUserByEmail, linkAuthUid };
 
 export function toPublicUser(user: User): PublicUser {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -42,6 +42,8 @@ export async function createUser(input: {
   email: string;
   password: string;
   tier: UserTier;
+  /** Supabase auth.users.id to link this row to (optional). */
+  authUid?: string;
 }): Promise<User> {
   const db = getDb();
   const email = input.email.trim().toLowerCase();
@@ -52,6 +54,7 @@ export async function createUser(input: {
   const id = generateId("user");
   const passwordHash = await bcrypt.hash(input.password, 10);
   const createdAt = new Date().toISOString();
+  const authUid = input.authUid ?? null;
 
   await db.insert(schema.users).values({
     id,
@@ -70,6 +73,7 @@ export async function createUser(input: {
     shareHealthHistory: false,
     shareIncome: false,
     createdAt,
+    authUid,
   });
 
   return {
@@ -82,6 +86,7 @@ export async function createUser(input: {
     onboarded: false,
     consent: { ...DEFAULT_CONSENT },
     createdAt,
+    ...(authUid != null ? { authUid } : {}),
   };
 }
 

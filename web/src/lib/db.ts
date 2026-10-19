@@ -5,7 +5,7 @@
  * only writer. The Drizzle client is created lazily from process.env.DATABASE_URL
  * via the postgres.js driver.
  *
- * Do NOT import this module into edge code (auth.config.ts / middleware) — it
+ * Do NOT import this module into edge code (middleware / auth-routing.ts) — it
  * pulls in a Node Postgres driver. auth.ts (Node runtime) is the correct home
  * for DB-backed lookups.
  *
@@ -83,6 +83,7 @@ function rowToUser(row: UserRow): User {
     onboarded: row.onboarded,
     consent,
     createdAt: row.createdAt,
+    ...(row.authUid != null ? { authUid: row.authUid } : {}),
   };
 }
 
@@ -139,6 +140,27 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   return (
     users.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null
   );
+}
+
+/** Resolve an app user by its linked Supabase auth uid, or null. */
+export async function getUserByAuthUid(authUid: string): Promise<User | null> {
+  const rows = await getDb()
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.authUid, authUid))
+    .limit(1);
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+
+/** Back-fill the Supabase auth uid onto an app user row (idempotent link). */
+export async function linkAuthUid(
+  appUserId: string,
+  authUid: string
+): Promise<void> {
+  await getDb()
+    .update(schema.users)
+    .set({ authUid })
+    .where(eq(schema.users.id, appUserId));
 }
 
 /**

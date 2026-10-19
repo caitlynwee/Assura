@@ -1,19 +1,32 @@
 "use server";
 
 /**
- * Auth server actions. Using Server Actions (rather than next-auth/react's
- * client signIn) means forms work without client JS and the password never
- * passes through client-side code beyond the form post.
+ * Auth server actions. Using Server Actions (rather than a client signIn) means
+ * forms work without client JS and the password never passes through client-
+ * side code beyond the form post. Supabase Auth verifies credentials and issues
+ * the session; the app `users` row stays the source of truth (linked by
+ * auth_uid). Audit events are logged here (success/failure/lock), with
+ * maskEmail() so raw emails never reach the audit chain.
  */
 
-import { AuthError, CredentialsSignin } from "next-auth";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth, refreshSessionCookie, signIn, signOut } from "@/lib/auth";
-import { signupSchema } from "@/lib/validators";
-import { createUser, EmailTakenError, updateUser } from "@/lib/users";
+import { auth, refreshSessionCookie, signOut } from "@/lib/auth";
+import { getServerClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
+import { syncAuthMetadata } from "@/lib/supabase/ensure-demo-user";
+import { loginSchema, signupSchema } from "@/lib/validators";
+import {
+  createUser,
+  EmailTakenError,
+  findUserByEmail,
+  linkAuthUid,
+  updateUser,
+} from "@/lib/users";
 import { logEvent } from "@/lib/audit";
+import { maskEmail } from "@/lib/utils";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/demo";
+import type { User } from "@/lib/types";
 
 export type FormState = {
   error?: string;
@@ -40,12 +53,33 @@ function safeCallback(raw: FormDataEntryValue | null, fallback: string): string 
   return path;
 }
 
-function authErrorMessage(err: AuthError): string {
-  if (err instanceof CredentialsSignin && err.code === "rate_limited") {
-    return "Too many failed attempts. Please wait 15 minutes and try again.";
+/** True when a Supabase auth error is a rate-limit (HTTP 429 / known code). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isRateLimited(err: any): boolean {
+  if (!err) return false;
+  return (
+    err.status === 429 ||
+    err.code === "over_request_rate_limit" ||
+    err.code === "over_email_send_rate_limit"
+  );
+}
+
+/**
+ * Resolve (and link) the app user for a just-authenticated Supabase identity.
+ * Prefers auth_uid, falls back to email + back-fill. Returns null if no app row.
+ */
+async function resolveAppUser(
+  authUid: string | undefined,
+  email: string
+): Promise<User | null> {
+  const byEmail = await findUserByEmail(email);
+  if (byEmail) {
+    if (authUid && byEmail.authUid !== authUid) {
+      await linkAuthUid(byEmail.id, authUid);
+    }
+    return byEmail;
   }
-  if (err.type === "CredentialsSignin") return "Invalid email or password.";
-  return "Something went wrong signing you in. Please try again.";
+  return null;
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -54,37 +88,70 @@ export async function loginAction(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const email = String(formData.get("email") ?? "");
+  const emailRaw = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectTo = safeCallback(formData.get("callbackUrl"), "/compare");
 
-  if (!email || !password) {
-    return { error: "Please enter your email and password.", values: { email } };
+  const parsed = loginSchema.safeParse({ email: emailRaw, password });
+  if (!parsed.success) {
+    return { error: "Please enter your email and password.", values: { email: emailRaw } };
+  }
+  const email = parsed.data.email.toLowerCase();
+
+  const supabase = await getServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    if (isRateLimited(error)) {
+      logEvent("system", "auth.login.locked", { email: maskEmail(email) });
+      return {
+        error: "Too many failed attempts. Please wait a few minutes and try again.",
+        values: { email },
+      };
+    }
+    logEvent("system", "auth.login.failed", { email: maskEmail(email) });
+    return { error: "Invalid email or password.", values: { email } };
   }
 
-  try {
-    await signIn("credentials", { email, password, redirectTo });
-  } catch (err) {
-    if (err instanceof AuthError) {
-      return { error: authErrorMessage(err), values: { email } };
-    }
-    throw err; // NEXT_REDIRECT on success — must propagate
+  const appUser = await resolveAppUser(data.user?.id, email);
+  if (!appUser) {
+    // Authenticated with Supabase but no app row — treat as failed login.
+    logEvent("system", "auth.login.failed", { email: maskEmail(email) });
+    return { error: "Invalid email or password.", values: { email } };
   }
-  return {};
+
+  logEvent(appUser.id, "auth.login.success", {});
+  redirect(redirectTo); // NEXT_REDIRECT — propagates
 }
 
 export async function demoLoginAction(formData: FormData): Promise<void> {
   const redirectTo = safeCallback(formData.get("callbackUrl"), "/compare");
-  try {
-    await signIn("credentials", {
-      email: DEMO_EMAIL,
-      password: DEMO_PASSWORD,
-      redirectTo,
-    });
-  } catch (err) {
-    if (err instanceof AuthError) redirect("/login?error=demo");
-    throw err;
+
+  const supabase = await getServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: DEMO_EMAIL,
+    password: DEMO_PASSWORD,
+  });
+  if (error) {
+    if (isRateLimited(error)) {
+      logEvent("system", "auth.login.locked", { email: maskEmail(DEMO_EMAIL) });
+    } else {
+      logEvent("system", "auth.login.failed", { email: maskEmail(DEMO_EMAIL) });
+    }
+    redirect("/login?error=demo");
   }
+
+  const appUser = await resolveAppUser(data.user?.id, DEMO_EMAIL);
+  if (!appUser) {
+    logEvent("system", "auth.login.failed", { email: maskEmail(DEMO_EMAIL) });
+    redirect("/login?error=demo");
+  }
+
+  logEvent(appUser!.id, "auth.login.success", {});
+  redirect(redirectTo);
 }
 
 // ─── Sign up ──────────────────────────────────────────────────────────────────
@@ -112,29 +179,61 @@ export async function signupAction(
     return { fieldErrors, values };
   }
 
+  const email = parsed.data.email.toLowerCase();
+
+  // 1. App-table precheck — never create a Supabase identity for an email that
+  //    already has an app row (prevents orphaned Supabase identities).
+  const existing = await findUserByEmail(email);
+  if (existing) {
+    return { fieldErrors: { email: new EmailTakenError().message }, values };
+  }
+
+  // 2. Create the Supabase identity.
+  const supabase = await getServerClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password: parsed.data.password,
+  });
+  if (error || !data.user) {
+    if (error && /already/i.test(error.message)) {
+      return { fieldErrors: { email: new EmailTakenError().message }, values };
+    }
+    return { error: "Could not create your account. Please try again.", values };
+  }
+  const authUid = data.user.id;
+
+  // 3. Always confirm the email server-side (removes dashboard-toggle reliance).
+  const admin = getAdminClient();
+  if (admin) {
+    await admin.auth.admin.updateUserById(authUid, { email_confirm: true });
+  }
+
+  // 4. Create the app row, linked to the Supabase identity.
+  let appUser: User;
   try {
-    const user = await createUser(parsed.data);
-    logEvent(user.id, "auth.signup", { tier: user.tier });
+    appUser = await createUser({
+      name: parsed.data.name,
+      email: parsed.data.email,
+      password: parsed.data.password,
+      tier: parsed.data.tier,
+      authUid,
+    });
   } catch (err) {
+    // 5. Compensation: delete the orphaned Supabase identity (rare race).
+    if (admin) {
+      await admin.auth.admin.deleteUser(authUid).catch(() => {});
+    }
     if (err instanceof EmailTakenError) {
       return { fieldErrors: { email: err.message }, values };
     }
     return { error: "Could not create your account. Please try again.", values };
   }
 
-  try {
-    await signIn("credentials", {
-      email: parsed.data.email,
-      password: parsed.data.password,
-      redirectTo: parsed.data.tier === "premium" ? "/onboarding" : "/compare",
-    });
-  } catch (err) {
-    if (err instanceof AuthError) {
-      return { error: "Account created, but sign-in failed. Please log in.", values };
-    }
-    throw err;
-  }
-  return {};
+  // 6. Stamp app_metadata (tier/onboarded/appUserId) and audit.
+  await syncAuthMetadata(appUser.id);
+  logEvent(appUser.id, "auth.signup", { tier: appUser.tier });
+
+  redirect(parsed.data.tier === "premium" ? "/onboarding" : "/compare");
 }
 
 // ─── Sign out ─────────────────────────────────────────────────────────────────
