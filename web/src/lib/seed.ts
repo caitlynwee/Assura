@@ -54,9 +54,9 @@ export async function seedDatabase(
         persona: i.persona,
         website: i.website,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        country: (i as any).country ?? "SG",
+        country: (i as any).country ?? "Singapore",
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── users (ConsentFlags flattened to 8 booleans) ──
@@ -80,7 +80,7 @@ export async function seedDatabase(
         shareIncome: u.consent.shareIncome,
         createdAt: u.createdAt,
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── plans ──
@@ -108,9 +108,9 @@ export async function seedDatabase(
         version: p.version,
         scrapedAt: p.scrapedAt,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        country: (p as any).country ?? "SG",
+        country: (p as any).country ?? "Singapore",
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── sources ──
@@ -130,9 +130,9 @@ export async function seedDatabase(
         lastChanged: s.lastChanged,
         status: s.status,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        country: (s as any).country ?? "SG",
+        country: (s as any).country ?? "Singapore",
       }))
-    );
+    ).onConflictDoNothing();
   }
 
   // ── threads + thread_messages ──
@@ -149,7 +149,7 @@ export async function seedDatabase(
       addedToComparison: t.addedToComparison,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
-    });
+    }).onConflictDoNothing();
     for (let i = 0; i < t.messages.length; i++) {
       const m = t.messages[i];
       await db.insert(schema.threadMessages).values({
@@ -165,7 +165,7 @@ export async function seedDatabase(
         aiGenerated: m.aiGenerated,
         flagged: m.flagged,
         flagReason: m.flagReason ?? null,
-      });
+      }).onConflictDoNothing();
     }
   }
 }
@@ -195,7 +195,8 @@ async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set.");
 
-  const sql = postgres(url, { max: 1 });
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
+  const sql = postgres(url, { max: 1, ssl: isLocal ? false : "require" });
   const db = drizzle(sql, { schema });
 
   // If RESET=1, truncate first (idempotent re-seed for dev/demo reset).
