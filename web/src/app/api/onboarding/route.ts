@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = completeOnboarding(session.user.id, body);
+  const result = await completeOnboarding(session.user.id, body);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

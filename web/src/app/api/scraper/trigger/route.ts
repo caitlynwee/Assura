@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const parsed = scraperTriggerSchema.safeParse(body);
 
-  logEvent(userId, "scraper.triggered", {
+  await logEvent(userId, "scraper.triggered", {
     sourceId: parsed.success ? (parsed.data.sourceId ?? "all") : "all",
   });
 

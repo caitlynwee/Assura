@@ -53,7 +53,7 @@ Done:
 - Added GitHub Actions CI (.github/workflows/ci.yml): web (npm ci → lint → build → optional jest) + scraper (uv install → ruff → pytest), both with a Postgres 16 service container for the incoming migration. Web lint is non-blocking for now (2 pre-existing errors on main); build must pass.
 - Added .github/pull_request_template.md (mirrors the CLAUDE.md pre-commit checklist + security-impact prompt).
 - Added .github/CODEOWNERS mapping the 4 team lanes to paths (usernames are @placeholders except @caitlynwee — fill in real GitHub handles for @dominic/@marcus/@jeff).
-- Added .pre-commit-config.yaml: ruff (scraper) + eslint (web, non-blocking) + hygiene hooks (trailing ws, EOF, merge-conflict, large-file, detect-private-key). Install with `uv tool install pre-commit && pre-commit install`.
+- Added .pre-commit-config.yaml: ruff (scraper) + eslint (web, non-blocking) + hygiene hooks (trailing ws, EOF, merge-conflict, large-file, detect-private-key). Install with `uv tool install pre-commit && pre-commit install`
 - Switched dev.sh to uv (uv venv + uv pip install, replacing python venv + pip). Added `./dev.sh ci` to run all checks locally. Fixed stale ANTHROPIC_API_KEY → DEEPSEEK_API_KEY in setup messages.
 Files:
 - .github/workflows/ci.yml, .github/pull_request_template.md, .github/CODEOWNERS, .pre-commit-config.yaml, dev.sh, TASK.MD
@@ -62,6 +62,43 @@ Others need to know:
 - `uv` is now required for scraper dev setup (install: `brew install uv` or the astral install script). `./dev.sh setup` will error if uv is missing.
 - CODEOWNERS @dominic/@marcus/@jeff are placeholders — someone with repo admin should replace them with real GitHub usernames (and CODEOWNERS only auto-requests reviews once branch protection is enabled in GitHub settings).
 - Two follow-ups once the Postgres migration + web `test` script land: (1) remove the `|| true` on web lint in ci.yml and .pre-commit-config.yaml to make lint blocking after the 2 pre-existing errors are fixed; (2) the jest step auto-activates when the `test` script exists.
+Blockers: None
+---
+
+## 2026-10-20 | Marcus | PostgreSQL Storage Migration — FEAT-001 verified + FEAT-002 complete
+Status: Completed
+Done:
+- Verified Jeff's WIP FEAT-001 commit (427c1e7): npm build ✓, npm test 12/12 ✓, lint ✓ (2 pre-existing errors only)
+- Confirmed blocker.ts + policy.ts changes are correct async adaptations (void logEvent fire-and-forget), no behavioral change
+- FEAT-001 infra gaps completed: added postgres:16 + db-init one-shot to docker-compose.yml; removed init-data JSON-copy service; added DATABASE_URL to web + scraper env
+- Rewrote seed/reset.sh to reset DB (truncate + re-seed) instead of copying JSON files; added resetDatabase() + RESET=1 truncation path to seed.ts
+- Added DATABASE_URL to .env.example, web/.env.local.example, scraper/.env.example; updated dev.sh with db:migrate + db:seed shortcuts
+- FEAT-002 complete: created scraper/app/storage/database.py — SQLAlchemy 2.0 ORM models mapping to all Drizzle-created tables (no DDL, no Alembic)
+- Refactored engine.py to use SQLAlchemy; expunge_all() safety net preserves "failed scrape never loses data" invariant
+- Refactored simulator.py to use SQLAlchemy for Thread/Insurer/ThreadMessage; builds camelCase thread dict for persona.reply() compat
+- Refactored routers/scraper.py to query ScraperRun table for /scraper/status
+- Removed _save_versioned() + data_dir (HTML snapshots dropped — not part of demo flow)
+- Deleted dead code: json_store.py, jsonl_append.py, test_hash_chain.py
+- All 12 scraper tests pass; ruff lint clean
+- Merged 6 commits from origin/main: resolved 8 conflicts; wired Dominic's auth flow (brute-force, audit events) to async DB calls; rewrote users.ts to use Drizzle; made onboarding.ts async
+Files:
+- docker-compose.yml, seed/reset.sh, web/src/lib/seed.ts, dev.sh
+- .env.example, web/.env.local.example, scraper/.env.example
+- scraper/app/storage/database.py (new — SQLAlchemy models)
+- scraper/app/scraper/engine.py, scraper/app/personas/simulator.py, scraper/app/routers/scraper.py
+- scraper/app/config.py (removed data_dir), scraper/requirements.txt (added sqlalchemy + psycopg2-binary)
+- scraper/tests/conftest.py, scraper/tests/test_engine.py
+- web/src/lib/auth.ts, web/src/lib/users.ts, web/src/lib/onboarding.ts
+- web/src/app/api/onboarding/route.ts, web/src/app/_actions/auth.ts
+- web/jest.config.js, web/src/__tests__/setup.ts
+Others need to know:
+- EVERYONE must now run Postgres — `docker compose up` starts it automatically
+- Set DATABASE_URL=postgres://postgres:dev@localhost:5432/assura in .env (Docker) and web/.env.local (local dev)
+- Reset demo data: `bash seed/reset.sh` or `./dev.sh seed` (resets DB, not JSON files — data/ folder no longer needed)
+- Audit tamper SQL for demo: UPDATE audit_entries SET action='tampered' WHERE id=(SELECT MIN(id) FROM audit_entries);
+- jeff/outreach-crm branch (PR #1) needs rebase onto this migration — its api/crm/* and api/outreach/* routes still use old readJSON/writeJSON which no longer exist
+- Postgres verify (db:migrate + db:seed against real DB) pending — run when Docker is available on your machine
+- users.ts profile field (UserProfile) has no DB column — not persisted yet; add a jsonb column if needed
 Blockers: None
 ---
 
@@ -84,6 +121,7 @@ Others need to know:
 - Jeff/security: HEALTH_KEYWORDS blocks normal CI enquiries — "cancer" (riders template mentions early-stage cancer), "pre-existing", "treatment". Riders/exclusions AI drafts will likely be blocked. Suggest only blocking first-person disclosures ("I have/was diagnosed…").
 - AI_DISCLOSURE_PREFIX (constants.ts) and relay domain (mail.ts) still say Fineprint; demo email is still demo@fineprint.local.
 - Pre-existing lint error in hooks (react-hooks/set-state-in-effect, use-plans) — not touched.
+- Marcus updated auth.ts, users.ts, onboarding.ts to use async DB (Drizzle) calls — the abstractions are the same, just async now.
 Blockers: None. AI drafting needs Jeff's DeepSeek wiring; UI falls back to template drafts until then.
 ---
 ## 2026-10-20 | Outreach/CRM integration slice

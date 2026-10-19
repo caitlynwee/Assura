@@ -9,9 +9,8 @@
  */
 
 import { MAX_EMAILS_PER_USER_PER_DAY, FOLLOWUP_COOLDOWN_MS } from "./constants";
-import { readJSON } from "./db";
+import { getThreadsByUser, getThreadById } from "./db";
 import { logEvent } from "./audit";
-import type { Thread } from "./types";
 
 const SCRAPER_URL = process.env.SCRAPER_URL ?? "http://localhost:8100";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key";
@@ -74,12 +73,11 @@ export async function sendEmail(params: SendEmailParams): Promise<string> {
 }
 
 async function checkDailyLimit(userId: string): Promise<void> {
-  const threads = readJSON<Thread[]>("threads.json");
+  const threads = await getThreadsByUser(userId);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const todayCount = threads
-    .filter((t) => t.userId === userId)
     .flatMap((t) => t.messages)
     .filter(
       (m) =>
@@ -98,8 +96,7 @@ async function checkFollowUpCooldown(
   userId: string,
   threadId: string
 ): Promise<void> {
-  const threads = readJSON<Thread[]>("threads.json");
-  const thread = threads.find((t) => t.id === threadId && t.userId === userId);
+  const thread = await getThreadById(threadId, userId);
 
   if (!thread) return;
 

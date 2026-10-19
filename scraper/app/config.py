@@ -1,15 +1,10 @@
 """config.py — Application configuration via environment variables."""
 
-from pathlib import Path
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-    # Paths
-    data_dir: Path = Path(__file__).resolve().parents[2] / "data"
 
     # Servers
     scraper_port: int = 8100
@@ -19,6 +14,9 @@ class Settings(BaseSettings):
     # Mailpit SMTP sandbox
     mailpit_smtp_host: str = "localhost"
     mailpit_smtp_port: int = 1025
+
+    # Database
+    database_url: str = ""
 
     # LLM
     anthropic_api_key: str = ""

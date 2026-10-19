@@ -46,7 +46,9 @@ usage() {
     ./dev.sh infra-web       Start mailpit in Docker, run web locally
 
   UTILITIES
-    ./dev.sh seed            Reset ./data from ./seed
+    ./dev.sh seed            Reset database to seed state (needs DATABASE_URL)
+    ./dev.sh db:migrate      Apply Drizzle migrations
+    ./dev.sh db:seed         Load seed data (RESET=1 truncates first)
     ./dev.sh test            Run scraper test suite (pytest)
     ./dev.sh lint            Lint scraper/app with ruff
     ./dev.sh ci              Run all CI checks locally (web + scraper)
@@ -126,9 +128,19 @@ cmd_infra_web() {
 }
 
 cmd_seed() {
-  info "Seeding ./data from ./seed..."
+  info "Resetting database to seed state..."
   bash "$ROOT/seed/reset.sh"
   info "Done."
+}
+
+cmd_db_migrate() {
+  info "Applying Drizzle migrations..."
+  cd "$ROOT/web" && npx tsx src/lib/migrate.ts
+}
+
+cmd_db_seed() {
+  info "Loading seed data..."
+  cd "$ROOT/web" && npx tsx src/lib/seed.ts
 }
 
 cmd_test() {
@@ -199,10 +211,6 @@ cmd_setup() {
   info "Installing web dependencies..."
   cd "$ROOT/web" && npm install --silent
 
-  # ── Seed data ────────────────────────────────────────────────
-  info "Seeding ./data..."
-  bash "$ROOT/seed/reset.sh"
-
   echo ""
   echo -e "${GREEN}Setup complete.${NC}"
   echo ""
@@ -226,6 +234,8 @@ case "${1:-}" in
   infra)       cmd_infra ;;
   infra-web)   cmd_infra_web ;;
   seed)        cmd_seed ;;
+  db:migrate)  cmd_db_migrate ;;
+  db:seed)     cmd_db_seed ;;
   test)        cmd_test ;;
   lint)        cmd_lint ;;
   ci)          cmd_ci ;;

@@ -9,9 +9,9 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = verifyChain();
+  const result = await verifyChain();
 
-  logEvent(session.user.id!, "audit.verify", {
+  await logEvent(session.user.id!, "audit.verify", {
     valid: result.valid,
     entries: result.entries,
     brokenAt: result.brokenAt ?? null,

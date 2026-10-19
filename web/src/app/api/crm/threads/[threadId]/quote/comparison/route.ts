@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { assertAllowed } from "@/lib/policy";
-import { readJSON, writeJSON } from "@/lib/db";
+import { getThreadById, updateThread, getDb } from "@/lib/db";
+import * as schema from "@/lib/schema";
 import { logEvent } from "@/lib/audit";
 import { generateId } from "@/lib/utils";
-import type { Plan, Thread } from "@/lib/types";
 
 export async function POST(
   _req: NextRequest,
@@ -25,52 +25,51 @@ export async function POST(
     return NextResponse.json({ error: (error as Error).message }, { status: 403 });
   }
 
-  const threads = readJSON<Thread[]>("threads.json");
-  const threadIndex = threads.findIndex(
-    (thread) => thread.id === threadId && thread.userId === userId
-  );
-  if (threadIndex === -1) {
+  const thread = await getThreadById(threadId, userId);
+  if (!thread) {
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
   }
 
-  const thread = threads[threadIndex];
   if (!thread.extractedQuote) {
-    return NextResponse.json({ error: "Extract a quote before adding it to comparison" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Extract a quote before adding it to comparison" },
+      { status: 400 }
+    );
   }
   if (thread.addedToComparison) {
     return NextResponse.json({ error: "Quote is already in comparison" }, { status: 409 });
   }
 
   const quote = thread.extractedQuote;
-  const plans = readJSON<Plan[]>("plans.json");
-  plans.push({
-    id: generateId("quote"),
-    insurerId: thread.insurerId,
-    insurerName: thread.insurerName,
-    planName: `${thread.insurerName} — Personalised quote`,
-    category: "critical_illness",
-    coverageAmount: quote.coverageAmount ?? 0,
-    premiums: quote.annualPremium ? { quoted_annual: quote.annualPremium } : {},
-    premiumFrequency: "annual",
-    coverageTerms: [],
-    illnessesCovered: 0,
-    earlyStageConditions: false,
-    payoutType: "lump_sum",
-    keyBenefits: quote.riderOptions ?? [],
-    exclusions: quote.exclusionsNoted ?? [],
-    sourceUrl: `crm://thread/${thread.id}`,
-    dataAsOf: new Date().toISOString().slice(0, 10),
-    updatedBadge: true,
-    changeNotes: ["Added from an insurer outreach quote."],
-    version: 1,
-    scrapedAt: new Date().toISOString(),
-  });
+  const now = new Date().toISOString();
 
-  thread.addedToComparison = true;
-  thread.updatedAt = new Date().toISOString();
-  writeJSON("plans.json", plans);
-  writeJSON("threads.json", threads);
+  await getDb()
+    .insert(schema.plans)
+    .values({
+      id: generateId("quote"),
+      insurerId: thread.insurerId,
+      insurerName: thread.insurerName,
+      planName: `${thread.insurerName} — Personalised quote`,
+      category: "critical_illness",
+      coverageAmount: quote.coverageAmount ?? 0,
+      premiums: quote.annualPremium ? { quoted_annual: quote.annualPremium } : {},
+      premiumFrequency: "annual",
+      coverageTerms: [],
+      illnessesCovered: 0,
+      earlyStageConditions: false,
+      payoutType: "lump_sum",
+      keyBenefits: quote.riderOptions ?? [],
+      exclusions: quote.exclusionsNoted ?? [],
+      sourceUrl: `crm://thread/${thread.id}`,
+      dataAsOf: now.slice(0, 10),
+      updatedBadge: true,
+      changeNotes: ["Added from an insurer outreach quote."],
+      version: 1,
+      scrapedAt: now,
+    });
+
+  await updateThread(threadId, { addedToComparison: true, updatedAt: now });
   logEvent(userId, "quote.added_to_comparison", { threadId });
 
-  return NextResponse.json({ thread });
+  return NextResponse.json({ thread: { ...thread, addedToComparison: true } });
 }

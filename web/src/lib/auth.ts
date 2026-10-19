@@ -2,7 +2,7 @@
  * auth.ts — Full NextAuth.js v5 configuration (Node.js runtime only).
  *
  * Extends auth.config.ts with:
- *  - Credentials provider (bcrypt against users.json)
+ *  - Credentials provider (bcrypt against PostgreSQL users table)
  *  - Brute-force throttle: 5 failed attempts per email per 15 min
  *  - Audit-chain events for login success / failure / lockout
  *  - A jwt callback that re-reads the user on every server-side request, so
@@ -10,7 +10,7 @@
  *    Call `refreshSessionCookie()` after changing tier/onboarding so the edge
  *    middleware (which can't read the DB) also sees the new values.
  *
- * This file uses Node.js APIs (bcrypt, fs via db.ts) — never import in middleware.
+ * This file uses Node.js APIs (bcrypt, postgres driver via db.ts) — never import in middleware.
  */
 
 import NextAuth, { CredentialsSignin } from "next-auth";
@@ -18,7 +18,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 import { loginSchema } from "./validators";
-import { findUserByEmail, findUserById } from "./users";
+import { getUserByEmail, getUserById } from "./db";
 import { logEvent } from "./audit";
 import { maskEmail } from "./utils";
 
@@ -52,7 +52,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
       if (!token.userId) return null;
 
       // Always reflect the latest stored state (tier upgrades, onboarding).
-      const fresh = findUserById(token.userId);
+      const fresh = await getUserById(token.userId as string);
       if (!fresh) return null; // user removed (e.g. seed reset) → sign out
 
       token.name = fresh.name;
@@ -81,7 +81,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           throw new RateLimitedSignin();
         }
 
-        const user = findUserByEmail(email);
+        const user = await getUserByEmail(email);
         const valid = await bcrypt.compare(
           password,
           user?.passwordHash ?? DUMMY_HASH
