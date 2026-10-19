@@ -196,3 +196,21 @@ Files:
 Others need to know: Touches ONLY CRM-owned paths; does not affect Marcus's scraper or Dominic's website/auth/outreach work. Delivered as a draft PR off jeff/crm-polish (not merged).
 Blockers: Live simulate-reply/extract smoke test still needed (requires DEEPSEEK_API_KEY + running scraper + Mailpit) to fully confirm the slow-persona polling UX.
 ---
+## 2026-10-19 | Jeff | Profile-driven comparison personalization
+Status: Completed
+Done:
+- Premium bucket resolver (pure, LLM-free) with graceful fallback chain: exact gender+snapped-age-band+smoker → same gender+band+nonsmoker → seed default (M/30) → first available bucket → not available.
+- Profile-aware premium column: header switches to "Premium (your profile)" when a usable profile exists, else "Premium (M/30)"; a "*" tooltip marks non-exact (closest-available) matches.
+- Soft budget/coverage highlight (NON-hiding): "within budget" / "meets coverage need" badges and an opacity de-emphasis for the "within my budget" toggle — plans are never removed.
+- No-profile CTA: an alert links to /onboarding to add details for tailored premiums.
+- Unit tests for the resolver + budget/coverage helpers (premium.test.ts).
+Files:
+- web/src/lib/premium.ts (new)
+- web/src/__tests__/premium.test.ts (new)
+- web/src/app/(app)/compare/page.tsx
+- web/src/components/compare/plan-table.tsx
+- web/src/components/compare/plan-filters.tsx
+- web/src/hooks/use-plans.ts
+Others need to know: Reads the app user profile and is independent of the auth provider — works under both NextAuth and the pending Supabase Auth. Stays out of auth/scraper/outreach/crm lanes and does not change the /api/plans response shape. Draft PR open, not merged.
+Blockers: None (live visual check against a logged-in demo user with a profile is the final confirmation)
+---
