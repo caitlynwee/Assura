@@ -47,9 +47,9 @@ async def download_page(
 
     await _rate_limit(domain)
 
-    if source_type == "mock":
-        # Reuse existing httpx response if available; otherwise fetch fresh
-        if existing_response is not None and existing_response.status_code == 200:
+    if source_type in ("mock", "pdf"):
+        # PDFs and mock sources: plain httpx download (no JS rendering needed)
+        if source_type == "mock" and existing_response is not None and existing_response.status_code == 200:
             _last_fetch[domain] = asyncio.get_event_loop().time()
             return existing_response.content
         client = get_client()

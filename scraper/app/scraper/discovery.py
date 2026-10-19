@@ -16,7 +16,7 @@ DISCOVERY_PROMPT = """\
 You are an insurance research assistant.
 
 List the top 5 critical illness insurance companies in {country} that sell \
-standalone individual critical illness plans directly to retail customers online.
+standalone individual critical illness plans directly to retail customers.
 
 Return a JSON array ONLY — no prose, no markdown, no code blocks:
 [
@@ -25,14 +25,16 @@ Return a JSON array ONLY — no prose, no markdown, no code blocks:
     "insurerId": "lowercase-hyphenated-slug",
     "planName": "Specific standalone CI plan name (not a rider)",
     "planId": "lowercase-hyphenated-slug",
-    "productUrl": "https://exact-product-detail-page-url",
+    "brochureUrl": "https://direct-link-to-product-brochure-PDF.pdf",
     "website": "https://company-homepage-url"
   }}
 ]
 
 Rules:
 1. Return ONLY valid JSON. Your response must start with [ and end with ].
-2. productUrl must link to the specific product detail page, not the homepage.
+2. brochureUrl must be a DIRECT link to the PDF product brochure hosted on the insurer's \
+website. PDF brochures contain the full premium tables and coverage details we need. \
+If you know the exact PDF URL, use it. If not, provide the product detail page URL as fallback.
 3. Only include standalone critical illness plans — no riders, no bundled life plans.
 4. Exactly 5 entries, ordered by market prominence."""
 
@@ -87,7 +89,7 @@ async def discover_top_insurers(country: str) -> list[dict]:
                 "plan_id": plan_id,
                 "plan_name": co.get("planName", "Critical Illness Plan"),
                 "source_id": f"src_{insurer_id}_ci",
-                "product_url": co.get("productUrl", ""),
+                "product_url": co.get("brochureUrl", co.get("productUrl", "")),
                 "website": co.get("website", ""),
                 "country": country,
             }

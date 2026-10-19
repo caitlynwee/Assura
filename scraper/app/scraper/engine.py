@@ -53,13 +53,15 @@ def _upsert_discovered(session, discovered: list[dict]) -> None:
         # Source — insert if new, skip if exists (preserve existing metadata)
         existing_source = session.query(Source).filter_by(id=co["source_id"]).first()
         if not existing_source:
+            url = co["product_url"]
+            source_type = "pdf" if url.lower().endswith(".pdf") else "product_page"
             session.add(
                 Source(
                     id=co["source_id"],
                     insurer_id=co["insurer_id"],
                     label=f"{co['insurer_name']} {co['plan_name']}",
-                    url=co["product_url"],
-                    type="product_page",
+                    url=url,
+                    type=source_type,
                     plan_ids=[co["plan_id"]],
                     etag=None,
                     last_modified=None,
@@ -124,7 +126,7 @@ async def run_scraper(
                     source_type=source_dict.get("type", "product_page"),
                 )
 
-                text = extract_text(content)
+                text = extract_text(content, source_type=source_dict.get("type", "product_page"))
                 plan_data = await convert_to_plan(text, source_dict)
 
                 # Fill insurerName from DB (converter always leaves it blank)
