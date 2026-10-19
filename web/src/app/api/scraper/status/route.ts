@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { readJSONL } from "@/lib/db";
-import type { ScraperRun } from "@/lib/types";
+import { getScraperRuns } from "@/lib/db";
 
 const SCRAPER_URL = process.env.SCRAPER_URL ?? "http://localhost:8100";
 
@@ -19,8 +18,8 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data);
   } catch {
-    // Fallback: read from local scraper_runs.jsonl
-    const runs = readJSONL<ScraperRun>("scraper_runs.jsonl");
+    // Fallback: read the latest run from the database.
+    const runs = await getScraperRuns();
     const lastRun = runs.at(-1) ?? null;
     return NextResponse.json({ lastRun, scraperAvailable: false });
   }

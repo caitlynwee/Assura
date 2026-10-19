@@ -4,9 +4,15 @@ import { sendRequestSchema } from "@/lib/validators";
 import { assertAllowed } from "@/lib/policy";
 import { blockIfNeeded } from "@/lib/blocker";
 import { sendEmail, generateMaskedAddress } from "@/lib/mail";
-import { readJSON, writeJSON } from "@/lib/db";
+import {
+  getInsurerById,
+  getUserById,
+  getThreadById,
+  insertThread,
+  appendThreadMessage,
+} from "@/lib/db";
 import { generateId } from "@/lib/utils";
-import type { Insurer, Thread, ThreadMessage, User } from "@/lib/types";
+import type { Thread, ThreadMessage } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -42,14 +48,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const insurers = readJSON<Insurer[]>("insurers.json");
-  const insurer = insurers.find((i) => i.id === insurerId);
+  const insurer = await getInsurerById(insurerId);
   if (!insurer) {
     return NextResponse.json({ error: "Insurer not found" }, { status: 404 });
   }
 
-  const users = readJSON<User[]>("users.json");
-  const user = users.find((u) => u.id === userId);
+  const user = await getUserById(userId);
   const fromAddress = user?.maskedInbox ?? generateMaskedAddress(userId);
 
   const messageId = await sendEmail({
@@ -62,9 +66,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Update or create thread
-  const threads = readJSON<Thread[]>("threads.json");
-  let thread: Thread | undefined;
-
+  const now = new Date().toISOString();
   const newMessage: ThreadMessage = {
     id: generateId("msg"),
     direction: "outbound",
@@ -72,20 +74,23 @@ export async function POST(req: NextRequest) {
     to: insurer.agentEmail,
     subject,
     body: emailBody,
-    timestamp: new Date().toISOString(),
+    timestamp: now,
     aiGenerated: true,
     flagged: false,
   };
 
+  let resolvedThreadId: string | null = null;
+
   if (threadId) {
-    thread = threads.find((t) => t.id === threadId && t.userId === userId);
-    if (thread) {
-      thread.messages.push(newMessage);
-      thread.status = "sent";
-      thread.updatedAt = new Date().toISOString();
+    const existing = await getThreadById(threadId, userId);
+    if (existing) {
+      await appendThreadMessage(threadId, newMessage, "sent", now);
+      resolvedThreadId = threadId;
     }
-  } else {
-    thread = {
+  }
+
+  if (!resolvedThreadId) {
+    const thread: Thread = {
       id: generateId("thread"),
       userId,
       insurerId,
@@ -96,13 +101,12 @@ export async function POST(req: NextRequest) {
       extractedQuote: null,
       riskFlags: [],
       addedToComparison: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
-    threads.push(thread);
+    await insertThread(thread);
+    resolvedThreadId = thread.id;
   }
 
-  writeJSON("threads.json", threads);
-
-  return NextResponse.json({ threadId: thread!.id, messageId });
+  return NextResponse.json({ threadId: resolvedThreadId, messageId });
 }

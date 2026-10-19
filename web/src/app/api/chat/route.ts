@@ -3,8 +3,8 @@ import { auth } from "@/lib/auth";
 import { chatRequestSchema } from "@/lib/validators";
 import { evaluateAction } from "@/lib/policy";
 import { chatWithPlans } from "@/lib/ai";
-import { readJSON } from "@/lib/db";
-import type { Plan, ChatMessage } from "@/lib/types";
+import { getPlans } from "@/lib/db";
+import type { ChatMessage } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { message, history } = parsed.data;
-  const plans = readJSON<Plan[]>("plans.json");
+  const plans = await getPlans();
 
   const messages: ChatMessage[] = [
     ...(history as ChatMessage[]),
