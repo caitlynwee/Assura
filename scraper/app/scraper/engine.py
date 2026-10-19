@@ -194,7 +194,8 @@ async def run_scraper(
                 changed += 1
 
             except Exception as exc:  # noqa: BLE001
-                errors.append({"sourceId": source_dict["id"], "message": str(exc)})
+                msg = str(exc) or type(exc).__name__
+                errors.append({"sourceId": source_dict["id"], "message": f"{type(exc).__name__}: {msg}"})
 
         if changed == 0:
             session.expunge_all()
