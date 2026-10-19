@@ -1,0 +1,142 @@
+/**
+ * ai.ts — Claude API helpers for trusted interactions.
+ *
+ * This module handles AI calls where the input is trusted (user messages,
+ * plan data from our own database). For untrusted external text, use
+ * quarantine.ts instead.
+ *
+ * All functions include system prompts that enforce:
+ * - Factual comparison only — never "buy this plan"
+ * - No financial advice — describe, don't recommend
+ * - Cite sources in responses
+ */
+
+import Anthropic from "@anthropic-ai/sdk";
+import type { Plan, ChatMessage, ConsentFlags } from "./types";
+import { AI_DISCLOSURE_PREFIX } from "./constants";
+
+const client = new Anthropic();
+
+const FACTUAL_GUARDRAIL = `IMPORTANT: You provide factual information and comparisons only. You NEVER recommend that a user buy, choose, or purchase any specific plan. You NEVER provide financial advice. When describing plans, use neutral, factual language. Always cite the source plan name when referencing specific data.`;
+
+// ─── Plan Q&A Chat ────────────────────────────────────────────────────────────
+
+export async function* chatWithPlans(
+  messages: ChatMessage[],
+  plans: Plan[]
+): AsyncGenerator<string> {
+  const planContext = plans
+    .map(
+      (p) =>
+        `Plan: ${p.planName} (${p.insurerName})\n` +
+        `Coverage: SGD ${p.coverageAmount.toLocaleString()}\n` +
+        `Illnesses covered: ${p.illnessesCovered}\n` +
+        `Early stage: ${p.earlyStageConditions ? "Yes" : "No"}\n` +
+        `Key benefits: ${p.keyBenefits.join("; ")}\n` +
+        `Exclusions: ${p.exclusions.join("; ")}\n` +
+        `Source: ${p.sourceUrl} (data as of ${p.dataAsOf})`
+    )
+    .join("\n\n---\n\n");
+
+  const stream = client.messages.stream({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1024,
+    system: `You are Fineprint's plan information assistant. You answer questions about critical illness insurance plans using only the plan data provided below. ${FACTUAL_GUARDRAIL}\n\nWhen citing plan data, always mention the plan name and insurer. Format citations as [Plan Name — Insurer].\n\n---PLAN DATA---\n${planContext}`,
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+  });
+
+  for await (const chunk of stream) {
+    if (
+      chunk.type === "content_block_delta" &&
+      chunk.delta.type === "text_delta"
+    ) {
+      yield chunk.delta.text;
+    }
+  }
+}
+
+// ─── Outreach Email Drafting ──────────────────────────────────────────────────
+
+export async function draftOutreachEmail(params: {
+  insurerName: string;
+  templatePromptHint: string;
+  consent: ConsentFlags;
+  userContext: {
+    age?: number;
+    gender?: string;
+    smoker?: boolean;
+    coverageNeeded?: number;
+    monthlyBudget?: number;
+  };
+}): Promise<string> {
+  const { insurerName, templatePromptHint, consent, userContext } = params;
+
+  // Only include what the user consented to share
+  const sharedDetails: string[] = [];
+  if (consent.shareAge && userContext.age) sharedDetails.push(`Age: ${userContext.age}`);
+  if (consent.shareGender && userContext.gender) sharedDetails.push(`Gender: ${userContext.gender}`);
+  if (consent.shareSmokerStatus && userContext.smoker !== undefined)
+    sharedDetails.push(`Smoker: ${userContext.smoker ? "Yes" : "No"}`);
+  if (consent.shareCoverageNeeds && userContext.coverageNeeded)
+    sharedDetails.push(`Coverage needed: SGD ${userContext.coverageNeeded.toLocaleString()}`);
+  if (consent.shareBudgetRange && userContext.monthlyBudget)
+    sharedDetails.push(`Monthly budget: SGD ${userContext.monthlyBudget}`);
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 600,
+    system: `You are drafting an outreach email to an insurance company on behalf of a customer who is using Fineprint, an AI insurance comparison service. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. The email MUST start with this exact disclosure: "${AI_DISCLOSURE_PREFIX}"\n2. Be professional and concise.\n3. Only include the user details provided — do not invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases or appointments.\n5. End with a neutral sign-off.`,
+    messages: [
+      {
+        role: "user",
+        content: `Draft an email to ${insurerName}.\n\nPurpose: ${templatePromptHint}\n\nUser details to include:\n${sharedDetails.length > 0 ? sharedDetails.join("\n") : "No personal details to share at this time."}`,
+      },
+    ],
+  });
+
+  return response.content[0]?.type === "text" ? response.content[0].text : "";
+}
+
+// ─── Quote Extraction (from thread — uses quarantine.ts) ──────────────────────
+// See quarantine.ts for the actual implementation. This is a convenience wrapper.
+
+export async function extractQuoteFromThread(
+  threadMessages: Array<{ direction: string; body: string }>
+): Promise<{
+  annualPremium?: number;
+  coverageAmount?: number;
+  waitingPeriod?: string;
+  exclusionsNoted?: string[];
+  riderOptions?: string[];
+  validUntil?: string;
+  rawNotes?: string;
+}> {
+  const { parseUntrustedText } = await import("./quarantine");
+  const { z } = await import("zod");
+
+  const schema = z.object({
+    annualPremium: z.number().optional(),
+    coverageAmount: z.number().optional(),
+    waitingPeriod: z.string().optional(),
+    exclusionsNoted: z.array(z.string()).optional(),
+    riderOptions: z.array(z.string()).optional(),
+    validUntil: z.string().optional(),
+    rawNotes: z.string().optional(),
+  });
+
+  // Only pass inbound (insurer) messages to the quarantine reader
+  const inboundText = threadMessages
+    .filter((m) => m.direction === "inbound")
+    .map((m) => m.body)
+    .join("\n\n---\n\n");
+
+  if (!inboundText.trim()) {
+    return {};
+  }
+
+  return parseUntrustedText(
+    inboundText,
+    schema,
+    "Extract any insurance quote details from this email thread reply. Look for: annual premium amount (SGD), coverage amount (SGD), waiting period, exclusions mentioned, available riders, and quote validity date."
+  );
+}
