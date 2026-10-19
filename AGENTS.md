@@ -2,7 +2,7 @@
 
 > Tool-agnostic guide for any AI coding assistant working in this repo (Claude, Kiro, Copilot,
 > Cursor, etc.). `AGENTS.md` is the cross-tool standard filename; most assistants read it
-> automatically. Read this plus `TASK.MD` (current state) and `PROJECT.MD` (product spec) at the
+> automatically. Read this plus `TASK.MD` (current state) and `docs/PROJECT.MD` (product spec) at the
 > start of every session.
 
 ## Goal: Win the 2026 Shenzhen FinTechathon
@@ -66,7 +66,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ### Caitlyn — Documentation & Deck
 - Technical documentation: system architecture diagram, core algorithm walkthrough, security design write-up
-- Self-assessment report: known-risk list (see PROJECT.MD security section)
+- Self-assessment report: known-risk list (see docs/PROJECT.MD security section)
 - Presentation deck (≤10 minutes): problem → solution → demo → security → innovation
 - Judges will ask about security — ensure the policy engine tiers and audit chain are documented clearly
 
@@ -79,9 +79,12 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ├── scraper/      Python FastAPI — scraper, email relay, personas
 ├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
 ├── seed/         Seed data + reset.sh (source of truth for demo state)
+├── docs/         Product spec, handoffs, hackathon reference docs
+│   ├── PROJECT.MD    ← product spec
+│   └── HANDOFF.md    ← CRM/outreach handoff
 ├── AGENTS.md     ← you are here (AI agent instructions, any tool)
 ├── TASK.MD       ← cross-session task log (UPDATE THIS when you finish something)
-└── PROJECT.MD    ← product spec
+└── README.md     ← setup & onboarding
 ```
 
 ---

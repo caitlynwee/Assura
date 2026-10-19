@@ -1,10 +1,10 @@
 # CODEOWNERS — auto-requests review from the lane owner on matching paths.
-# Team lanes mirror AGENTS.md. Replace the @placeholders with real GitHub usernames.
+# Usernames verified from git/PR history; path→owner mapping follows AGENTS.md lanes.
 #
-#   Dominic  — Website & Auth
-#   Marcus   — Scraper & data pipeline
-#   Jeff     — AI agent, Outreach & CRM
-#   Caitlyn  — Documentation & deck
+#   Dominic  @dominictyz       — Website & Auth
+#   Marcus   @MarcusSohWeiYu   — Scraper & data pipeline
+#   Jeff     @lgf2111          — AI agent, Outreach & CRM
+#   Caitlyn  @caitlynwee       — Documentation & deck
 #
 # Later patterns win, so specific lane paths override the catch-all.
 
@@ -12,32 +12,35 @@
 *                                   @caitlynwee
 
 # ── Dominic — web frontend, auth, middleware ─────────────────────────────────
-/web/src/app/                       @dominic
-/web/src/components/                @dominic
-/web/src/middleware.ts              @dominic
-/web/src/lib/auth.ts                @dominic
-/web/src/lib/auth.config.ts         @dominic
-
-# ── Jeff — AI agent, outreach & CRM (overrides Dominic for these subpaths) ────
-/web/src/app/(app)/outreach/        @jeff
-/web/src/app/(app)/crm/             @jeff
-/web/src/app/api/outreach/          @jeff
-/web/src/app/api/crm/               @jeff
-/web/src/lib/ai.ts                  @jeff
-/web/src/lib/quarantine.ts          @jeff
-/scraper/app/personas/              @jeff
-/scraper/app/email_relay/           @jeff
+/web/src/app/                       @dominictyz
+/web/src/components/                @dominictyz
+/web/src/middleware.ts              @dominictyz
+/web/src/lib/auth.ts                @dominictyz
+/web/src/lib/auth.config.ts         @dominictyz
 
 # ── Marcus — scraper & data pipeline ─────────────────────────────────────────
-/scraper/                           @marcus
-/seed/                              @marcus
-/web/src/app/api/scraper/           @marcus
-/web/src/lib/db.ts                  @marcus
-/web/src/lib/schema.ts              @marcus
+# (broad /scraper/ first; Jeff's scraper subpaths below override it — last match wins)
+/scraper/                           @MarcusSohWeiYu
+/seed/                              @MarcusSohWeiYu
+/web/src/app/api/scraper/           @MarcusSohWeiYu
+/web/src/lib/db.ts                  @MarcusSohWeiYu
+/web/src/lib/schema.ts              @MarcusSohWeiYu
+
+# ── Jeff — AI agent, outreach & CRM (last match wins → overrides Dominic/Marcus) ──
+/web/src/app/(app)/outreach/        @lgf2111
+/web/src/app/(app)/crm/             @lgf2111
+/web/src/app/api/outreach/          @lgf2111
+/web/src/app/api/crm/               @lgf2111
+/web/src/app/api/internal/crm/      @lgf2111
+/web/src/lib/ai.ts                  @lgf2111
+/web/src/lib/quarantine.ts          @lgf2111
+/web/src/lib/audit.ts               @lgf2111
+/scraper/app/personas/              @lgf2111
+/scraper/app/email_relay/           @lgf2111
 
 # ── Caitlyn — docs & deck ────────────────────────────────────────────────────
 /README.md                          @caitlynwee
-/PROJECT.MD                         @caitlynwee
+/docs/PROJECT.MD                    @caitlynwee
 /AGENTS.md                          @caitlynwee
 *.md                                @caitlynwee
 
