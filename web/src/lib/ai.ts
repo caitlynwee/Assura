@@ -1,5 +1,5 @@
 /**
- * ai.ts — Claude API helpers for trusted interactions.
+ * ai.ts — DeepSeek (OpenAI-compatible) API helpers for trusted interactions.
  *
  * This module handles AI calls where the input is trusted (user messages,
  * plan data from our own database). For untrusted external text, use

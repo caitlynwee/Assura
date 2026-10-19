@@ -39,7 +39,7 @@ src/
 └── middleware.ts       Edge auth guard
 ```
 
-## Conventions (see root `CLAUDE.md` for the full list)
+## Conventions (see root `AGENTS.md` for the full list)
 
 - All `(app)` pages export `export const dynamic = "force-dynamic";`
 - Next.js 16 dynamic route params are `Promise<{...}>` — always `await params`.
@@ -53,5 +53,5 @@ src/
 ## See also
 
 - Root [`README.md`](../README.md) — setup, Docker, URLs, env, tests, CI
-- [`../CLAUDE.md`](../CLAUDE.md) — architecture decisions, team lanes, security requirements
-- [`AGENTS.md`](./AGENTS.md) — Next.js version notes for AI agents
+- [`../AGENTS.md`](../AGENTS.md) — architecture decisions, team lanes, security requirements
+- [`AGENTS.md`](./AGENTS.md) — Next.js version notes for AI agents (web-scoped)
