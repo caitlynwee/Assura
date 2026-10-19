@@ -1,12 +1,15 @@
 """simulator.py — Dispatches to insurer persona and sends the reply via Mailpit."""
 
+import httpx
+
+from app.config import settings
 from app.email_relay.relay import send_email
 from app.personas.data_grabber import DataGrabberPersona
 from app.personas.helpful import HelpfulPersona
 from app.personas.injector import InjectorPersona
 from app.personas.pushy import PushyPersona
 from app.personas.slow import SlowPersona
-from app.storage.database import Thread, ThreadMessage, get_session
+from app.storage.database import Insurer, Thread, ThreadMessage, get_session
 from app.utils.time import now_utc_iso
 
 PERSONA_MAP = {
@@ -26,8 +29,6 @@ async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
         if not thread:
             raise ValueError(f"Thread {thread_id} not found")
 
-        # Load insurer — use the stored insurerName from thread, look up persona
-        from app.storage.database import Insurer
         insurer = session.query(Insurer).filter_by(id=insurer_id).first()
         if not insurer:
             raise ValueError(f"Insurer {insurer_id} not found")
@@ -74,7 +75,11 @@ async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
 
         # Send the reply email via Mailpit
         from_address = insurer.agent_email
-        user_masked_inbox = thread_dict["messages"][0]["from"] if thread_dict["messages"] else "user@relay.fineprint.local"
+        user_masked_inbox = (
+            thread_dict["messages"][0]["from"]
+            if thread_dict["messages"]
+            else "user@relay.fineprint.local"
+        )
 
         await send_email(
             from_address=from_address,
@@ -83,40 +88,32 @@ async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
             body=reply["body"],
         )
 
-        # Append the inbound message to thread_messages
-        msg_id = f"msg_{now_utc_iso()[:19].replace(':', '-')}"
-        ordering = len(messages)  # next index after existing messages
-        new_msg = ThreadMessage(
-            id=msg_id,
-            thread_id=thread_id,
-            ordering=ordering,
-            direction="inbound",
-            from_=from_address,
-            to=user_masked_inbox,
-            subject=reply["subject"],
-            body=reply["body"],
-            timestamp=now_utc_iso(),
-            ai_generated=False,
-            flagged=reply.get("flagged", False),
-            flag_reason=reply.get("flagReason"),
-        )
-        session.add(new_msg)
+        # Post inbound message back to web backend (web is the sole CRM writer).
+        new_message = {
+            "id": f"msg_{now_utc_iso()[:19].replace(':', '-')}",
+            "direction": "inbound",
+            "from": from_address,
+            "to": user_masked_inbox,
+            "subject": reply["subject"],
+            "body": reply["body"],
+            "timestamp": now_utc_iso(),
+            "aiGenerated": False,
+            "flagged": reply.get("flagged", False),
+            "flagReason": reply.get("flagReason"),
+        }
 
-        # Update thread status and risk flags
-        thread.status = "replied"
-        if reply.get("flagged"):
-            thread.status = "flagged"
-            risk_flags = list(thread.risk_flags or [])
-            if reply.get("flagReason") not in risk_flags:
-                risk_flags.append(reply["flagReason"])
-            thread.risk_flags = risk_flags
-        thread.updated_at = now_utc_iso()
+        async with httpx.AsyncClient(timeout=10) as client:
+            callback = await client.post(
+                f"{settings.web_base_url}/api/internal/crm/replies",
+                headers={"x-internal-api-key": settings.internal_api_secret},
+                json={
+                    "threadId": thread_id,
+                    "message": new_message,
+                    "riskFlag": reply.get("flagReason") if reply.get("flagged") else None,
+                },
+            )
+            callback.raise_for_status()
 
-        session.commit()
-
-    except Exception:
-        session.rollback()
-        raise
     finally:
         session.close()
 

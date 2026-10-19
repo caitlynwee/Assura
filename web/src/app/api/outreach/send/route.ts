@@ -24,23 +24,27 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userTier = (session.user as any).tier;
 
-  try {
-    assertAllowed("send_email", { userId, userTier, userApproved: true });
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 403 });
-  }
-
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
   const parsed = sendRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
+  try {
+    assertAllowed("send_email", {
+      userId,
+      userTier,
+      userApproved: parsed.data.userApproved,
+    });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 403 });
+  }
+
   const { insurerId, subject, body: emailBody, threadId } = parsed.data;
 
-  // PII blocker — blocks if NRIC, phone, health keywords detected
+  // Scan both editable fields before anything reaches the outreach server.
   try {
-    blockIfNeeded(emailBody, userId);
+    blockIfNeeded(`${subject}\n${emailBody}`, userId);
   } catch (err) {
     return NextResponse.json(
       { error: (err as Error).message, code: "PII_BLOCKED" },
@@ -56,16 +60,35 @@ export async function POST(req: NextRequest) {
   const user = await getUserById(userId);
   const fromAddress = user?.maskedInbox ?? generateMaskedAddress(userId);
 
-  const messageId = await sendEmail({
-    from: fromAddress,
-    to: insurer.agentEmail,
-    subject,
-    body: emailBody,
-    userId,
-    threadId,
-  });
+  // Validate existing thread if provided.
+  if (threadId) {
+    const existingThread = await getThreadById(threadId, userId);
+    if (!existingThread) {
+      return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+    }
+    if (existingThread.insurerId !== insurerId) {
+      return NextResponse.json({ error: "Insurer does not match thread" }, { status: 400 });
+    }
+  }
 
-  // Update or create thread
+  let messageId: string;
+  try {
+    messageId = await sendEmail({
+      from: fromAddress,
+      to: insurer.agentEmail,
+      subject,
+      body: emailBody,
+      userId,
+      threadId,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Could not send through the outreach server: ${(err as Error).message}` },
+      { status: 502 }
+    );
+  }
+
+  // Update or create thread in the DB.
   const now = new Date().toISOString();
   const newMessage: ThreadMessage = {
     id: generateId("msg"),
