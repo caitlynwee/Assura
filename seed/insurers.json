@@ -1,0 +1,42 @@
+[
+  {
+    "id": "aia",
+    "name": "AIA Singapore",
+    "agentEmail": "advisor@aia-demo.fineprint.local",
+    "logo": "/logos/aia.svg",
+    "persona": "helpful",
+    "website": "https://www.aia.com.sg"
+  },
+  {
+    "id": "prudential",
+    "name": "Prudential Singapore",
+    "agentEmail": "advisor@prudential-demo.fineprint.local",
+    "logo": "/logos/prudential.svg",
+    "persona": "slow",
+    "website": "https://www.prudential.com.sg"
+  },
+  {
+    "id": "greateastern",
+    "name": "Great Eastern",
+    "agentEmail": "advisor@greateastern-demo.fineprint.local",
+    "logo": "/logos/greateastern.svg",
+    "persona": "pushy",
+    "website": "https://www.greateasternlife.com"
+  },
+  {
+    "id": "income",
+    "name": "NTUC Income",
+    "agentEmail": "advisor@income-demo.fineprint.local",
+    "logo": "/logos/income.svg",
+    "persona": "data_grabber",
+    "website": "https://www.income.com.sg"
+  },
+  {
+    "id": "manulife",
+    "name": "Manulife Singapore",
+    "agentEmail": "advisor@manulife-demo.fineprint.local",
+    "logo": "/logos/manulife.svg",
+    "persona": "injector",
+    "website": "https://www.manulife.com.sg"
+  }
+]
