@@ -1,3 +1,5 @@
+import OnboardingForm from "@/components/onboarding/onboarding-form";
+
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Onboarding — Fineprint" };
 
@@ -13,10 +15,7 @@ export default function OnboardingPage() {
           behalf.
         </p>
       </div>
-      {/* TODO: OnboardingForm component */}
-      <div className="bg-white border rounded-xl p-6 text-sm text-gray-400">
-        Onboarding form — coming soon
-      </div>
+      <OnboardingForm />
     </div>
   );
 }

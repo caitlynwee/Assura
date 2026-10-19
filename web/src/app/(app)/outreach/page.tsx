@@ -1,3 +1,5 @@
+import OutreachForm from "@/components/outreach/outreach-form";
+
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Outreach — Fineprint" };
 
@@ -11,10 +13,7 @@ export default function OutreachPage() {
           the email. You approve before anything is sent.
         </p>
       </div>
-      {/* TODO: OutreachForm component */}
-      <div className="bg-white border rounded-xl p-6 text-sm text-gray-400">
-        Outreach form — coming soon
-      </div>
+      <OutreachForm />
     </div>
   );
 }
