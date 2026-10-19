@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { onboardingSchema } from "@/lib/validators";
-import { getUserById, updateUserOnboarding } from "@/lib/db";
-import { logEvent } from "@/lib/audit";
-import { generateMaskedAddress } from "@/lib/mail";
+import { completeOnboarding } from "@/lib/onboarding";
 
 export async function PATCH(req: NextRequest) {
   const session = await auth();
@@ -11,38 +8,16 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id!;
-
-  const body = await req.json();
-  const parsed = onboardingSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const existing = await getUserById(userId);
-  if (!existing) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const result = await completeOnboarding(session.user.id, body);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
-
-  const maskedInbox = existing.maskedInbox || generateMaskedAddress(userId);
-
-  const updated = await updateUserOnboarding(
-    userId,
-    parsed.data.consent,
-    maskedInbox
-  );
-  if (!updated) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  await logEvent(userId, "user.onboarded", {
-    consentFields: Object.keys(parsed.data.consent).filter(
-      (k) => parsed.data.consent[k as keyof typeof parsed.data.consent]
-    ),
-  });
-
-  return NextResponse.json({
-    maskedInbox: updated.maskedInbox,
-    onboarded: true,
-  });
+  return NextResponse.json({ maskedInbox: result.maskedInbox, onboarded: true });
 }

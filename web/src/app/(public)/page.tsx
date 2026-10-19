@@ -11,13 +11,13 @@ export default function HomePage() {
           <span className="text-blue-600">Let AI do it for you.</span>
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Fineprint compares critical illness plans from Singapore's top
+          Assura compares critical illness plans from Singapore&apos;s top
           insurers, then emails them on your behalf to collect personalised
           quotes — while keeping your data private.
         </p>
         <div className="flex justify-center gap-4">
           <Link
-            href="/login"
+            href="/signup"
             className="px-8 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
           >
             Get started free
@@ -44,7 +44,7 @@ export default function HomePage() {
             {
               step: "2",
               title: "AI emails insurers",
-              desc: "Pick up to 5 insurers and a question template. Fineprint drafts the email — you review and approve before anything is sent.",
+              desc: "Pick up to 5 insurers and a question template. Assura drafts the email — you review and approve before anything is sent.",
             },
             {
               step: "3",
@@ -77,6 +77,7 @@ export default function HomePage() {
                 "Plan Q&A chat (cited answers)",
               ],
               cta: "Get started",
+              href: "/signup",
               primary: false,
             },
             {
@@ -89,7 +90,8 @@ export default function HomePage() {
                 "CRM with quote extraction",
                 "Activity log + audit chain",
               ],
-              cta: "Try demo",
+              cta: "Try the demo",
+              href: "/login",
               primary: true,
             },
           ].map((plan) => (
@@ -110,7 +112,7 @@ export default function HomePage() {
                 ))}
               </ul>
               <Link
-                href="/login"
+                href={plan.href}
                 className={`block text-center py-2 rounded-lg font-medium transition ${
                   plan.primary
                     ? "bg-blue-600 text-white hover:bg-blue-700"
