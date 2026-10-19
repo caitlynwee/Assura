@@ -14,7 +14,7 @@
     "lastChecked": null,
     "lastChanged": null,
     "status": "pending",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "src_prudential_prucritical",
@@ -31,7 +31,7 @@
     "lastChecked": null,
     "lastChanged": null,
     "status": "pending",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "src_ge_living_assurance",
@@ -48,7 +48,7 @@
     "lastChecked": null,
     "lastChanged": null,
     "status": "pending",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "src_income_ci_multiplier",
@@ -65,7 +65,7 @@
     "lastChecked": null,
     "lastChanged": null,
     "status": "pending",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "src_singlife_ci_protect",
@@ -82,7 +82,7 @@
     "lastChecked": null,
     "lastChanged": null,
     "status": "pending",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "src_manulife_ci_care",
@@ -99,6 +99,6 @@
     "lastChecked": null,
     "lastChanged": null,
     "status": "pending",
-    "country": "SG"
+    "country": "Singapore"
   }
 ]

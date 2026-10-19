@@ -6,7 +6,7 @@
     "logo": "/logos/aia.svg",
     "persona": "helpful",
     "website": "https://www.aia.com.sg",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "prudential",
@@ -15,7 +15,7 @@
     "logo": "/logos/prudential.svg",
     "persona": "slow",
     "website": "https://www.prudential.com.sg",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "greateastern",
@@ -24,7 +24,7 @@
     "logo": "/logos/greateastern.svg",
     "persona": "pushy",
     "website": "https://www.greateasternlife.com",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "income",
@@ -33,7 +33,7 @@
     "logo": "/logos/income.svg",
     "persona": "data_grabber",
     "website": "https://www.income.com.sg",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "manulife",
@@ -42,7 +42,7 @@
     "logo": "/logos/manulife.svg",
     "persona": "injector",
     "website": "https://www.manulife.com.sg",
-    "country": "SG"
+    "country": "Singapore"
   },
   {
     "id": "singlife",
@@ -51,6 +51,6 @@
     "logo": "/logos/singlife.svg",
     "persona": "slow",
     "website": "https://singlife.com",
-    "country": "SG"
+    "country": "Singapore"
   }
 ]
