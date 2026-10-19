@@ -47,8 +47,8 @@ services:
       WEB_BASE_URL: http://web:3000
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
-      HERMES_API_KEY: ${HERMES_API_KEY}
-      LLM_MODEL: claude-haiku-4-5-20251001
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      LLM_MODEL: deepseek-chat
     depends_on:
       init-data:
         condition: service_completed_successfully

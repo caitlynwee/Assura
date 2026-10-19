@@ -15,7 +15,7 @@ async def test_failed_scrape_preserves_last_good_data(tmp_data_dir, monkeypatch)
 
     # Patch has_changed to return True (change detected) then downloader to fail
     with patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(True, None))):
-        with patch("app.scraper.engine.download_page", new=AsyncMock(side_effect=Exception("Network error"))):
+        with patch("app.scraper.engine.download_page", new=AsyncMock(side_effect=Exception("Network error"), spec=lambda url, existing_response=None, source_type="product_page": None)):
             from app.scraper.engine import run_scraper
             result = await run_scraper(trigger="manual")
 

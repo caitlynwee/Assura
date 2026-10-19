@@ -158,7 +158,7 @@ cmd_setup() {
   # ── web/.env.local ───────────────────────────────────────────
   if [ ! -f "$ROOT/web/.env.local" ]; then
     cp "$ROOT/web/.env.local.example" "$ROOT/web/.env.local"
-    warn "web/.env.local created — fill in AUTH_SECRET and ANTHROPIC_API_KEY for local dev."
+    warn "web/.env.local created — fill in AUTH_SECRET and HERMES_API_KEY for local dev."
   else
     echo "  web/.env.local already exists, skipping."
   fi
@@ -172,6 +172,8 @@ cmd_setup() {
   fi
   info "Installing scraper dependencies..."
   "$VENV/bin/pip" install -e "$ROOT/scraper/.[dev]" -q
+  info "Installing Playwright browser..."
+  "$VENV/bin/playwright" install chromium
 
   # ── Node deps ────────────────────────────────────────────────
   info "Installing web dependencies..."
