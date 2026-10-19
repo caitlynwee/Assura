@@ -29,3 +29,30 @@ Others need to know:
 - Outreach and onboarding pages are placeholder divs — components needed (Dominic/Jeff)
 Blockers: None
 ---
+
+## 2026-10-20 | Marcus | PostgreSQL Storage Migration (FEAT-001 verify + FEAT-002)
+Status: Completed
+Done:
+- Validated WIP FEAT-001 (Jeff's unverified commit): npm build ✓, npm test 12/12 ✓, lint ✓ (2 pre-existing errors only)
+- blocker.ts + policy.ts changes confirmed correct async logEvent fire-and-forget — no behavioral change
+- FEAT-001 infra gaps: added postgres:16 + db-init one-shot to docker-compose.yml; removed init-data JSON-copy
+- Rewrote seed/reset.sh to reset DB (truncate + re-seed); added resetDatabase() + RESET=1 path to seed.ts
+- Added DATABASE_URL to all env example files; updated dev.sh with db:migrate + db:seed shortcuts
+- FEAT-002: created scraper/app/storage/database.py with SQLAlchemy ORM models mapped to Drizzle tables (no DDL)
+- Refactored engine.py: SQLAlchemy reads/writes; expunge_all() preserves "failed scrape never loses data" invariant
+- Refactored simulator.py: SQLAlchemy queries for Thread/Insurer/ThreadMessage
+- Refactored routers/scraper.py: ScraperRun DB query for /scraper/status
+- Deleted json_store.py, jsonl_append.py, test_hash_chain.py
+- 12 scraper tests pass, ruff clean
+Files:
+- docker-compose.yml, seed/reset.sh, web/src/lib/seed.ts, dev.sh
+- .env.example, web/.env.local.example, scraper/.env.example
+- scraper/app/storage/database.py (new), engine.py, simulator.py, routers/scraper.py
+Others need to know:
+- EVERYONE must now run Postgres — docker compose up starts it automatically
+- Set DATABASE_URL=postgres://postgres:dev@localhost:5432/assura in .env and web/.env.local
+- Reset demo data: bash seed/reset.sh (resets DB, not JSON files)
+- Audit tamper SQL for demo: UPDATE audit_entries SET action='tampered' WHERE id=(SELECT MIN(id) FROM audit_entries);
+- jeff/outreach-crm branch (PR #1) needs rebase onto this migration — its api/crm/* and api/outreach/* routes use old JSON layer
+Blockers: None
+---
