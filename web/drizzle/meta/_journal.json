@@ -15,6 +15,13 @@
       "when": 1792512000000,
       "tag": "0001_add_country",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792598400000,
+      "tag": "0002_country_sg_to_singapore",
+      "breakpoints": true
     }
   ]
 }
