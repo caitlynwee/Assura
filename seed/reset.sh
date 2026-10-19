@@ -20,8 +20,4 @@ npx tsx src/lib/migrate.ts
 # Truncate all tables and re-insert seed rows.
 RESET=1 npx tsx src/lib/seed.ts
 
-# Keep the versions directory for HTML snapshots (filesystem, not DB).
-mkdir -p "$REPO_ROOT/data/versions"
-touch "$REPO_ROOT/data/.gitkeep" "$REPO_ROOT/data/versions/.gitkeep"
-
 echo "Done. Database reset to seed state."

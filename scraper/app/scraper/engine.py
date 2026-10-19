@@ -8,7 +8,6 @@ source but the overall commit is skipped unless at least one source changed).
 
 import uuid
 
-from app.config import settings
 from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
 from app.scraper.downloader import download_page
@@ -56,12 +55,10 @@ async def run_scraper(
                 if not changed_flag:
                     continue
 
-                # Download versioned copy
                 content = await download_page(
                     source_dict["url"], response,
                     source_type=source_dict.get("type", "product_page"),
                 )
-                _save_versioned(source_dict["id"], content, started_at)
 
                 # Extract clean text
                 text = extract_text(content)
@@ -170,11 +167,3 @@ async def run_scraper(
         "sourcesChanged": changed,
         "errors": errors,
     }
-
-
-def _save_versioned(source_id: str, content: bytes, timestamp: str) -> None:
-    """Save a versioned HTML snapshot to the filesystem (not DB)."""
-    versions_dir = settings.data_dir / "versions" / source_id
-    versions_dir.mkdir(parents=True, exist_ok=True)
-    safe_ts = timestamp[:19].replace(":", "-")
-    (versions_dir / f"{safe_ts}.html").write_bytes(content)

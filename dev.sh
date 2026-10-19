@@ -189,10 +189,6 @@ cmd_setup() {
   info "Installing web dependencies..."
   cd "$ROOT/web" && npm install --silent
 
-  # ── Create data directories (versions/ stays on filesystem) ──
-  mkdir -p "$ROOT/data/versions"
-  touch "$ROOT/data/.gitkeep" "$ROOT/data/versions/.gitkeep"
-
   echo ""
   echo -e "${GREEN}Setup complete.${NC}"
   echo ""

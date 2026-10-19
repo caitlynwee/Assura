@@ -1,15 +1,10 @@
 """config.py — Application configuration via environment variables."""
 
-from pathlib import Path
-
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-    # Paths
-    data_dir: Path = Path(__file__).resolve().parents[2] / "data"
 
     # Servers
     scraper_port: int = 8100
