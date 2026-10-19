@@ -9,9 +9,8 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
-import { readJSON } from "./db";
+import { getUserByEmail } from "./db";
 import { loginSchema } from "./validators";
-import type { User } from "./types";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -27,16 +26,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const { email, password } = parsed.data;
 
-        let users: User[];
+        let user;
         try {
-          users = readJSON<User[]>("users.json");
+          user = await getUserByEmail(email);
         } catch {
           return null;
         }
 
-        const user = users.find(
-          (u) => u.email.toLowerCase() === email.toLowerCase()
-        );
         if (!user) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);

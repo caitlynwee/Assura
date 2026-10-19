@@ -65,19 +65,21 @@ export function blockIfNeeded(emailBody: string, userId: string): void {
   try {
     result = scanForPII(emailBody);
   } catch (err) {
-    // Fail-closed: if scanning errors, block the send
-    logEvent(userId, "blocker.error", {
+    // Fail-closed: if scanning errors, block the send.
+    // blockIfNeeded stays synchronous; the audit write is fire-and-forget
+    // (audit.logEvent serializes writes internally so the chain stays intact).
+    void logEvent(userId, "blocker.error", {
       error: String(err),
       blocked: true,
-    });
+    }).catch(() => {});
     throw new Error("PII scan failed; send blocked as a precaution.");
   }
 
   if (result.blocked) {
-    logEvent(userId, "blocker.blocked", {
+    void logEvent(userId, "blocker.blocked", {
       matchCount: result.matches.length,
       matchTypes: [...new Set(result.matches.map((m) => m.type))],
-    });
+    }).catch(() => {});
     const types = [...new Set(result.matches.map((m) => m.type))].join(", ");
     throw new Error(
       `Send blocked: detected personal data in email (${types}). Remove this information before sending.`

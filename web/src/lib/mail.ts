@@ -10,9 +10,8 @@
 
 import nodemailer from "nodemailer";
 import { AI_DISCLOSURE_PREFIX, MAX_EMAILS_PER_USER_PER_DAY, FOLLOWUP_COOLDOWN_MS } from "./constants";
-import { readJSON } from "./db";
+import { getThreadsByUser, getThreadById } from "./db";
 import { logEvent } from "./audit";
-import type { Thread } from "./types";
 
 const MAILPIT_HOST = process.env.MAILPIT_SMTP_HOST ?? "localhost";
 const MAILPIT_PORT = parseInt(process.env.MAILPIT_SMTP_PORT ?? "1025", 10);
@@ -63,7 +62,7 @@ export async function sendEmail(params: SendEmailParams): Promise<string> {
     text: fullBody,
   });
 
-  logEvent(userId, "email.sent", {
+  await logEvent(userId, "email.sent", {
     messageId: info.messageId,
     to,
     subject,
@@ -74,12 +73,11 @@ export async function sendEmail(params: SendEmailParams): Promise<string> {
 }
 
 async function checkDailyLimit(userId: string): Promise<void> {
-  const threads = readJSON<Thread[]>("threads.json");
+  const threads = await getThreadsByUser(userId);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const todayCount = threads
-    .filter((t) => t.userId === userId)
     .flatMap((t) => t.messages)
     .filter(
       (m) =>
@@ -98,8 +96,7 @@ async function checkFollowUpCooldown(
   userId: string,
   threadId: string
 ): Promise<void> {
-  const threads = readJSON<Thread[]>("threads.json");
-  const thread = threads.find((t) => t.id === threadId && t.userId === userId);
+  const thread = await getThreadById(threadId, userId);
 
   if (!thread) return;
 
