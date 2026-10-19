@@ -37,7 +37,7 @@
 
 # ── Caitlyn — docs & deck ────────────────────────────────────────────────────
 /README.md                          @caitlynwee
-/PROJECT.MD                         @caitlynwee
+/docs/PROJECT.MD                    @caitlynwee
 /AGENTS.md                          @caitlynwee
 *.md                                @caitlynwee
 
