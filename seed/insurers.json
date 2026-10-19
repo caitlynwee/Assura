@@ -38,5 +38,13 @@
     "logo": "/logos/manulife.svg",
     "persona": "injector",
     "website": "https://www.manulife.com.sg"
+  },
+  {
+    "id": "singlife",
+    "name": "Singlife",
+    "agentEmail": "advisor@singlife-demo.fineprint.local",
+    "logo": "/logos/singlife.svg",
+    "persona": "slow",
+    "website": "https://singlife.com"
   }
 ]
