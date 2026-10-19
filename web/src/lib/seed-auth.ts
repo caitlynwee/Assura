@@ -19,8 +19,15 @@ async function main() {
 
 // Only run when invoked directly (not when imported).
 if (process.argv[1] && process.argv[1].endsWith("seed-auth.ts")) {
-  main().catch((err) => {
-    console.error("[seed-auth] failed:", err);
-    process.exit(1);
-  });
+  main()
+    .then(() => {
+      // Exit explicitly: the Supabase admin client / DB connection opened by
+      // ensureDemoAuthUser can keep the event loop alive, which would hang this
+      // one-shot container and block web/scraper (they depend_on it completing).
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error("[seed-auth] failed:", err);
+      process.exit(1);
+    });
 }
