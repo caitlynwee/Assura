@@ -134,6 +134,7 @@ npm install && npm run dev                    # http://localhost:3000
 # 3. Scraper server
 cd scraper && python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+playwright install chromium
 uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
 
 # 4. Mailpit (install once: brew install mailpit)
