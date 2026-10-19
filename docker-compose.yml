@@ -47,7 +47,9 @@ services:
       WEB_BASE_URL: http://web:3000
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
-      HERMES_API_KEY: ${HERMES_API_KEY}
+      # NOTE: scraper LLM still on Anthropic in code (Marcus's pending DeepSeek port).
+      # Key name aligned to DEEPSEEK_API_KEY for a single .env var; only used on a scrape.
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       LLM_MODEL: claude-haiku-4-5-20251001
     depends_on:
       init-data:
@@ -71,7 +73,7 @@ services:
       HOSTNAME: "0.0.0.0"
       NEXTAUTH_URL: http://localhost:3000
       AUTH_SECRET: ${AUTH_SECRET}
-      HERMES_API_KEY: ${HERMES_API_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       SCRAPER_URL: http://scraper:8100
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
