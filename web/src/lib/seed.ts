@@ -10,13 +10,7 @@
 import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
-import type {
-  Insurer,
-  Plan,
-  Source,
-  Thread,
-  User,
-} from "./types";
+import type { User } from "./types";
 import type { Database } from "./db";
 
 function readSeed<T>(seedDir: string, file: string): T {
@@ -37,29 +31,9 @@ export async function seedDatabase(
   db: Database,
   seedDir: string = resolveSeedDir()
 ): Promise<void> {
-  const insurers = readSeed<Insurer[]>(seedDir, "insurers.json");
   const users = readSeed<User[]>(seedDir, "users.json");
-  const plans = readSeed<Plan[]>(seedDir, "plans.json");
-  const sources = readSeed<Source[]>(seedDir, "sources.json");
-  const threads = readSeed<Thread[]>(seedDir, "threads.json");
 
-  // ── insurers ──
-  if (insurers.length) {
-    await db.insert(schema.insurers).values(
-      insurers.map((i) => ({
-        id: i.id,
-        name: i.name,
-        agentEmail: i.agentEmail,
-        logo: i.logo,
-        persona: i.persona,
-        website: i.website,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        country: (i as any).country ?? "Singapore",
-      }))
-    ).onConflictDoNothing();
-  }
-
-  // ── users (ConsentFlags flattened to 8 booleans) ──
+  // ── users only — insurers/plans/sources are populated by the scraper ──
   if (users.length) {
     await db.insert(schema.users).values(
       users.map((u) => ({
@@ -82,92 +56,6 @@ export async function seedDatabase(
       }))
     ).onConflictDoNothing();
   }
-
-  // ── plans ──
-  if (plans.length) {
-    await db.insert(schema.plans).values(
-      plans.map((p) => ({
-        id: p.id,
-        insurerId: p.insurerId,
-        insurerName: p.insurerName,
-        planName: p.planName,
-        category: p.category,
-        coverageAmount: p.coverageAmount,
-        premiums: p.premiums,
-        premiumFrequency: p.premiumFrequency,
-        coverageTerms: p.coverageTerms,
-        illnessesCovered: p.illnessesCovered,
-        earlyStageConditions: p.earlyStageConditions,
-        payoutType: p.payoutType,
-        keyBenefits: p.keyBenefits,
-        exclusions: p.exclusions,
-        sourceUrl: p.sourceUrl,
-        dataAsOf: p.dataAsOf,
-        updatedBadge: p.updatedBadge,
-        changeNotes: p.changeNotes,
-        version: p.version,
-        scrapedAt: p.scrapedAt,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        country: (p as any).country ?? "Singapore",
-      }))
-    ).onConflictDoNothing();
-  }
-
-  // ── sources ──
-  if (sources.length) {
-    await db.insert(schema.sources).values(
-      sources.map((s) => ({
-        id: s.id,
-        insurerId: s.insurerId,
-        label: s.label,
-        url: s.url,
-        type: s.type,
-        planIds: s.planIds,
-        etag: s.etag,
-        lastModified: s.lastModified,
-        contentHash: s.contentHash,
-        lastChecked: s.lastChecked,
-        lastChanged: s.lastChanged,
-        status: s.status,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        country: (s as any).country ?? "Singapore",
-      }))
-    ).onConflictDoNothing();
-  }
-
-  // ── threads + thread_messages ──
-  for (const t of threads) {
-    await db.insert(schema.threads).values({
-      id: t.id,
-      userId: t.userId,
-      insurerId: t.insurerId,
-      insurerName: t.insurerName,
-      subject: t.subject,
-      status: t.status,
-      extractedQuote: t.extractedQuote,
-      riskFlags: t.riskFlags,
-      addedToComparison: t.addedToComparison,
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    }).onConflictDoNothing();
-    for (let i = 0; i < t.messages.length; i++) {
-      const m = t.messages[i];
-      await db.insert(schema.threadMessages).values({
-        id: m.id,
-        threadId: t.id,
-        ordering: i,
-        direction: m.direction,
-        from: m.from,
-        to: m.to,
-        subject: m.subject,
-        body: m.body,
-        timestamp: m.timestamp,
-        aiGenerated: m.aiGenerated,
-        flagged: m.flagged,
-        flagReason: m.flagReason ?? null,
-      }).onConflictDoNothing();
-    }
-  }
 }
 
 /**
@@ -175,15 +63,16 @@ export async function seedDatabase(
  * Used by seed/reset.sh to reset the database to a clean demo state.
  */
 export async function resetDatabase(db: Database): Promise<void> {
-  // Reverse FK order: children before parents
+  // Reverse FK order: children before parents. Plans/sources/insurers are
+  // left for the scraper to repopulate — only runtime data is cleared.
   await db.delete(schema.auditEntries);
   await db.delete(schema.scraperRuns);
   await db.delete(schema.threadMessages);
   await db.delete(schema.threads);
   await db.delete(schema.sources);
   await db.delete(schema.plans);
-  await db.delete(schema.users);
   await db.delete(schema.insurers);
+  await db.delete(schema.users);
   await seedDatabase(db);
 }
 
