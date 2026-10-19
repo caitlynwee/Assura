@@ -132,7 +132,7 @@ async def run_scraper(
                 # If a product page returns very little text, it's probably
                 # bot-blocked or JS-heavy. Find PDF links instead and register
                 # them as sources for the next run.
-                if source_type == "product_page" and len(text) < 500:
+                if source_type == "product_page" and len(text) < 3000:
                     pdf_links = find_pdf_links(content, source_dict["url"])
                     print(f"[engine] {source_dict['id']}: page too short ({len(text)} chars), found {len(pdf_links)} PDF link(s): {pdf_links[:3]}")
                     for i, pdf_url in enumerate(pdf_links[:3]):

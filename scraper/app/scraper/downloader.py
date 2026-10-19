@@ -58,10 +58,14 @@ async def download_page(
         _last_fetch[domain] = asyncio.get_event_loop().time()
         return response.content
 
-    # product_page — use Playwright to render the full JS SPA
+    # product_page — use Playwright with stealth to render JS SPAs without
+    # triggering bot detection (hides navigator.webdriver, spoofs fingerprints)
+    from playwright_stealth import stealth_async
+
     browser = await _get_browser()
     page = await browser.new_page(user_agent=USER_AGENT)
     try:
+        await stealth_async(page)
         await page.goto(url, wait_until="load", timeout=60_000)
         html = await page.content()
         _last_fetch[domain] = asyncio.get_event_loop().time()
