@@ -30,29 +30,37 @@ Others need to know:
 Blockers: None
 ---
 
-## 2026-10-20 | Marcus | PostgreSQL Storage Migration (FEAT-001 verify + FEAT-002)
+## 2026-10-19 | Jeff | Storage migration (JSON → PostgreSQL) — handed off to Marcus
+Status: In Progress (handed off)
+Done:
+- Scoped + designed the full JSON → PostgreSQL migration (Drizzle for web, SQLAlchemy 2.0 for scraper, one shared DB via DATABASE_URL). Design is complete; implementation is partial and UNVERIFIED.
+- Branch `migrate/postgres-storage` pushed to origin. One WIP commit (427c1e7) = started FEAT-001 (Drizzle schema, generated migration, seed/migrate scripts, started db.ts + route/audit rewrites). NOT built, NOT tested. FEAT-002 (scraper) not started.
+- Full handoff written: see `HANDOFF-postgres-migration.md` at repo root. Design + call-site map in `.agents/tasks/investigation.md` and FEAT-001/FEAT-002 specs (on the branch).
+Files:
+- HANDOFF-postgres-migration.md (read this first), branch migrate/postgres-storage, .gitignore (added .worktrees/)
+Others need to know:
+- MARCUS is continuing this. Start at HANDOFF-postgres-migration.md.
+- Decisions locked: PostgreSQL + Drizzle (web, owns schema/migrations) + SQLAlchemy 2.0 (scraper, maps only, no DDL). Do not relitigate.
+- #1 risk = audit hash chain: store `detail` and `timestamp` as TEXT (not jsonb/timestamptz) or "Verify chain" breaks. Details in the handoff.
+- Once this lands on main, everyone must run Postgres (docker compose will include it) + set DATABASE_URL; demo-data reset moves from JSON copy to a DB reset in seed/reset.sh.
+- Separate branch `jeff/outreach-crm` (Outreach/CRM UI + DeepSeek AI port, PR #1) is built on the OLD JSON storage and still needs rebasing onto this migration afterward — its api/crm/* and api/outreach/* routes rewire to the Drizzle layer. Coordinate with Jeff.
+Blockers: Migration implementation is unverified WIP — Marcus to finish + verify (build/test/real Postgres) before merging to main.
+---
+
+## 2026-10-19 | Jeff | DevOps: CI, PR template, CODEOWNERS, pre-commit (uv)
 Status: Completed
 Done:
-- Validated WIP FEAT-001 (Jeff's unverified commit): npm build ✓, npm test 12/12 ✓, lint ✓ (2 pre-existing errors only)
-- blocker.ts + policy.ts changes confirmed correct async logEvent fire-and-forget — no behavioral change
-- FEAT-001 infra gaps: added postgres:16 + db-init one-shot to docker-compose.yml; removed init-data JSON-copy
-- Rewrote seed/reset.sh to reset DB (truncate + re-seed); added resetDatabase() + RESET=1 path to seed.ts
-- Added DATABASE_URL to all env example files; updated dev.sh with db:migrate + db:seed shortcuts
-- FEAT-002: created scraper/app/storage/database.py with SQLAlchemy ORM models mapped to Drizzle tables (no DDL)
-- Refactored engine.py: SQLAlchemy reads/writes; expunge_all() preserves "failed scrape never loses data" invariant
-- Refactored simulator.py: SQLAlchemy queries for Thread/Insurer/ThreadMessage
-- Refactored routers/scraper.py: ScraperRun DB query for /scraper/status
-- Deleted json_store.py, jsonl_append.py, test_hash_chain.py
-- 12 scraper tests pass, ruff clean
+- Added GitHub Actions CI (.github/workflows/ci.yml): web (npm ci → lint → build → optional jest) + scraper (uv install → ruff → pytest), both with a Postgres 16 service container for the incoming migration. Web lint is non-blocking for now (2 pre-existing errors on main); build must pass.
+- Added .github/pull_request_template.md (mirrors the CLAUDE.md pre-commit checklist + security-impact prompt).
+- Added .github/CODEOWNERS mapping the 4 team lanes to paths (usernames are @placeholders except @caitlynwee — fill in real GitHub handles for @dominic/@marcus/@jeff).
+- Added .pre-commit-config.yaml: ruff (scraper) + eslint (web, non-blocking) + hygiene hooks (trailing ws, EOF, merge-conflict, large-file, detect-private-key). Install with `uv tool install pre-commit && pre-commit install`.
+- Switched dev.sh to uv (uv venv + uv pip install, replacing python venv + pip). Added `./dev.sh ci` to run all checks locally. Fixed stale ANTHROPIC_API_KEY → DEEPSEEK_API_KEY in setup messages.
 Files:
-- docker-compose.yml, seed/reset.sh, web/src/lib/seed.ts, dev.sh
-- .env.example, web/.env.local.example, scraper/.env.example
-- scraper/app/storage/database.py (new), engine.py, simulator.py, routers/scraper.py
+- .github/workflows/ci.yml, .github/pull_request_template.md, .github/CODEOWNERS, .pre-commit-config.yaml, dev.sh, TASK.MD
 Others need to know:
-- EVERYONE must now run Postgres — docker compose up starts it automatically
-- Set DATABASE_URL=postgres://postgres:dev@localhost:5432/assura in .env and web/.env.local
-- Reset demo data: bash seed/reset.sh (resets DB, not JSON files)
-- Audit tamper SQL for demo: UPDATE audit_entries SET action='tampered' WHERE id=(SELECT MIN(id) FROM audit_entries);
-- jeff/outreach-crm branch (PR #1) needs rebase onto this migration — its api/crm/* and api/outreach/* routes use old JSON layer
+- CI now runs on every push/PR to main — keep it green. `./dev.sh ci` mirrors it locally before pushing.
+- `uv` is now required for scraper dev setup (install: `brew install uv` or the astral install script). `./dev.sh setup` will error if uv is missing.
+- CODEOWNERS @dominic/@marcus/@jeff are placeholders — someone with repo admin should replace them with real GitHub usernames (and CODEOWNERS only auto-requests reviews once branch protection is enabled in GitHub settings).
+- Two follow-ups once the Postgres migration + web `test` script land: (1) remove the `|| true` on web lint in ci.yml and .pre-commit-config.yaml to make lint blocking after the 2 pre-existing errors are fixed; (2) the jest step auto-activates when the `test` script exists.
 Blockers: None
 ---
