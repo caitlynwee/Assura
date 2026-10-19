@@ -2,11 +2,13 @@
  * middleware.ts — Edge middleware for auth gating (Supabase Auth).
  *
  * Reads the Supabase session from the request cookies via @supabase/ssr and
- * verifies the access-token signature LOCALLY with jose (HS256 against
- * SUPABASE_JWT_SECRET) — it deliberately does NOT call supabase.auth.getUser(),
- * which would be a per-request network round-trip to the Supabase Auth server.
- * Local verification closes the forgery gap (getSession() alone trusts the
- * cookie) while keeping edge gating purely local-crypto (no DB, no network).
+ * verifies the access-token signature LOCALLY with jose against Supabase's
+ * published JWKS (asymmetric ES256/RS256) — it deliberately does NOT call
+ * supabase.auth.getUser(), which would be a per-request network round-trip to
+ * the Supabase Auth server. The JWKS is fetched once and cached in-process by
+ * jose's createRemoteJWKSet, so steady-state verification is local crypto only.
+ * This matches projects using asymmetric JWT signing keys (ECC P-256 / ES256);
+ * there is no shared HS256 secret for such projects.
  *
  * `tier`/`onboarded` are read from the verified token's app_metadata claim and
  * fed to the pure evaluateRoute() rules in auth-routing.ts, reproducing every
@@ -21,7 +23,7 @@
  */
 
 import { createServerClient } from "@supabase/ssr";
-import { jwtVerify } from "jose";
+import { jwtVerify, createRemoteJWKSet, type JWTVerifyGetKey } from "jose";
 import { NextResponse, type NextRequest } from "next/server";
 import { evaluateRoute } from "@/lib/auth-routing";
 import type { UserTier } from "@/lib/types";
@@ -33,16 +35,30 @@ interface EdgeSession {
 
 const SIGNED_OUT: EdgeSession = { isLoggedIn: false, tier: "free" };
 
-export default async function middleware(req: NextRequest) {
+// Cache the JWKS getter per Supabase URL across requests (jose caches the
+// fetched keys internally, so this avoids refetching on every request).
+let jwksUrl: string | null = null;
+let jwks: JWTVerifyGetKey | null = null;
+
+function getJwks(supabaseUrl: string): JWTVerifyGetKey {
+  if (!jwks || jwksUrl !== supabaseUrl) {
+    jwksUrl = supabaseUrl;
+    jwks = createRemoteJWKSet(
+      new URL(`${supabaseUrl.replace(/\/$/, "")}/auth/v1/.well-known/jwks.json`)
+    );
+  }
+  return jwks;
+}
+
+export default async function proxy(req: NextRequest) {
   const res = NextResponse.next({ request: { headers: req.headers } });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  const jwtSecret = process.env.SUPABASE_JWT_SECRET?.trim();
 
   let session = SIGNED_OUT;
 
-  if (url && anonKey && jwtSecret) {
+  if (url && anonKey) {
     const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
@@ -62,7 +78,7 @@ export default async function middleware(req: NextRequest) {
     } = await supabase.auth.getSession();
 
     if (sbSession?.access_token) {
-      session = await verifyAccessToken(sbSession.access_token, jwtSecret);
+      session = await verifyAccessToken(sbSession.access_token, getJwks(url));
     }
   }
 
@@ -84,15 +100,18 @@ export default async function middleware(req: NextRequest) {
   }
 }
 
-/** Verify the access-token signature locally (HS256) and extract tier. */
+/**
+ * Verify the access-token signature locally against Supabase's JWKS
+ * (asymmetric ES256/RS256) and extract tier. Returns signed-out on any failure
+ * (expired / forged / unreachable JWKS).
+ */
 async function verifyAccessToken(
   accessToken: string,
-  jwtSecret: string
+  keys: JWTVerifyGetKey
 ): Promise<EdgeSession> {
   try {
-    const key = new TextEncoder().encode(jwtSecret);
-    const { payload } = await jwtVerify(accessToken, key, {
-      algorithms: ["HS256"],
+    const { payload } = await jwtVerify(accessToken, keys, {
+      algorithms: ["ES256", "RS256"],
     });
     const appMetadata = (payload.app_metadata ?? {}) as { tier?: string };
     const tier: UserTier = appMetadata.tier === "premium" ? "premium" : "free";
