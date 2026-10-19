@@ -49,7 +49,8 @@ usage() {
     ./dev.sh seed            Reset ./data from ./seed
     ./dev.sh test            Run scraper test suite (pytest)
     ./dev.sh lint            Lint scraper/app with ruff
-    ./dev.sh setup           First-time setup (venv, deps, .env files, seed)
+    ./dev.sh ci              Run all CI checks locally (web + scraper)
+    ./dev.sh setup           First-time setup (uv venv, deps, .env files, seed)
 
 EOF
 }
@@ -144,13 +145,33 @@ cmd_lint() {
   "$VENV/bin/ruff" check app/
 }
 
+cmd_ci() {
+  # Mirror the GitHub Actions CI locally (useful before pushing).
+  require_venv
+  info "web: build..."
+  (cd "$ROOT/web" && npm run build)
+  info "web: lint..."
+  (cd "$ROOT/web" && npm run lint) || warn "web lint has errors (non-blocking)"
+  info "web: test..."
+  if (cd "$ROOT/web" && npm run | grep -qE '^  test'); then
+    (cd "$ROOT/web" && npm test)
+  else
+    echo "  no web 'test' script yet — skipping."
+  fi
+  info "scraper: lint (ruff)..."
+  (cd "$ROOT/scraper" && "$VENV/bin/ruff" check app/)
+  info "scraper: test (pytest)..."
+  (cd "$ROOT/scraper" && "$VENV/bin/pytest" -v)
+  info "CI checks passed."
+}
+
 cmd_setup() {
   info "Running first-time setup..."
 
   # ── Root .env ────────────────────────────────────────────────
   if [ ! -f "$ROOT/.env" ]; then
     cp "$ROOT/.env.example" "$ROOT/.env"
-    warn ".env created — fill in AUTH_SECRET and ANTHROPIC_API_KEY before running docker."
+    warn ".env created — fill in AUTH_SECRET and DEEPSEEK_API_KEY before running docker."
   else
     echo "  .env already exists, skipping."
   fi
@@ -158,20 +179,21 @@ cmd_setup() {
   # ── web/.env.local ───────────────────────────────────────────
   if [ ! -f "$ROOT/web/.env.local" ]; then
     cp "$ROOT/web/.env.local.example" "$ROOT/web/.env.local"
-    warn "web/.env.local created — fill in AUTH_SECRET and ANTHROPIC_API_KEY for local dev."
+    warn "web/.env.local created — fill in AUTH_SECRET and DEEPSEEK_API_KEY for local dev."
   else
     echo "  web/.env.local already exists, skipping."
   fi
 
-  # ── Python venv + deps ───────────────────────────────────────
+  # ── Python venv + deps (uv) ──────────────────────────────────
+  command -v uv &>/dev/null || error "uv not installed. Install: curl -LsSf https://astral.sh/uv/install.sh | sh  (or: brew install uv)"
   if [ ! -d "$VENV" ]; then
-    info "Creating Python venv..."
-    python3 -m venv "$VENV"
+    info "Creating Python venv (uv)..."
+    uv venv "$VENV" --python 3.11
   else
     echo "  Venv already exists, skipping."
   fi
-  info "Installing scraper dependencies..."
-  "$VENV/bin/pip" install -e "$ROOT/scraper/.[dev]" -q
+  info "Installing scraper dependencies (uv)..."
+  VIRTUAL_ENV="$VENV" uv pip install -e "$ROOT/scraper/.[dev]" -q
 
   # ── Node deps ────────────────────────────────────────────────
   info "Installing web dependencies..."
@@ -185,7 +207,7 @@ cmd_setup() {
   echo -e "${GREEN}Setup complete.${NC}"
   echo ""
   echo "  Next steps:"
-  echo "  1. Edit .env  (AUTH_SECRET + ANTHROPIC_API_KEY)"
+  echo "  1. Edit .env  (AUTH_SECRET + DEEPSEEK_API_KEY)"
   echo "  2. ./dev.sh up          ← Docker (all services)"
   echo "     ./dev.sh web         ← local web only"
   echo ""
@@ -206,6 +228,7 @@ case "${1:-}" in
   seed)        cmd_seed ;;
   test)        cmd_test ;;
   lint)        cmd_lint ;;
+  ci)          cmd_ci ;;
   setup)       cmd_setup ;;
   help|--help) usage ;;
   *)           usage; exit 1 ;;

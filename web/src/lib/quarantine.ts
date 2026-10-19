@@ -2,7 +2,7 @@
  * quarantine.ts — Quarantined reader.
  *
  * ALL untrusted external text (insurer email replies, scraped HTML) must be
- * processed through this module. It calls Claude with NO tools and a strict
+ * processed through this module. It calls the LLM with NO tools and a strict
  * system prompt that forces fixed-schema JSON output.
  *
  * The agent that sends emails NEVER sees raw outside text. This prevents

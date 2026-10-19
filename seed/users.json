@@ -2,7 +2,7 @@
   {
     "id": "user_demo",
     "email": "demo@fineprint.local",
-    "passwordHash": "$2b$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0/7D5r3NKDK",
+    "passwordHash": "$2b$10$fl8xtGoL3PPh77IWiCHgk.2MAjn6iN7MRofEki3Q7DWDh7MtHzyA2",
     "name": "Demo User",
     "tier": "premium",
     "maskedInbox": "user-demo@relay.fineprint.local",
