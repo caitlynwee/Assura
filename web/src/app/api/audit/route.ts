@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const page = parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
   const limit = 50;
 
-  const all = getAuditLog();
+  const all = await getAuditLog();
   const total = all.length;
   const entries = all
     .slice()

@@ -10,6 +10,8 @@ robotexclusionrulesparser>=1.7
 openai>=1.0
 playwright>=1.40
 aiosmtplib>=3.0
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
 
 # Dev / test
 pytest>=8.2

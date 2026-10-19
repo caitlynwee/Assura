@@ -63,3 +63,6 @@ OPEN ITEMS
 - Scraper targets: real insurer websites for Level 1 plan data and agent contact emails. sources.json to be populated with actual URLs during build.
 - Mock brochure page: a locally-served HTML page (within /scraper or /web/public) that can be edited live during the demo to trigger the "Updated" badge.
 - Business side (market numbers, pitch deck, judge Q&A) is being handled separately by the business co-founder.
+
+ROADMAP (post-demo / nice-to-have — not required for the hackathon demo)
+- Admin feature: an admin role + dashboard to manage users, insurers, plans, and review audit/outreach activity. Deferred — not part of the 4-minute demo flow, so parked until core deliverables are solid. Open questions when picked up: scope (read-only monitoring vs. full CRUD), how the admin role fits the existing auth/tier model (new role vs. a flag on the user), and which actions must still pass through the policy engine + audit chain.
