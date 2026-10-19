@@ -1,5 +1,7 @@
 """simulator.py — Dispatches to insurer persona and sends the reply via Mailpit."""
 
+import httpx
+
 from app.config import settings
 from app.email_relay.relay import send_email
 from app.personas.data_grabber import DataGrabberPersona
@@ -7,7 +9,7 @@ from app.personas.helpful import HelpfulPersona
 from app.personas.injector import InjectorPersona
 from app.personas.pushy import PushyPersona
 from app.personas.slow import SlowPersona
-from app.storage.json_store import read_json, write_json
+from app.storage.json_store import read_json
 from app.utils.time import now_utc_iso
 
 PERSONA_MAP = {
@@ -70,15 +72,16 @@ async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
         "flagReason": reply.get("flagReason"),
     }
 
-    idx = next((i for i, t in enumerate(threads) if t["id"] == thread_id), None)
-    if idx is not None:
-        threads[idx]["messages"].append(new_message)
-        threads[idx]["status"] = "replied"
-        if reply.get("flagged"):
-            threads[idx]["status"] = "flagged"
-            if reply.get("flagReason") not in threads[idx].get("riskFlags", []):
-                threads[idx].setdefault("riskFlags", []).append(reply["flagReason"])
-        threads[idx]["updatedAt"] = now_utc_iso()
-        write_json(threads_path, threads)
+    async with httpx.AsyncClient(timeout=10) as client:
+        callback = await client.post(
+            f"{settings.web_base_url}/api/internal/crm/replies",
+            headers={"x-internal-api-key": settings.internal_api_secret},
+            json={
+                "threadId": thread_id,
+                "message": new_message,
+                "riskFlag": reply.get("flagReason") if reply.get("flagged") else None,
+            },
+        )
+        callback.raise_for_status()
 
     return {"status": "replied", "flagged": reply.get("flagged", False)}

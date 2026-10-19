@@ -1,4 +1,7 @@
 export const dynamic = "force-dynamic";
+
+import ThreadDetail from "@/components/crm/thread-detail";
+
 export const metadata = { title: "Thread — Fineprint" };
 
 export default async function ThreadDetailPage({
@@ -14,10 +17,7 @@ export default async function ThreadDetailPage({
         <h1 className="text-2xl font-semibold text-gray-900">Thread</h1>
         <p className="text-gray-400 font-mono text-xs mt-1">{threadId}</p>
       </div>
-      {/* TODO: ThreadTimeline + QuoteExtractionCard components */}
-      <div className="bg-white border rounded-xl p-6 text-sm text-gray-400">
-        Thread detail — coming soon
-      </div>
+      <ThreadDetail threadId={threadId} />
     </div>
   );
 }
