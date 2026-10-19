@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/components/ui/button";
-import Badge from "@/components/ui/badge";
+import { ShieldCheckIcon, ShieldXIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type VerifyState = "idle" | "loading" | "valid" | "invalid";
 
@@ -17,31 +18,33 @@ export default function VerifyChainButton() {
       const data = await res.json();
       if (data.valid) {
         setState("valid");
-        setDetail(`${data.entries} entries verified.`);
+        setDetail(`${data.entries} entries verified`);
       } else {
         setState("invalid");
-        setDetail(`Chain broken at entry ${data.brokenAt}.`);
+        setDetail(`chain broken at entry ${data.brokenAt}`);
       }
     } catch {
       setState("invalid");
-      setDetail("Verification request failed.");
+      setDetail("verification request failed");
     }
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3" aria-live="polite">
       {state === "valid" && (
-        <Badge variant="green">✓ Chain intact — {detail}</Badge>
+        <Badge variant="green" className="h-7 px-2.5 text-sm">
+          <ShieldCheckIcon className="!size-4" />
+          Chain intact — {detail}
+        </Badge>
       )}
       {state === "invalid" && (
-        <Badge variant="red">✗ Tampered — {detail}</Badge>
+        <Badge variant="red" className="h-7 px-2.5 text-sm">
+          <ShieldXIcon className="!size-4" />
+          Tampered — {detail}
+        </Badge>
       )}
-      <Button
-        onClick={handleVerify}
-        loading={state === "loading"}
-        variant="secondary"
-        size="sm"
-      >
+      <Button onClick={handleVerify} loading={state === "loading"}>
+        {state !== "loading" && <ShieldCheckIcon />}
         Verify chain
       </Button>
     </div>

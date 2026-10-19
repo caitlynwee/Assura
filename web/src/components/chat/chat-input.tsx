@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Button from "@/components/ui/button";
+import { SendHorizontalIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   onSend: (message: string) => void;
@@ -27,17 +29,19 @@ export default function ChatInput({ onSend, disabled }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-3">
-      <textarea
+    <form onSubmit={handleSubmit} className="flex items-end gap-3">
+      <Textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask about plan coverage, premiums, exclusions..."
+        placeholder="Ask about plan coverage, premiums, exclusions…"
         disabled={disabled}
         rows={2}
-        className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        aria-label="Message"
+        className="min-h-0 flex-1 resize-none bg-card"
       />
       <Button type="submit" disabled={disabled || !value.trim()}>
+        <SendHorizontalIcon />
         Send
       </Button>
     </form>

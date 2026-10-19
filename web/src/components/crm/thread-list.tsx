@@ -1,29 +1,53 @@
 "use client";
 
+import Link from "next/link";
+import { InboxIcon, SendIcon, TriangleAlertIcon } from "lucide-react";
 import { useThreads } from "@/hooks/use-threads";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import ThreadCard from "./thread-card";
-import Spinner from "@/components/ui/spinner";
 
 export default function ThreadList() {
   const { threads, loading, error } = useThreads();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner />
+      <div className="space-y-3" aria-busy="true">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-[88px] w-full rounded-xl" />
+        ))}
       </div>
     );
   }
 
   if (error) {
-    return <p className="text-red-600 text-sm">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <TriangleAlertIcon />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (!threads.length) {
     return (
-      <div className="bg-white border rounded-xl p-8 text-center text-gray-400 text-sm">
-        No outreach threads yet. Go to Outreach to email an insurer.
-      </div>
+      <Card>
+        <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
+          <InboxIcon className="size-8 text-muted-foreground" />
+          <div>
+            <p className="font-medium">No outreach threads yet</p>
+            <p className="text-sm text-muted-foreground">Email an insurer and the conversation will appear here.</p>
+          </div>
+          <Button asChild size="sm">
+            <Link href="/outreach">
+              <SendIcon />
+              Go to Outreach
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

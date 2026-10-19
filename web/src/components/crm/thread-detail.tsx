@@ -1,54 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import Badge from "@/components/ui/badge";
-import Button from "@/components/ui/button";
+import Link from "next/link";
+import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  BotIcon,
+  CheckIcon,
+  ClockIcon,
+  FlagIcon,
+  ListPlusIcon,
+  ShieldAlertIcon,
+  SparklesIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import Spinner from "@/components/ui/spinner";
 import ThreadTimeline from "@/components/crm/thread-timeline";
 import QuoteCard from "@/components/crm/quote-card";
+import { STATUS_LABELS, STATUS_VARIANTS } from "@/components/crm/thread-card";
 import { useThread } from "@/hooks/use-thread";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ExtractedQuote } from "@/lib/types";
 
-function QuoteReviewRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null;
-}) {
+function QuoteReviewRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="mt-0.5 text-gray-900">
-        {value ?? <span className="text-gray-400">Not stated</span>}
-      </dd>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5">{value ?? <span className="text-muted-foreground">Not stated</span>}</dd>
     </div>
   );
 }
-
-const STATUS_VARIANTS: Record<
-  string,
-  "blue" | "green" | "yellow" | "red" | "orange" | "gray" | "purple"
-> = {
-  draft: "gray",
-  awaiting_approval: "yellow",
-  sent: "blue",
-  replied: "purple",
-  info_received: "green",
-  flagged: "red",
-  closed: "gray",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  awaiting_approval: "Awaiting Approval",
-  sent: "Sent",
-  replied: "Replied",
-  info_received: "Info Received",
-  flagged: "Flagged",
-  closed: "Closed",
-};
 
 const RISK_FLAG_LABELS: Record<string, string> = {
   pushy: "Pushy sales tactics",
@@ -58,6 +45,16 @@ const RISK_FLAG_LABELS: Record<string, string> = {
 
 interface Props {
   threadId: string;
+}
+
+function InlineError({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <Alert variant="destructive">
+      <TriangleAlertIcon />
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  );
 }
 
 export default function ThreadDetail({ threadId }: Props) {
@@ -189,235 +186,251 @@ export default function ThreadDetail({ threadId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner />
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]" aria-busy="true">
+        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     );
   }
 
-  if (error) {
-    return <p className="text-red-600 text-sm">{error}</p>;
-  }
+  if (error) return <InlineError message={error} />;
 
   if (!thread) {
     return (
-      <div className="bg-white border rounded-xl p-6 text-sm text-gray-400">
-        Thread not found.
-      </div>
+      <Card>
+        <CardContent className="text-sm text-muted-foreground">Thread not found.</CardContent>
+      </Card>
     );
   }
 
   const displayedQuote = quote ?? thread.extractedQuote;
+  const closed = thread.status === "closed";
 
   return (
     <div className="space-y-6">
-      {/* Header: insurer, subject, status */}
-      <div className="bg-white border rounded-xl p-6 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {thread.insurerName}
-          </h2>
-          <Badge variant={STATUS_VARIANTS[thread.status] ?? "gray"}>
-            {STATUS_LABELS[thread.status] ?? thread.status}
-          </Badge>
+      <Button asChild variant="ghost" size="sm" className="-ml-2">
+        <Link href="/crm">
+          <ArrowLeftIcon />
+          All threads
+        </Link>
+      </Button>
+
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
+        {/* Left: header + timeline */}
+        <div className="min-w-0 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+                {thread.insurerName}
+                <Badge variant={STATUS_VARIANTS[thread.status] ?? "gray"}>
+                  {STATUS_LABELS[thread.status] ?? thread.status}
+                </Badge>
+              </CardTitle>
+              <CardDescription>{thread.subject}</CardDescription>
+            </CardHeader>
+          </Card>
+
+          {thread.riskFlags.length > 0 && (
+            <Alert variant="destructive">
+              <ShieldAlertIcon />
+              <AlertTitle>This thread was flagged for review</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc space-y-0.5 pl-5">
+                  {thread.riskFlags.map((flag) => (
+                    <li key={flag}>{RISK_FLAG_LABELS[flag] ?? flag}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold">Messages</h2>
+            <ThreadTimeline messages={thread.messages} />
+          </section>
         </div>
-        <p className="text-sm text-gray-500">{thread.subject}</p>
-        <div className="pt-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={simulating}
-            onClick={handleSimulateReply}
-            disabled={thread.status === "closed"}
-          >
-            Simulate insurer reply
-          </Button>
-          <p className="mt-1 text-xs text-gray-400">
-            Demo only: runs this insurer&apos;s configured persona through the outreach server.
-          </p>
-          {polling && (
-            <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-              <Spinner /> Checking for a reply…
-            </p>
-          )}
-          {simulateNotice && (
-            <p className="mt-1 text-sm text-amber-700">{simulateNotice}</p>
-          )}
-          {simulateError && <p className="mt-1 text-sm text-red-600">{simulateError}</p>}
-          <div className="flex gap-2 pt-2">
-            {thread.status !== "closed" && (
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={statusAction === "closed"}
-                disabled={statusAction !== null}
-                onClick={() => updateStatus("closed")}
-              >
-                Close thread
-              </Button>
+
+        {/* Right: actions + quote */}
+        <div className="space-y-6 lg:sticky lg:top-0">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  loading={simulating}
+                  onClick={handleSimulateReply}
+                  disabled={closed}
+                >
+                  {!simulating && <BotIcon />}
+                  Simulate insurer reply
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Demo only: runs this insurer&apos;s configured persona through the outreach server.
+                </p>
+                {polling && (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+                    <Spinner className="size-3.5" /> Checking for a reply…
+                  </p>
+                )}
+                {simulateNotice && (
+                  <Alert variant="warning">
+                    <ClockIcon />
+                    <AlertDescription>{simulateNotice}</AlertDescription>
+                  </Alert>
+                )}
+                <InlineError message={simulateError} />
+              </div>
+
+              <Separator />
+
+              <div className="flex flex-wrap gap-2">
+                {!closed && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={statusAction === "closed"}
+                    disabled={statusAction !== null}
+                    onClick={() => updateStatus("closed")}
+                  >
+                    {statusAction !== "closed" && <ArchiveIcon />}
+                    Close thread
+                  </Button>
+                )}
+                {thread.status !== "flagged" && thread.riskFlags.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={statusAction === "flagged"}
+                    disabled={statusAction !== null}
+                    onClick={() => updateStatus("flagged")}
+                  >
+                    {statusAction !== "flagged" && <FlagIcon />}
+                    Flag for review
+                  </Button>
+                )}
+              </div>
+              <InlineError message={statusError} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Quote</CardTitle>
+              <CardDescription className="text-xs">
+                Insurer replies are parsed by the quarantined reader, so injected &ldquo;ignore previous
+                instructions&rdquo; text is treated as data only.
+              </CardDescription>
+              <CardAction>
+                <Button size="sm" loading={extracting} onClick={handleExtractQuote}>
+                  {!extracting && <SparklesIcon />}
+                  Extract
+                </Button>
+              </CardAction>
+            </CardHeader>
+            {(extractError || displayedQuote) && (
+              <CardContent className="space-y-3">
+                <InlineError message={extractError} />
+
+                {displayedQuote && !confirmingComparison && (
+                  <>
+                    <Button
+                      variant={thread.addedToComparison ? "secondary" : "outline"}
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setComparisonError(null);
+                        setConfirmingComparison(true);
+                      }}
+                      disabled={thread.addedToComparison}
+                    >
+                      {thread.addedToComparison ? <CheckIcon /> : <ListPlusIcon />}
+                      {thread.addedToComparison ? "Added to comparison" : "Add to comparison"}
+                    </Button>
+                    <InlineError message={comparisonError} />
+                  </>
+                )}
+
+                {/* Review gate: show the extracted fields and require an explicit confirm
+                    before committing the quote to the comparison table. */}
+                {displayedQuote && confirmingComparison && (
+                  <div className="space-y-3 rounded-lg border bg-muted/50 p-3">
+                    <div>
+                      <p className="text-sm font-semibold">Review before adding to your comparison</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        These figures were extracted from the insurer&apos;s reply. Confirm they look right —
+                        this adds a factual row to your comparison table and is not a recommendation.
+                      </p>
+                    </div>
+                    <dl className="grid gap-x-4 gap-y-2 text-sm">
+                      <QuoteReviewRow
+                        label="Coverage amount"
+                        value={
+                          displayedQuote.coverageAmount !== undefined
+                            ? formatCurrency(displayedQuote.coverageAmount)
+                            : null
+                        }
+                      />
+                      <QuoteReviewRow
+                        label="Annual premium"
+                        value={
+                          displayedQuote.annualPremium !== undefined
+                            ? formatCurrency(displayedQuote.annualPremium)
+                            : null
+                        }
+                      />
+                      <QuoteReviewRow label="Waiting period" value={displayedQuote.waitingPeriod ?? null} />
+                      <QuoteReviewRow
+                        label="Valid until"
+                        value={displayedQuote.validUntil ? formatDate(displayedQuote.validUntil) : null}
+                      />
+                      <QuoteReviewRow
+                        label="Exclusions noted"
+                        value={
+                          displayedQuote.exclusionsNoted && displayedQuote.exclusionsNoted.length > 0
+                            ? displayedQuote.exclusionsNoted.join("; ")
+                            : null
+                        }
+                      />
+                      <QuoteReviewRow
+                        label="Rider options"
+                        value={
+                          displayedQuote.riderOptions && displayedQuote.riderOptions.length > 0
+                            ? displayedQuote.riderOptions.join("; ")
+                            : null
+                        }
+                      />
+                    </dl>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" loading={addingToComparison} onClick={confirmAddToComparison}>
+                        {!addingToComparison && <CheckIcon />}
+                        Confirm &amp; add
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={addingToComparison}
+                        onClick={() => {
+                          setConfirmingComparison(false);
+                          setComparisonError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <InlineError message={comparisonError} />
+                  </div>
+                )}
+              </CardContent>
             )}
-            {thread.status !== "flagged" && thread.riskFlags.length > 0 && (
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={statusAction === "flagged"}
-                disabled={statusAction !== null}
-                onClick={() => updateStatus("flagged")}
-              >
-                Flag for review
-              </Button>
-            )}
-          </div>
-          {statusError && <p className="mt-1 text-sm text-red-600">{statusError}</p>}
+          </Card>
+
+          {displayedQuote && <QuoteCard quote={displayedQuote} />}
         </div>
       </div>
-
-      {/* Prominent risk flags */}
-      {thread.riskFlags.length > 0 && (
-        <div className="rounded-xl border border-red-300 bg-red-50 p-4">
-          <div className="flex items-center gap-2">
-            <Badge variant="red">⚠ Risk flags</Badge>
-            <p className="text-sm font-semibold text-red-800">
-              This thread was flagged for review
-            </p>
-          </div>
-          <ul className="mt-2 list-disc pl-5 space-y-0.5 text-sm text-red-700">
-            {thread.riskFlags.map((flag) => (
-              <li key={flag}>{RISK_FLAG_LABELS[flag] ?? flag}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Message timeline */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-900">Messages</h2>
-        <ThreadTimeline messages={thread.messages} />
-      </section>
-
-      {/* Quote extraction */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h2 className="text-sm font-semibold text-gray-900">Quote</h2>
-          <Button
-            variant="secondary"
-            size="sm"
-            loading={extracting}
-            onClick={handleExtractQuote}
-          >
-            Extract quote
-          </Button>
-        </div>
-        <p className="text-xs text-gray-500">
-          Inbound insurer text is parsed through the quarantined reader, so any
-          injected &ldquo;ignore previous instructions&rdquo; content is treated
-          as data only — this view simply displays the extracted fields.
-        </p>
-        {extractError && <p className="text-red-600 text-sm">{extractError}</p>}
-        {displayedQuote && <QuoteCard quote={displayedQuote} />}
-        {displayedQuote && !confirmingComparison && (
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setComparisonError(null);
-                setConfirmingComparison(true);
-              }}
-              disabled={thread.addedToComparison}
-            >
-              {thread.addedToComparison ? "Added to comparison" : "Add to comparison"}
-            </Button>
-            {comparisonError && <p className="text-sm text-red-600">{comparisonError}</p>}
-          </div>
-        )}
-
-        {/* Review gate: show the extracted fields and require an explicit confirm
-            before committing the quote to the comparison table. */}
-        {displayedQuote && confirmingComparison && (
-          <div className="rounded-xl border border-gray-300 bg-gray-50 p-4 space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">
-                Review this quote before adding it to your comparison
-              </p>
-              <p className="mt-0.5 text-xs text-gray-500">
-                These are the figures extracted from the insurer&apos;s reply.
-                Confirm they look right — this adds a factual row to your
-                comparison table and is not a recommendation.
-              </p>
-            </div>
-            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-              <QuoteReviewRow
-                label="Coverage amount"
-                value={
-                  displayedQuote.coverageAmount !== undefined
-                    ? formatCurrency(displayedQuote.coverageAmount)
-                    : null
-                }
-              />
-              <QuoteReviewRow
-                label="Annual premium"
-                value={
-                  displayedQuote.annualPremium !== undefined
-                    ? formatCurrency(displayedQuote.annualPremium)
-                    : null
-                }
-              />
-              <QuoteReviewRow
-                label="Waiting period"
-                value={displayedQuote.waitingPeriod ?? null}
-              />
-              <QuoteReviewRow
-                label="Valid until"
-                value={
-                  displayedQuote.validUntil
-                    ? formatDate(displayedQuote.validUntil)
-                    : null
-                }
-              />
-              <QuoteReviewRow
-                label="Exclusions noted"
-                value={
-                  displayedQuote.exclusionsNoted &&
-                  displayedQuote.exclusionsNoted.length > 0
-                    ? displayedQuote.exclusionsNoted.join("; ")
-                    : null
-                }
-              />
-              <QuoteReviewRow
-                label="Rider options"
-                value={
-                  displayedQuote.riderOptions &&
-                  displayedQuote.riderOptions.length > 0
-                    ? displayedQuote.riderOptions.join("; ")
-                    : null
-                }
-              />
-            </dl>
-            <div className="flex items-center gap-3 pt-1">
-              <Button
-                size="sm"
-                loading={addingToComparison}
-                onClick={confirmAddToComparison}
-              >
-                Confirm &amp; add
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={addingToComparison}
-                onClick={() => {
-                  setConfirmingComparison(false);
-                  setComparisonError(null);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-            {comparisonError && <p className="text-sm text-red-600">{comparisonError}</p>}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
