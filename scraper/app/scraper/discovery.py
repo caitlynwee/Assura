@@ -48,28 +48,36 @@ def _slugify(name: str) -> str:
 
 def _search_brochure_url(insurer_name: str, plan_name: str, country: str) -> str:
     """Use DuckDuckGo to find the actual PDF brochure URL for a CI plan."""
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 
-    query = f'{insurer_name} "{plan_name}" {country} critical illness brochure filetype:pdf'
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=10))
+    # Try PDF-specific query first, then fall back to broader query
+    queries = [
+        f'{insurer_name} critical illness brochure filetype:pdf',
+        f'{insurer_name} critical illness plan brochure PDF {country}',
+    ]
+    for query in queries:
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=10))
 
-        # Prefer results with .pdf in the URL
-        for r in results:
-            url = r.get("href", "")
-            if ".pdf" in url.lower():
-                print(f"[discovery] Found PDF for {insurer_name}: {url}")
-                return url
+            print(f"[discovery] DDG search '{query}' → {len(results)} results")
 
-        # Fall back to first result from any source
-        if results:
-            url = results[0].get("href", "")
-            print(f"[discovery] Fallback URL for {insurer_name}: {url}")
-            return url
+            for r in results:
+                url = r.get("href", "")
+                if ".pdf" in url.lower():
+                    print(f"[discovery] Found PDF for {insurer_name}: {url}")
+                    return url
 
-    except Exception as exc:  # noqa: BLE001
-        print(f"[discovery] DuckDuckGo search failed for {insurer_name}: {exc}")
+            # Fall back to first result on the insurer's own domain
+            insurer_slug = _slugify(insurer_name)
+            for r in results:
+                url = r.get("href", "")
+                if any(part in url.lower() for part in insurer_slug.split("-") if len(part) > 3):
+                    print(f"[discovery] Fallback URL for {insurer_name}: {url}")
+                    return url
+
+        except Exception as exc:  # noqa: BLE001
+            print(f"[discovery] DuckDuckGo search failed for '{query}': {exc}")
 
     return ""
 
