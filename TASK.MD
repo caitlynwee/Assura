@@ -124,3 +124,60 @@ Others need to know:
 - Marcus updated auth.ts, users.ts, onboarding.ts to use async DB (Drizzle) calls — the abstractions are the same, just async now.
 Blockers: None. AI drafting needs Jeff's DeepSeek wiring; UI falls back to template drafts until then.
 ---
+## 2026-10-20 | Outreach/CRM integration slice
+Status: Completed
+Done:
+- Routed approved outbound email from Next.js through the authenticated Python outreach server.
+- Added internal-key protection to outreach send and simulator endpoints.
+- Added a backend callback for simulator replies so the web backend remains the CRM writer.
+- Added a CRM "Simulate insurer reply" control for the five demo personas.
+- Hardened send validation: approval is evaluated from the validated request, subject and body are PII-scanned, and invalid follow-up threads are rejected.
+Validation:
+- Python sources compile successfully.
+- Patch whitespace check passes.
+Notes:
+- Node and Python test dependencies are not installed in this checkout; `npm ci` was attempted but network access reset, and pytest could not start because pytest is unavailable.
+---
+
+## 2026-10-20 | CRM/outreach ownership split
+Status: Completed
+Done:
+- Fixed CRM reply simulation handler placement so the CRM component compiles and can refresh a thread after a simulated reply.
+- Added CRM-only close/flag actions.
+- Added CRM quote-to-comparison action with duplicate protection and audit logging.
+- Documented the ownership boundary and internal reply contract in README.md for parallel work.
+Validation:
+- Web TypeScript check passes in the running container.
+- Python sources and patch whitespace remain valid.
+Notes:
+- Existing repository-wide ESLint errors remain outside the CRM changes.
+- Existing Jest configuration currently parses TypeScript as plain JavaScript, so the baseline web tests fail before executing.
+---
+
+## 2026-10-19 | Copilot | PR #1 merge conflict resolution
+Status: Completed
+Done:
+- Merged `main` into `jeff/outreach-crm` and resolved all merge conflicts.
+- Kept onboarding/outreach page + onboarding form conflict resolutions aligned with `main`'s latest UI flow.
+- Preserved both branches' TASK.MD history by carrying over migration/auth entries from `main` and prior outreach/CRM entries from this branch.
+Validation:
+- `cd web && npm run build` ✅
+- `cd web && npm test -- --runInBand` ✅
+Others need to know:
+- This branch now includes the latest `main` updates (auth/docs/CI scaffolding) and is no longer in a conflicted state.
+Blockers: None
+---
+
+## 2026-10-20 | Copilot | Fix CI scraper lint failure
+Status: Completed
+Done:
+- Investigated failing GitHub Actions job `scraper (lint · test)` (run 39292050598, job 118195268118) and identified `ruff` F821 (`threads_path` undefined) in `scraper/app/personas/simulator.py`.
+- Added the missing `threads_path = settings.data_dir / "threads.json"` assignment before loading threads.
+- Validated with `ruff check app/` and `pytest -v` in `/scraper` (16 passed).
+Files:
+- scraper/app/personas/simulator.py
+- TASK.MD
+Others need to know:
+- Failure was limited to lint; no behavior change beyond restoring intended thread loading path.
+Blockers: None
+---
