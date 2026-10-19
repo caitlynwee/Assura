@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import { auth, refreshSessionCookie, signOut } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { deleteUserCascade } from "@/lib/db";
 import { syncAuthMetadata } from "@/lib/supabase/ensure-demo-user";
 import { loginSchema, signupSchema } from "@/lib/validators";
 import {
@@ -252,6 +253,56 @@ export async function logoutAction(): Promise<void> {
   const session = await auth();
   if (session?.user?.id) logEvent(session.user.id, "auth.logout", {});
   await signOut({ redirectTo: "/?toast=loggedout" });
+}
+
+// ─── Delete account (self-service) ─────────────────────────────────────────────
+
+/**
+ * Permanently delete the signed-in user's account:
+ *   1. audit the intent (while the actor id is still valid),
+ *   2. remove the app data (threads + messages + users row, FK-safe),
+ *   3. delete the Supabase Auth identity (admin),
+ *   4. sign out and redirect home with a toast.
+ *
+ * The audit chain itself is preserved (append-only) — the deletion event stays
+ * in it. Requires a typed confirmation from the dialog so it can't fire by
+ * accident. The demo seed account is protected from self-deletion.
+ */
+export async function deleteAccountAction(formData: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
+  // Require an explicit typed confirmation ("DELETE") from the dialog.
+  if (String(formData.get("confirm") ?? "").trim().toUpperCase() !== "DELETE") {
+    redirect("/compare?toast=delete-unconfirmed");
+  }
+
+  const userId = session.user.id;
+  const email = session.user.email;
+
+  // Protect the shared demo account (so a demo run can't nuke the seed user).
+  if (email.toLowerCase() === DEMO_EMAIL.toLowerCase()) {
+    redirect("/compare?toast=delete-demo-blocked");
+  }
+
+  // 1. Audit first — the actor id must exist when the entry is written.
+  logEvent(userId, "auth.account.deleted", { email: maskEmail(email) });
+
+  // 2. Remove app data (threads/messages/users row), FK-safe + transactional.
+  await deleteUserCascade(userId);
+
+  // 3. Delete the Supabase identity (best-effort; no-op if admin unavailable).
+  const admin = getAdminClient();
+  const serverClient = await getServerClient();
+  const {
+    data: { user: sbUser },
+  } = await serverClient.auth.getUser();
+  if (admin && sbUser?.id) {
+    await admin.auth.admin.deleteUser(sbUser.id).catch(() => {});
+  }
+
+  // 4. Clear the session and leave.
+  await signOut({ redirectTo: "/?toast=account-deleted" });
 }
 
 // ─── Free → Premium (demo, no payment) ────────────────────────────────────────
