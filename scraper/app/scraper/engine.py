@@ -44,8 +44,10 @@ async def run_scraper(
             if not changed_flag:
                 continue
 
-            # Download versioned copy
-            content = await download_page(source["url"], response)
+            # Download versioned copy (Playwright for product pages, httpx for mock)
+            content = await download_page(
+                source["url"], response, source_type=source.get("type", "product_page")
+            )
             _save_versioned(source["id"], content, started_at)
 
             # Extract clean text
