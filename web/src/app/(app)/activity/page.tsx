@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import AuditEventList from "@/components/activity/audit-event-list";
 import VerifyChainButton from "@/components/activity/verify-chain-button";
 
-export const metadata = { title: "Activity Log — Fineprint" };
+export const metadata = { title: "Activity Log — Assura" };
 
 export default function ActivityPage() {
   return (
@@ -14,7 +14,7 @@ export default function ActivityPage() {
             Activity Log
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            Every action taken by Fineprint is logged here with a tamper-evident
+            Every action taken by Assura is logged here with a tamper-evident
             hash chain.
           </p>
         </div>

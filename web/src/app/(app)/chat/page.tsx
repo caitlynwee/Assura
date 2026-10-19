@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import ChatWindow from "@/components/chat/chat-window";
 
-export const metadata = { title: "Plan Q&A — Fineprint" };
+export const metadata = { title: "Plan Q&A — Assura" };
 
 export default function ChatPage() {
   return (

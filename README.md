@@ -29,9 +29,10 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 **Option B — Local (no Docker)**
 - Node.js 20+
 - Python 3.11+
+- [uv](https://docs.astral.sh/uv/) — `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - Mailpit — `brew install mailpit`
 
-You need **both** an `AUTH_SECRET` and an `ANTHROPIC_API_KEY` regardless of which option you choose.
+You need **both** an `AUTH_SECRET` and a `DEEPSEEK_API_KEY` regardless of which option you choose.
 
 ---
 
@@ -52,8 +53,8 @@ cd Assura
 
 This single command does everything:
 - Creates `.env` and `web/.env.local` from the example files
-- Creates the Python virtual environment (`scraper/.venv`)
-- Installs all Python and Node.js dependencies
+- Creates the Python virtual environment with **uv** (`scraper/.venv`)
+- Installs all Python (via `uv`) and Node.js dependencies
 - Seeds `./data` from `./seed`
 
 ### 3. Fill in secrets
@@ -67,7 +68,7 @@ openssl rand -base64 32
 
 ```env
 AUTH_SECRET=<paste generated value>
-ANTHROPIC_API_KEY=sk-ant-...
+DEEPSEEK_API_KEY=sk-...
 ```
 
 Both files need the same two values. Everything else is pre-configured.
@@ -142,6 +143,27 @@ docker compose up -d mailpit web
 ./dev.sh seed            Reset ./data from ./seed
 ./dev.sh test            Run scraper test suite (pytest)
 ./dev.sh lint            Lint scraper/app with ruff
+./dev.sh ci              Run all CI checks locally (web + scraper)
+```
+
+---
+
+## Continuous integration
+
+GitHub Actions runs on every push and pull request to `main` (`.github/workflows/ci.yml`):
+
+- **web** — `npm ci` → lint → build → tests (jest, when the `test` script exists)
+- **scraper** — dependencies via **uv** → `ruff` → `pytest`
+
+Both jobs spin up a PostgreSQL 16 service container (used once the storage migration lands).
+Run the same checks locally before pushing with `./dev.sh ci`.
+
+Optional pre-commit hooks (ruff + eslint + hygiene checks) live in `.pre-commit-config.yaml`:
+
+```bash
+uv tool install pre-commit
+pre-commit install            # run hooks on every commit
+pre-commit run --all-files    # run them once across the repo
 ```
 
 ---
@@ -173,9 +195,9 @@ docker compose up -d mailpit web
 ```
 ┌─────────────────────────── docker compose network ──────────────────────────┐
 │                                                                               │
-│   web (Next.js :3000)  ──── http://scraper:8100 ──── scraper (FastAPI :8100) │
-│          │                                                    │               │
-│          └──────────────── mailpit:1025 (SMTP) ──────────────┘               │
+│   web (Next.js :3000)  ──── authenticated HTTP ──── scraper (FastAPI :8100)  │
+│                                                            │                  │
+│                                                            └── mailpit:1025  │
 │                                                                               │
 │   mailpit (:1025 SMTP, :8025 UI)                                             │
 │                                                                               │
@@ -193,10 +215,41 @@ docker compose up -d mailpit web
 ├── seed/         Source-of-truth seed data + reset.sh
 ├── dev.sh        Development CLI (start here)
 ├── docker-compose.yml
-├── CLAUDE.md     AI agent instructions (read this if using Claude)
+├── AGENTS.md     AI agent instructions (tool-agnostic: Claude, Kiro, Copilot, ...)
 ├── TASK.MD       Cross-session task log (update when you complete work)
 └── PROJECT.MD    Full product spec
 ```
+
+### CRM and outreach ownership boundary
+
+These surfaces are separated so they can be developed in parallel.
+
+**CRM-owned files**
+
+- `web/src/app/(app)/crm/`
+- `web/src/app/api/crm/`
+- `web/src/app/api/internal/crm/`
+- `web/src/components/crm/`
+- `web/src/hooks/use-thread*.ts`
+
+The CRM owns `threads.json`, quote extraction, risk flags, thread statuses,
+comparison entries, and audit events. It is the only service that writes CRM
+state.
+
+**Outreach-owned files**
+
+- `web/src/app/(app)/outreach/`
+- `web/src/app/api/outreach/`
+- `web/src/components/outreach/`
+- `scraper/app/email_relay/`
+- `scraper/app/personas/`
+- `scraper/app/routers/email.py`
+
+Outreach owns draft generation, consent filtering, Mailpit delivery, and the
+simulated insurer personas. It must not write `threads.json` directly. After a
+simulated reply, it calls the authenticated `POST /api/internal/crm/replies`
+endpoint with an inbound message and optional risk flag; the CRM performs the
+state transition and audit logging.
 
 **Startup order:**
 
@@ -221,7 +274,7 @@ init-data (seeds ./data if empty, then exits)
 | **Jeff** | AI agent, outreach & CRM | `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `scraper/app/personas/`, `scraper/app/email_relay/` |
 | **Caitlyn** | Docs & presentation | Architecture diagram, security write-up, slide deck |
 
-Read `CLAUDE.md` for the full breakdown and the `TASK.MD` protocol.
+Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 
 ---
 
@@ -232,17 +285,21 @@ Read `CLAUDE.md` for the full breakdown and the `TASK.MD` protocol.
 | Variable | Description |
 |---|---|
 | `AUTH_SECRET` | NextAuth signing secret — generate with `openssl rand -base64 32` |
-| `ANTHROPIC_API_KEY` | Claude API key from console.anthropic.com |
+| `DEEPSEEK_API_KEY` | DeepSeek API key from platform.deepseek.com (the AI layer uses the OpenAI-compatible DeepSeek API) |
 
 All other variables (service URLs, Mailpit host, ports) are pre-set in `docker-compose.yml`.
 
+> **Coming with the storage migration:** once the JSON → PostgreSQL migration lands, a
+> `DATABASE_URL` is also required (a `postgres` service is added to `docker-compose.yml`).
+> See `HANDOFF-postgres-migration.md`.
+
 ### `web/.env.local` — used when running web locally
 
-Same `AUTH_SECRET` and `ANTHROPIC_API_KEY`. Pre-filled example at `web/.env.local.example`.
+Same `AUTH_SECRET` and `DEEPSEEK_API_KEY`. Pre-filled example at `web/.env.local.example`.
 
 ### `scraper/.env` — used when running scraper locally
 
-Pre-filled example at `scraper/.env.example`. Only needs `ANTHROPIC_API_KEY`.
+Pre-filled example at `scraper/.env.example`.
 
 ---
 
@@ -268,7 +325,10 @@ This copies `seed/*.json` into `data/` and clears the `.jsonl` logs. Safe to run
 ./dev.sh lint
 ```
 
-Web unit tests (policy engine, blocker, audit) are in `web/src/__tests__/` — run with `cd web && npm test`.
+Web unit tests (policy engine, blocker, audit) are in `web/src/__tests__/` — run with `cd web && npm test`
+(the `test` script is added by the storage-migration branch).
+
+Run the full CI suite locally (web build/lint/test + scraper lint/test) with `./dev.sh ci`.
 
 ---
 
@@ -278,7 +338,7 @@ Web unit tests (policy engine, blocker, audit) are in `web/src/__tests__/` — r
 # Added a new npm package?
 ./dev.sh build web
 
-# Added a new pip package?
+# Added a new Python package (declared in scraper/pyproject.toml)?
 ./dev.sh build scraper
 ```
 

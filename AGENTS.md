@@ -1,4 +1,9 @@
-# Assura — Claude Agent Instructions
+# Assura — AI Agent Instructions
+
+> Tool-agnostic guide for any AI coding assistant working in this repo (Claude, Kiro, Copilot,
+> Cursor, etc.). `AGENTS.md` is the cross-tool standard filename; most assistants read it
+> automatically. Read this plus `TASK.MD` (current state) and `PROJECT.MD` (product spec) at the
+> start of every session.
 
 ## Goal: Win the 2026 Shenzhen FinTechathon
 International Track · Topic D (Insurance Assistant) · Theme: "AI as a Financial Participant"
@@ -51,7 +56,8 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 - Files: `scraper/app/scraper/`, `scraper/app/routers/scraper.py`, `data/sources.json`
 
 ### Jeff — AI Agent & CRM
-- Dockerised Hermes agent for personalised email drafting and thread management
+- AI email drafting + thread management (in-process via `web/src/lib/ai.ts` — the standalone
+  Hermes agent idea was dropped as overkill for the demo; drafting is one LLM call, no agent loop)
 - Outreach flow: insurer picker → template → AI draft → user approval → send
 - CRM: thread timeline, status management, quote extraction, risk flag display
 - 5 simulated insurer personas (helpful, slow, pushy, data-grabber, injector)
@@ -73,7 +79,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ├── scraper/      Python FastAPI — scraper, email relay, personas
 ├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
 ├── seed/         Seed data + reset.sh (source of truth for demo state)
-├── CLAUDE.md     ← you are here
+├── AGENTS.md     ← you are here (AI agent instructions, any tool)
 ├── TASK.MD       ← cross-session task log (UPDATE THIS when you finish something)
 └── PROJECT.MD    ← product spec
 ```
@@ -81,7 +87,8 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ---
 
 ## Architecture Decisions (do not change without team consensus)
-- **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename).
+- **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
+- **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` — see `HANDOFF-postgres-migration.md`. Until that merges, JSON files remain the source of truth.
 - **Auth**: NextAuth v5, Credentials provider, JWT. `auth.config.ts` = edge-safe (middleware). `auth.ts` = full server-side (has bcrypt + db).
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.
@@ -128,14 +135,15 @@ Blockers: What is stopping you (if any)
 bash seed/reset.sh
 
 # 2. Web app
-cd web && cp .env.local.example .env.local   # fill AUTH_SECRET + ANTHROPIC_API_KEY
+cd web && cp .env.local.example .env.local   # fill AUTH_SECRET + DEEPSEEK_API_KEY
 npm install && npm run dev                    # http://localhost:3000
 
-# 3. Scraper server
-cd scraper && python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
+# 3. Scraper server (uv — install: brew install uv)
+cd scraper && uv venv .venv && source .venv/bin/activate
+uv pip install -e ".[dev]"
 uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
+
+# (Or just run `./dev.sh setup` from the repo root to do steps 1-3 at once.)
 
 # 4. Mailpit (install once: brew install mailpit)
 mailpit                                       # UI: http://localhost:8025 | SMTP: localhost:1025

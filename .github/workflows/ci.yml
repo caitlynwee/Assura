@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (saves minutes on rapid pushes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Web: Next.js build + lint + (optional) jest ────────────────────────────
+  web:
+    name: web (build · lint · test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        # Non-blocking for now: main has 2 pre-existing eslint errors
+        # ((public)/page.tsx, hooks/use-plans.ts). Remove `|| true` once fixed
+        # to make lint gate PRs.
+        run: npm run lint || true
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build must succeed without real secrets (clients are lazily
+          # instantiated). Dummy values keep any env reads happy.
+          AUTH_SECRET: ci-dummy-secret-not-used-at-build-time
+          DEEPSEEK_API_KEY: ci-dummy-key
+
+      - name: Test
+        # The `test` script arrives with the Postgres migration branch.
+        # Run it only if present so CI stays green on main until then.
+        run: |
+          if npm run | grep -qE '^  test'; then
+            npm test
+          else
+            echo "No 'test' script yet — skipping (added by the storage migration branch)."
+          fi
+        env:
+          # A Postgres service is available at localhost:5432 for branches
+          # whose tests need it (e.g. the Drizzle migration). Harmless if unused.
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/assura_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: assura_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+  # ── Scraper: ruff + pytest (deps via uv) ───────────────────────────────────
+  scraper:
+    name: scraper (lint · test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scraper
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies (uv)
+        # Installs the project + dev extras into a uv-managed venv from pyproject.
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check app/
+
+      - name: Test (pytest)
+        run: pytest -v
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/assura_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: assura_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
