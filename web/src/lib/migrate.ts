@@ -4,10 +4,15 @@
  * migrate+seed one-shot step.
  */
 
+import { setDefaultResultOrder } from "node:dns";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import path from "path";
+
+// Force IPv4 DNS — Docker containers on macOS get IPv6 addresses for Supabase
+// hostnames which are unreachable inside the Docker network bridge.
+setDefaultResultOrder("ipv4first");
 
 function pgOptions(url: string) {
   const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
