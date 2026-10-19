@@ -57,5 +57,8 @@ Thumbs.db
 .github/copilot/
 .aider*
 
+# ─── Agent/workflow scratch artifacts (task plans, feature specs, reports) ───
+.agents/
+
 # ─── Git worktrees (local only, never commit) ────────────────────────────────
 .worktrees/
