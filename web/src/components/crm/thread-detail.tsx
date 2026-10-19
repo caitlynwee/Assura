@@ -7,7 +7,25 @@ import Spinner from "@/components/ui/spinner";
 import ThreadTimeline from "@/components/crm/thread-timeline";
 import QuoteCard from "@/components/crm/quote-card";
 import { useThread } from "@/hooks/use-thread";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ExtractedQuote } from "@/lib/types";
+
+function QuoteReviewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null;
+}) {
+  return (
+    <div>
+      <dt className="text-xs font-medium text-gray-500">{label}</dt>
+      <dd className="mt-0.5 text-gray-900">
+        {value ?? <span className="text-gray-400">Not stated</span>}
+      </dd>
+    </div>
+  );
+}
 
 const STATUS_VARIANTS: Record<
   string,
@@ -43,14 +61,20 @@ interface Props {
 }
 
 export default function ThreadDetail({ threadId }: Props) {
-  const { thread, loading, error, setThread } = useThread(threadId);
+  const { thread, loading, error, polling, setThread, pollUntilChanged } =
+    useThread(threadId);
 
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [quote, setQuote] = useState<ExtractedQuote | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [simulateError, setSimulateError] = useState<string | null>(null);
+  const [simulateNotice, setSimulateNotice] = useState<string | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [confirmingComparison, setConfirmingComparison] = useState(false);
+  const [addingToComparison, setAddingToComparison] = useState(false);
+  const [statusAction, setStatusAction] = useState<"closed" | "flagged" | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   async function handleExtractQuote() {
     setExtracting(true);
@@ -86,6 +110,7 @@ export default function ThreadDetail({ threadId }: Props) {
   async function handleSimulateReply() {
     setSimulating(true);
     setSimulateError(null);
+    setSimulateNotice(null);
     try {
       const res = await fetch(`/api/crm/threads/${threadId}/reply`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
@@ -93,9 +118,15 @@ export default function ThreadDetail({ threadId }: Props) {
         setSimulateError(data.error ?? "Could not simulate an insurer reply.");
         return;
       }
-      const refreshed = await fetch(`/api/crm/threads/${threadId}`);
-      const refreshedData = await refreshed.json();
-      if (refreshed.ok && refreshedData.thread) setThread(refreshedData.thread);
+      // The reply may land server-side asynchronously (and the 'slow' persona
+      // only replies after a follow-up), so poll a few times and stop early
+      // once the thread's status or message count changes.
+      const changed = await pollUntilChanged();
+      if (!changed) {
+        setSimulateNotice(
+          "No reply has arrived yet. This insurer's persona may only respond to a follow-up — try again shortly."
+        );
+      }
     } catch {
       setSimulateError("Could not simulate an insurer reply.");
     } finally {
@@ -104,26 +135,56 @@ export default function ThreadDetail({ threadId }: Props) {
   }
 
   async function updateStatus(status: "closed" | "flagged") {
-    const res = await fetch(`/api/crm/threads/${threadId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.thread) setThread(data.thread);
+    setStatusAction(status);
+    setStatusError(null);
+    try {
+      const res = await fetch(`/api/crm/threads/${threadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.thread) {
+        setStatusError(
+          data.error ??
+            (status === "closed"
+              ? "Could not close the thread. Please try again."
+              : "Could not flag the thread for review. Please try again.")
+        );
+        return;
+      }
+      // Only reflect the new status once the server confirmed it.
+      setThread(data.thread);
+    } catch {
+      setStatusError(
+        status === "closed"
+          ? "Could not close the thread. Please try again."
+          : "Could not flag the thread for review. Please try again."
+      );
+    } finally {
+      setStatusAction(null);
+    }
   }
 
-  async function addToComparison() {
+  async function confirmAddToComparison() {
     setComparisonError(null);
-    const res = await fetch(`/api/crm/threads/${threadId}/quote/comparison`, {
-      method: "POST",
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setComparisonError(data.error ?? "Could not add quote to comparison.");
-      return;
+    setAddingToComparison(true);
+    try {
+      const res = await fetch(`/api/crm/threads/${threadId}/quote/comparison`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setComparisonError(data.error ?? "Could not add quote to comparison.");
+        return;
+      }
+      if (data.thread) setThread(data.thread);
+      setConfirmingComparison(false);
+    } catch {
+      setComparisonError("Could not add quote to comparison.");
+    } finally {
+      setAddingToComparison(false);
     }
-    if (data.thread) setThread(data.thread);
   }
 
   if (loading) {
@@ -174,19 +235,40 @@ export default function ThreadDetail({ threadId }: Props) {
           <p className="mt-1 text-xs text-gray-400">
             Demo only: runs this insurer&apos;s configured persona through the outreach server.
           </p>
+          {polling && (
+            <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+              <Spinner /> Checking for a reply…
+            </p>
+          )}
+          {simulateNotice && (
+            <p className="mt-1 text-sm text-amber-700">{simulateNotice}</p>
+          )}
           {simulateError && <p className="mt-1 text-sm text-red-600">{simulateError}</p>}
           <div className="flex gap-2 pt-2">
             {thread.status !== "closed" && (
-              <Button variant="secondary" size="sm" onClick={() => updateStatus("closed")}>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={statusAction === "closed"}
+                disabled={statusAction !== null}
+                onClick={() => updateStatus("closed")}
+              >
                 Close thread
               </Button>
             )}
             {thread.status !== "flagged" && thread.riskFlags.length > 0 && (
-              <Button variant="secondary" size="sm" onClick={() => updateStatus("flagged")}>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={statusAction === "flagged"}
+                disabled={statusAction !== null}
+                onClick={() => updateStatus("flagged")}
+              >
                 Flag for review
               </Button>
             )}
           </div>
+          {statusError && <p className="mt-1 text-sm text-red-600">{statusError}</p>}
         </div>
       </div>
 
@@ -233,16 +315,105 @@ export default function ThreadDetail({ threadId }: Props) {
         </p>
         {extractError && <p className="text-red-600 text-sm">{extractError}</p>}
         {displayedQuote && <QuoteCard quote={displayedQuote} />}
-        {displayedQuote && (
+        {displayedQuote && !confirmingComparison && (
           <div className="flex items-center gap-3">
             <Button
               variant="secondary"
               size="sm"
-              onClick={addToComparison}
+              onClick={() => {
+                setComparisonError(null);
+                setConfirmingComparison(true);
+              }}
               disabled={thread.addedToComparison}
             >
               {thread.addedToComparison ? "Added to comparison" : "Add to comparison"}
             </Button>
+            {comparisonError && <p className="text-sm text-red-600">{comparisonError}</p>}
+          </div>
+        )}
+
+        {/* Review gate: show the extracted fields and require an explicit confirm
+            before committing the quote to the comparison table. */}
+        {displayedQuote && confirmingComparison && (
+          <div className="rounded-xl border border-gray-300 bg-gray-50 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Review this quote before adding it to your comparison
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                These are the figures extracted from the insurer&apos;s reply.
+                Confirm they look right — this adds a factual row to your
+                comparison table and is not a recommendation.
+              </p>
+            </div>
+            <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              <QuoteReviewRow
+                label="Coverage amount"
+                value={
+                  displayedQuote.coverageAmount !== undefined
+                    ? formatCurrency(displayedQuote.coverageAmount)
+                    : null
+                }
+              />
+              <QuoteReviewRow
+                label="Annual premium"
+                value={
+                  displayedQuote.annualPremium !== undefined
+                    ? formatCurrency(displayedQuote.annualPremium)
+                    : null
+                }
+              />
+              <QuoteReviewRow
+                label="Waiting period"
+                value={displayedQuote.waitingPeriod ?? null}
+              />
+              <QuoteReviewRow
+                label="Valid until"
+                value={
+                  displayedQuote.validUntil
+                    ? formatDate(displayedQuote.validUntil)
+                    : null
+                }
+              />
+              <QuoteReviewRow
+                label="Exclusions noted"
+                value={
+                  displayedQuote.exclusionsNoted &&
+                  displayedQuote.exclusionsNoted.length > 0
+                    ? displayedQuote.exclusionsNoted.join("; ")
+                    : null
+                }
+              />
+              <QuoteReviewRow
+                label="Rider options"
+                value={
+                  displayedQuote.riderOptions &&
+                  displayedQuote.riderOptions.length > 0
+                    ? displayedQuote.riderOptions.join("; ")
+                    : null
+                }
+              />
+            </dl>
+            <div className="flex items-center gap-3 pt-1">
+              <Button
+                size="sm"
+                loading={addingToComparison}
+                onClick={confirmAddToComparison}
+              >
+                Confirm &amp; add
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={addingToComparison}
+                onClick={() => {
+                  setConfirmingComparison(false);
+                  setComparisonError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
             {comparisonError && <p className="text-sm text-red-600">{comparisonError}</p>}
           </div>
         )}
