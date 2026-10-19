@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 // Radix Select items can't use "" as a value, so "all" stands for "no filter".
 const ALL = "all";
@@ -21,7 +22,7 @@ const INSURERS = [
 
 type SortBy = "coverageAmount" | "premiums" | "illnessesCovered" | "planName";
 
-export default function PlanFilters() {
+export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean }) {
   const { filters, setFilter, reset } = usePlanFilters();
 
   return (
@@ -104,6 +105,22 @@ export default function PlanFilters() {
             </SelectContent>
           </Select>
         </div>
+
+        {hasBudget && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="f-within-budget" className="text-xs text-muted-foreground">
+              Within my budget
+            </Label>
+            <div className="flex h-9 items-center gap-2">
+              <Switch
+                id="f-within-budget"
+                checked={filters.withinBudgetOnly ?? false}
+                onCheckedChange={(v) => setFilter("withinBudgetOnly", v || undefined)}
+              />
+              <span className="text-sm text-muted-foreground">Emphasize</span>
+            </div>
+          </div>
+        )}
 
         <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
           <RotateCcwIcon />
