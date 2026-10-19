@@ -31,7 +31,8 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 - Python 3.11+
 - Mailpit — `brew install mailpit`
 
-You need **both** an `AUTH_SECRET` and an `ANTHROPIC_API_KEY` regardless of which option you choose.
+You need an `AUTH_SECRET` and a Supabase PostgreSQL `DATABASE_URL`. AI
+features also require the provider key used by the current web AI layer.
 
 ---
 
@@ -67,10 +68,12 @@ openssl rand -base64 32
 
 ```env
 AUTH_SECRET=<paste generated value>
-ANTHROPIC_API_KEY=sk-ant-...
+DATABASE_URL=postgresql://postgres:<url-encoded-password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require
 ```
 
-Both files need the same two values. Everything else is pre-configured.
+Both files need the same database and auth values. Never commit either secret.
+The Supabase publishable API key is not used by the server-side database layer;
+the web backend connects to Supabase PostgreSQL through `DATABASE_URL`.
 
 ### 4. Start the project
 
@@ -173,9 +176,9 @@ docker compose up -d mailpit web
 ```
 ┌─────────────────────────── docker compose network ──────────────────────────┐
 │                                                                               │
-│   web (Next.js :3000)  ──── http://scraper:8100 ──── scraper (FastAPI :8100) │
-│          │                                                    │               │
-│          └──────────────── mailpit:1025 (SMTP) ──────────────┘               │
+│   web (Next.js :3000)  ──── Supabase PostgreSQL                │
+│          │ authenticated HTTP                                 │
+│          └──────────── scraper (FastAPI :8100) ── mailpit      │
 │                                                                               │
 │   mailpit (:1025 SMTP, :8025 UI)                                             │
 │                                                                               │
@@ -201,7 +204,7 @@ docker compose up -d mailpit web
 **Startup order:**
 
 ```
-init-data (seeds ./data if empty, then exits)
+db-migrate (applies Drizzle schema + idempotent seed to Supabase)
     │
     ├── mailpit  (email sandbox)
     │
@@ -232,17 +235,18 @@ Read `CLAUDE.md` for the full breakdown and the `TASK.MD` protocol.
 | Variable | Description |
 |---|---|
 | `AUTH_SECRET` | NextAuth signing secret — generate with `openssl rand -base64 32` |
-| `ANTHROPIC_API_KEY` | Claude API key from console.anthropic.com |
+| `DATABASE_URL` | Supabase direct PostgreSQL URL with `sslmode=require` |
 
 All other variables (service URLs, Mailpit host, ports) are pre-set in `docker-compose.yml`.
 
 ### `web/.env.local` — used when running web locally
 
-Same `AUTH_SECRET` and `ANTHROPIC_API_KEY`. Pre-filled example at `web/.env.local.example`.
+Same `AUTH_SECRET` and `DATABASE_URL`. Pre-filled example at `web/.env.local.example`.
 
 ### `scraper/.env` — used when running scraper locally
 
-Pre-filled example at `scraper/.env.example`. Only needs `ANTHROPIC_API_KEY`.
+Pre-filled example at `scraper/.env.example`. The scraper continues to use its
+shared local runtime data directory for scraper-specific files.
 
 ---
 
