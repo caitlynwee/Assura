@@ -84,14 +84,18 @@ export function useChat(conversationId: string | null, options: Options = {}) {
     };
   }, [conversationId, createdId]);
 
-  const sendMessage = useCallback(
-    async (content: string) => {
+  /**
+   * Send `content` after `base` and stream the answer. With `editMessageId`,
+   * the server first removes that user message and everything after it.
+   */
+  const runExchange = useCallback(
+    async (content: string, base: ChatMessage[], editMessageId?: string) => {
       const userMsg: ChatMessage = {
         role: "user",
         content,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages([...base, userMsg]);
       setStreaming(true);
 
       try {
@@ -101,6 +105,7 @@ export function useChat(conversationId: string | null, options: Options = {}) {
           body: JSON.stringify({
             message: content,
             ...(conversationId ? { conversationId } : {}),
+            ...(editMessageId ? { editMessageId } : {}),
           }),
         });
 
@@ -114,14 +119,26 @@ export function useChat(conversationId: string | null, options: Options = {}) {
           optionsRef.current.onConversationCreated?.(newId);
         }
 
+        // Server ids make this exchange editable without a reload.
+        const userMsgId = res.headers.get("X-User-Message-Id") ?? undefined;
+        const assistantMsgId = res.headers.get("X-Assistant-Message-Id") ?? undefined;
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let assistantContent = "";
 
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: "", timestamp: new Date().toISOString() },
-        ]);
+        setMessages((prev) => {
+          const next = [...prev];
+          const userIdx = base.length;
+          if (next[userIdx]) next[userIdx] = { ...next[userIdx], id: userMsgId };
+          next.push({
+            id: assistantMsgId,
+            role: "assistant",
+            content: "",
+            timestamp: new Date().toISOString(),
+          });
+          return next;
+        });
 
         while (true) {
           const { done, value } = await reader.read();
@@ -157,5 +174,20 @@ export function useChat(conversationId: string | null, options: Options = {}) {
     [conversationId]
   );
 
-  return { messages, sendMessage, streaming, loading };
+  const sendMessage = useCallback(
+    (content: string) => runExchange(content, messages),
+    [runExchange, messages]
+  );
+
+  /** Replace an earlier user message with `content` and regenerate from there. */
+  const editMessage = useCallback(
+    (messageId: string, content: string) => {
+      const idx = messages.findIndex((m) => m.id === messageId && m.role === "user");
+      if (idx === -1 || !conversationId) return Promise.resolve();
+      return runExchange(content, messages.slice(0, idx), messageId);
+    },
+    [runExchange, messages, conversationId]
+  );
+
+  return { messages, sendMessage, editMessage, streaming, loading };
 }

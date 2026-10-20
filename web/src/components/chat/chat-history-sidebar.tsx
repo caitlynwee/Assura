@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquareIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ArchiveRestoreIcon, MessageSquareIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ interface Props {
   onSelect: (id: string) => void;
   onNewChat: () => void;
   onDelete: (conversation: ChatConversation) => void;
+  onOpenTrash: () => void;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -50,6 +51,7 @@ export default function ChatHistorySidebar({
   onSelect,
   onNewChat,
   onDelete,
+  onOpenTrash,
 }: Props) {
   return (
     <div className="flex h-full flex-col">
@@ -114,6 +116,7 @@ export default function ChatHistorySidebar({
                         variant="ghost"
                         size="icon"
                         aria-label={`Delete chat: ${c.title}`}
+                        title="Move to Recently deleted"
                         onClick={() => onDelete(c)}
                         disabled={disabled}
                         className={cn(
@@ -131,6 +134,18 @@ export default function ChatHistorySidebar({
             </div>
           ))}
       </nav>
+
+      <div className="border-t p-2">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground"
+          onClick={onOpenTrash}
+          disabled={disabled}
+        >
+          <ArchiveRestoreIcon />
+          Recently deleted
+        </Button>
+      </div>
     </div>
   );
 }

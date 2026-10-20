@@ -17,11 +17,13 @@ const SUGGESTIONS = [
 interface Props {
   messages: ChatMessageType[];
   sendMessage: (message: string) => void;
+  /** Edit an earlier user message and regenerate the answer from there. */
+  editMessage?: (messageId: string, content: string) => void;
   streaming: boolean;
   loading?: boolean;
 }
 
-export default function ChatWindow({ messages, sendMessage, streaming, loading }: Props) {
+export default function ChatWindow({ messages, sendMessage, editMessage, streaming, loading }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,7 +58,18 @@ export default function ChatWindow({ messages, sendMessage, streaming, loading }
             </div>
           </div>
         )}
-        {!loading && messages.map((msg, i) => <ChatMessage key={i} message={msg} />)}
+        {!loading &&
+          messages.map((msg, i) => (
+            <ChatMessage
+              key={msg.id ?? `local-${i}`}
+              message={msg}
+              onEdit={
+                editMessage && msg.role === "user" && msg.id && !streaming
+                  ? (content) => editMessage(msg.id!, content)
+                  : undefined
+              }
+            />
+          ))}
         {streaming && messages[messages.length - 1]?.role === "user" && (
           <div className="flex gap-3" aria-busy="true">
             <Skeleton className="size-8 shrink-0 rounded-full" />

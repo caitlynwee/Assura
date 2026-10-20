@@ -437,3 +437,15 @@ Others need to know:
 - Reset scripts (seed.ts resetDatabase / RESET=1) now also clear chat tables.
 Blockers: None
 ---
+
+## 2026-10-20 | Dominic | Plan Q&A: Recently deleted bin + edit & regenerate
+Status: Completed
+Done:
+- Deleting a chat now moves it to "Recently deleted" (soft delete via new `chat_conversations.deleted_at`, migration 0003_chat_trash) with an Undo toast. Bin dialog (sidebar → Recently deleted): Restore, Delete forever (confirm), Empty bin (confirm), "N days left" per chat.
+- 30-day retention: binned chats older than TRASH_RETENTION_DAYS are permanently deleted (all users) whenever a chat list or the bin loads — lazy purge, no scheduler; expired chats can never be seen or restored.
+- Edit & regenerate: hover a sent message → Edit → Enter. Server deletes that message and everything after it, saves the edited text and streams a fresh answer (`editMessageId` on POST /api/chat; ids returned in X-User-Message-Id / X-Assistant-Message-Id headers).
+- New: POST /api/chat/conversations/:id/restore, GET + DELETE /api/chat/trash, DELETE …/:id?permanent=true. All owner-scoped; audit events chat.conversation_deleted/_restored/_purged, chat.trash_emptied, chat.trash_auto_purged, chat.message_edited (ids only).
+- Tests: 76/76 (13 new for bin/purge/edit/ownership). Build, tsc, lint clean. Verified in a browser.
+Others need to know:
+- ⚠ Shared Supabase DB has migrations recorded with future dates (up to 1792600000000). Drizzle SKIPS any migration dated earlier than the newest applied one, so 0002/0003 have hand-set `when` values (1792600000000 / 1792610000000). New migrations must use a later `when`, and please don't migrate the shared DB from unmerged branches.
+---

@@ -10,7 +10,9 @@ import {
   getConversationMessages,
   insertConversation,
   appendConversationMessage,
+  truncateConversationFrom,
 } from "@/lib/db";
+import { logEvent } from "@/lib/audit";
 import type { ChatMessage } from "@/lib/types";
 
 /** How many earlier messages are sent to the model as context. */
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
-  const { message } = parsed.data;
+  const { message, editMessageId } = parsed.data;
   const now = new Date().toISOString();
 
   // Continue an existing conversation (ownership-checked) or start a new one.
@@ -51,6 +53,17 @@ export async function POST(req: NextRequest) {
     const conversation = await getConversationById(conversationId, userId);
     if (!conversation) {
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+    if (editMessageId) {
+      // Edit-and-regenerate: drop the edited message and everything after it;
+      // the new text is appended below and answered fresh.
+      const ok = await truncateConversationFrom(conversationId, editMessageId);
+      if (!ok) {
+        return NextResponse.json({ error: "Message not found" }, { status: 404 });
+      }
+      void logEvent(userId, "chat.message_edited", { conversationId, messageId: editMessageId }).catch(
+        () => {}
+      );
     }
     history = (await getConversationMessages(conversationId)).slice(-HISTORY_LIMIT);
   } else {
@@ -64,8 +77,10 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const userMsgId = randomUUID();
+  const assistantMsgId = randomUUID();
   const userMsg: ChatMessage = { role: "user", content: message, timestamp: now };
-  await appendConversationMessage(conversationId, randomUUID(), userMsg);
+  await appendConversationMessage(conversationId, userMsgId, userMsg);
 
   const plans = await getPlans();
   const convId = conversationId;
@@ -107,7 +122,7 @@ export async function POST(req: NextRequest) {
       } finally {
         // Persist whatever was generated so a refresh shows the full exchange.
         if (answer.trim()) {
-          await appendConversationMessage(convId, randomUUID(), {
+          await appendConversationMessage(convId, assistantMsgId, {
             role: "assistant",
             content: answer,
             timestamp: new Date().toISOString(),
@@ -129,6 +144,9 @@ export async function POST(req: NextRequest) {
       "Content-Type": "text/plain; charset=utf-8",
       "Transfer-Encoding": "chunked",
       "X-Conversation-Id": convId,
+      // Ids let the client edit this exchange later without a reload.
+      "X-User-Message-Id": userMsgId,
+      "X-Assistant-Message-Id": assistantMsgId,
     },
   });
 }

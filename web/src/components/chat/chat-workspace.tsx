@@ -3,38 +3,30 @@
 import { useCallback, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { HistoryIcon, PlusIcon } from "lucide-react";
+import { toast } from "sonner";
 import { useChat } from "@/hooks/use-chat";
-import { useConversations } from "@/hooks/use-conversations";
+import { useConversations, useTrash } from "@/hooks/use-conversations";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import type { ChatConversation } from "@/lib/types";
 import ChatHistorySidebar from "./chat-history-sidebar";
+import ChatTrashDialog from "./chat-trash-dialog";
 import ChatWindow from "./chat-window";
 
 /**
  * Plan Q&A with saved history: a conversation list on the left (new chat,
- * switch, delete) and the active conversation on the right. The active id
- * lives in `?c=` so a refresh reopens the same chat.
+ * switch, move to "Recently deleted") and the active conversation on the
+ * right. The active id lives in `?c=` so a refresh reopens the same chat.
  */
 export default function ChatWorkspace() {
   const searchParams = useSearchParams();
   const [activeId, setActiveIdState] = useState<string | null>(searchParams.get("c"));
   const [showHistoryMobile, setShowHistoryMobile] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<ChatConversation | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
 
-  const { conversations, loading: listLoading, error: listError, refresh, remove } =
+  const { conversations, loading: listLoading, error: listError, refresh, remove, restore } =
     useConversations();
+  const trash = useTrash(trashOpen);
 
   // Keep the URL in sync without a Next navigation (which would remount state).
   const setActiveId = useCallback((id: string | null) => {
@@ -43,7 +35,7 @@ export default function ChatWorkspace() {
     window.history.replaceState(window.history.state, "", url);
   }, []);
 
-  const { messages, sendMessage, streaming, loading } = useChat(activeId, {
+  const { messages, sendMessage, editMessage, streaming, loading } = useChat(activeId, {
     onConversationCreated: (id) => {
       setActiveId(id);
       void refresh();
@@ -63,18 +55,32 @@ export default function ChatWorkspace() {
     setShowHistoryMobile(false);
   }
 
-  async function confirmDelete() {
-    if (!pendingDelete) return;
-    setDeleting(true);
-    setDeleteError(null);
-    const ok = await remove(pendingDelete.id);
-    setDeleting(false);
+  async function moveToTrash(c: ChatConversation) {
+    const ok = await remove(c.id);
     if (!ok) {
-      setDeleteError("Couldn't delete this chat. Please try again.");
+      toast.error("Couldn't delete this chat. Please try again.");
       return;
     }
-    if (pendingDelete.id === activeId) setActiveId(null);
-    setPendingDelete(null);
+    if (c.id === activeId) setActiveId(null);
+    toast("Moved to Recently deleted", {
+      description: c.title,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          if (await restore(c.id)) trash.forget(c.id);
+          else toast.error("Couldn't restore this chat.");
+        },
+      },
+    });
+  }
+
+  async function restoreFromTrash(id: string) {
+    const ok = await restore(id);
+    if (ok) {
+      trash.forget(id);
+      toast.success("Chat restored");
+    }
+    return ok;
   }
 
   const sidebar = (
@@ -86,9 +92,10 @@ export default function ChatWorkspace() {
       disabled={streaming}
       onSelect={selectConversation}
       onNewChat={newChat}
-      onDelete={(c) => {
-        setDeleteError(null);
-        setPendingDelete(c);
+      onDelete={(c) => void moveToTrash(c)}
+      onOpenTrash={() => {
+        setShowHistoryMobile(false);
+        setTrashOpen(true);
       }}
     />
   );
@@ -131,41 +138,23 @@ export default function ChatWorkspace() {
         <ChatWindow
           messages={messages}
           sendMessage={sendMessage}
+          editMessage={editMessage}
           streaming={streaming}
           loading={loading}
         />
       </div>
 
-      <Dialog
-        open={pendingDelete !== null}
-        onOpenChange={(open) => {
-          if (!open && !deleting) setPendingDelete(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete this chat?</DialogTitle>
-            <DialogDescription>
-              &ldquo;{pendingDelete?.title}&rdquo; and all its messages will be permanently
-              deleted. This can&apos;t be undone.
-            </DialogDescription>
-          </DialogHeader>
-          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingDelete(null)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmDelete}
-              disabled={deleting}
-              className={cn(deleting && "opacity-70")}
-            >
-              {deleting ? "Deleting…" : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ChatTrashDialog
+        open={trashOpen}
+        onOpenChange={setTrashOpen}
+        items={trash.items}
+        retentionDays={trash.retentionDays}
+        loading={trash.loading}
+        error={trash.error}
+        onRestore={restoreFromTrash}
+        onDeleteForever={trash.deleteForever}
+        onEmpty={trash.empty}
+      />
     </Card>
   );
 }

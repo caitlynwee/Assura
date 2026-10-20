@@ -4,12 +4,13 @@ import { logEvent } from "@/lib/audit";
 import {
   getConversationById,
   getConversationMessages,
+  softDeleteConversation,
   deleteConversation,
 } from "@/lib/db";
 
 type Params = { params: Promise<{ conversationId: string }> };
 
-/** GET — one conversation with its messages (owner only). */
+/** GET — one active conversation with its messages (owner only). */
 export async function GET(_req: NextRequest, { params }: Params) {
   const { conversationId } = await params;
   const session = await auth();
@@ -25,20 +26,30 @@ export async function GET(_req: NextRequest, { params }: Params) {
   return NextResponse.json({ conversation, messages });
 }
 
-/** DELETE — permanently remove a conversation and its messages (owner only). */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+/**
+ * DELETE — move a conversation to "Recently deleted" (default), or with
+ * `?permanent=true` delete it forever (from the bin or directly). Owner only.
+ */
+export async function DELETE(req: NextRequest, { params }: Params) {
   const { conversationId } = await params;
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const userId = session.user.id!;
+  const permanent = req.nextUrl.searchParams.get("permanent") === "true";
 
-  const deleted = await deleteConversation(conversationId, userId);
-  if (!deleted) {
+  const ok = permanent
+    ? await deleteConversation(conversationId, userId)
+    : await softDeleteConversation(conversationId, userId, new Date().toISOString());
+  if (!ok) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  // Audit the deletion (id only — never the chat content).
-  void logEvent(userId, "chat.conversation_deleted", { conversationId }).catch(() => {});
+  // Audit ids only — never chat content.
+  void logEvent(
+    userId,
+    permanent ? "chat.conversation_purged" : "chat.conversation_deleted",
+    { conversationId }
+  ).catch(() => {});
   return NextResponse.json({ ok: true });
 }

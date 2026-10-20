@@ -34,6 +34,8 @@ import {
   GET as convGET,
   DELETE as convDELETE,
 } from "@/app/api/chat/conversations/[conversationId]/route";
+import { POST as restorePOST } from "@/app/api/chat/conversations/[conversationId]/restore/route";
+import { GET as trashGET, DELETE as trashDELETE } from "@/app/api/chat/trash/route";
 
 const OWNER = "user_demo";
 const OTHER = "user_chat_other";
@@ -207,33 +209,204 @@ describe("GET /api/chat/conversations/:id", () => {
   });
 });
 
-describe("DELETE /api/chat/conversations/:id", () => {
-  it("deletes the conversation and its messages, and audits it", async () => {
+async function conversationRow(id: string) {
+  const rows = await testDb
+    .select()
+    .from(schema.chatConversations)
+    .where(eq(schema.chatConversations.id, id));
+  return rows[0] as { deletedAt: string | null } | undefined;
+}
+
+async function auditHas(action: string, needle: string) {
+  // Give the fire-and-forget audit write a tick to land.
+  await new Promise((r) => setTimeout(r, 50));
+  const rows = await testDb
+    .select()
+    .from(schema.auditEntries)
+    .where(eq(schema.auditEntries.action, action));
+  return rows.some((a: { detail: string }) => a.detail.includes(needle));
+}
+
+describe("DELETE /api/chat/conversations/:id — Recently deleted", () => {
+  it("moves the chat to the bin: hidden from history, messages kept, audited", async () => {
     const id = await seedConversation(OWNER);
     const res = await convDELETE(convRequest(id, "DELETE"), params(id));
     expect(res.status).toBe(200);
 
-    expect(
-      await testDb
-        .select()
-        .from(schema.chatConversations)
-        .where(eq(schema.chatConversations.id, id))
-    ).toHaveLength(0);
-    expect(await getConversationMessages(id)).toHaveLength(0);
+    expect((await conversationRow(id))?.deletedAt).toBeTruthy();
+    expect(await getConversationMessages(id)).toHaveLength(2);
 
-    // Give the fire-and-forget audit write a tick to land.
-    await new Promise((r) => setTimeout(r, 50));
-    const audit = await testDb
-      .select()
-      .from(schema.auditEntries)
-      .where(eq(schema.auditEntries.action, "chat.conversation_deleted"));
-    expect(audit.some((a: { detail: string }) => a.detail.includes(id))).toBe(true);
+    const list = await (await listGET()).json();
+    expect(list.conversations.map((c: { id: string }) => c.id)).not.toContain(id);
+
+    const trash = await (await trashGET()).json();
+    const item = trash.conversations.find((c: { id: string }) => c.id === id);
+    expect(item).toBeTruthy();
+    expect(trash.retentionDays).toBe(30);
+    // Purge date is 30 days after deletion.
+    const gap = new Date(item.purgeAt).getTime() - new Date(item.deletedAt).getTime();
+    expect(gap).toBe(30 * 24 * 60 * 60 * 1000);
+
+    expect(await auditHas("chat.conversation_deleted", id)).toBe(true);
   });
 
-  it("cannot delete another user's conversation", async () => {
-    const id = await seedConversation(OTHER);
-    const res = await convDELETE(convRequest(id, "DELETE"), params(id));
+  it("a binned chat can't be opened or continued", async () => {
+    const id = await seedConversation(OWNER);
+    await convDELETE(convRequest(id, "DELETE"), params(id));
+    expect((await convGET(convRequest(id), params(id))).status).toBe(404);
+    const res = await chatPOST(chatRequest({ message: "hi", conversationId: id }));
     expect(res.status).toBe(404);
+  });
+
+  it("restore brings it back to history", async () => {
+    const id = await seedConversation(OWNER);
+    await convDELETE(convRequest(id, "DELETE"), params(id));
+    const res = await restorePOST(convRequest(id, "POST"), params(id));
+    expect(res.status).toBe(200);
+    expect((await conversationRow(id))?.deletedAt).toBeNull();
+    const list = await (await listGET()).json();
+    expect(list.conversations.map((c: { id: string }) => c.id)).toContain(id);
+    expect(await auditHas("chat.conversation_restored", id)).toBe(true);
+  });
+
+  it("?permanent=true deletes forever (messages cascade)", async () => {
+    const id = await seedConversation(OWNER);
+    await convDELETE(convRequest(id, "DELETE"), params(id));
+    const res = await convDELETE(
+      convRequest(`${id}?permanent=true`, "DELETE"),
+      params(id)
+    );
+    expect(res.status).toBe(200);
+    expect(await conversationRow(id)).toBeUndefined();
+    expect(await getConversationMessages(id)).toHaveLength(0);
+    expect(await auditHas("chat.conversation_purged", id)).toBe(true);
+  });
+
+  it("Empty bin removes only the user's own binned chats", async () => {
+    const binned = await seedConversation(OWNER);
+    const active = await seedConversation(OWNER);
+    const othersBinned = await seedConversation(OTHER);
+    await convDELETE(convRequest(binned, "DELETE"), params(binned));
+    currentSession = { user: { id: OTHER, tier: "free" } };
+    await convDELETE(convRequest(othersBinned, "DELETE"), params(othersBinned));
+    currentSession = { user: { id: OWNER, tier: "premium" } };
+
+    const res = await trashDELETE();
+    expect(res.status).toBe(200);
+    expect(await conversationRow(binned)).toBeUndefined();
+    expect(await conversationRow(active)).toBeTruthy();
+    expect(await conversationRow(othersBinned)).toBeTruthy();
+    expect((await (await trashGET()).json()).conversations).toHaveLength(0);
+  });
+
+  it("chats binned more than 30 days ago are purged automatically", async () => {
+    const old = await seedConversation(OWNER);
+    const recent = await seedConversation(OWNER);
+    const day = 24 * 60 * 60 * 1000;
+    await testDb
+      .update(schema.chatConversations)
+      .set({ deletedAt: new Date(Date.now() - 31 * day).toISOString() })
+      .where(eq(schema.chatConversations.id, old));
+    await testDb
+      .update(schema.chatConversations)
+      .set({ deletedAt: new Date(Date.now() - 29 * day).toISOString() })
+      .where(eq(schema.chatConversations.id, recent));
+
+    const trash = await (await trashGET()).json();
+    const ids = trash.conversations.map((c: { id: string }) => c.id);
+    expect(ids).toContain(recent);
+    expect(ids).not.toContain(old);
+    expect(await conversationRow(old)).toBeUndefined();
+    expect(await getConversationMessages(old)).toHaveLength(0);
+  });
+
+  it("can't bin, restore or purge another user's chat", async () => {
+    const id = await seedConversation(OTHER);
+    expect((await convDELETE(convRequest(id, "DELETE"), params(id))).status).toBe(404);
+    expect(
+      (await convDELETE(convRequest(`${id}?permanent=true`, "DELETE"), params(id))).status
+    ).toBe(404);
+    await testDb
+      .update(schema.chatConversations)
+      .set({ deletedAt: new Date().toISOString() })
+      .where(eq(schema.chatConversations.id, id));
+    expect((await restorePOST(convRequest(id, "POST"), params(id))).status).toBe(404);
+    expect((await conversationRow(id))?.deletedAt).toBeTruthy();
     expect(await getConversationMessages(id)).toHaveLength(2);
+  });
+});
+
+describe("POST /api/chat with editMessageId — edit and regenerate", () => {
+  async function seedLong(userId: string) {
+    const id = await seedConversation(userId);
+    const now = new Date().toISOString();
+    await appendConversationMessage(id, `${id}_m2`, { role: "user", content: "And exclusions?", timestamp: now });
+    await appendConversationMessage(id, `${id}_m3`, { role: "assistant", content: "Pre-existing conditions.", timestamp: now });
+    return id;
+  }
+
+  it("replaces the edited message and everything after it, then regenerates", async () => {
+    const id = await seedLong(OWNER);
+    const res = await chatPOST(
+      chatRequest({ message: "Which plans cover cancer early?", conversationId: id, editMessageId: `${id}_m0` })
+    );
+    expect(res.status).toBe(200);
+    const newUserId = res.headers.get("X-User-Message-Id");
+    expect(newUserId).toBeTruthy();
+    await res.text();
+
+    // The model only saw the edited question (nothing from the old branch).
+    expect(modelCalls[0].map((m) => m.content)).toEqual(["Which plans cover cancer early?"]);
+
+    const messages = await getConversationMessages(id);
+    expect(messages.map((m) => m.content)).toEqual([
+      "Which plans cover cancer early?",
+      "AIA CI Power covers early-stage conditions.",
+    ]);
+    expect(messages[0].id).toBe(newUserId);
+    expect(await auditHas("chat.message_edited", id)).toBe(true);
+  });
+
+  it("editing a later message keeps the earlier exchange as context", async () => {
+    const id = await seedLong(OWNER);
+    const res = await chatPOST(
+      chatRequest({ message: "And waiting periods?", conversationId: id, editMessageId: `${id}_m2` })
+    );
+    await res.text();
+    expect(modelCalls[0].map((m) => m.content)).toEqual([
+      "Which plans cover early-stage CI?",
+      "Several do.",
+      "And waiting periods?",
+    ]);
+    expect((await getConversationMessages(id)).map((m) => m.content)).toEqual([
+      "Which plans cover early-stage CI?",
+      "Several do.",
+      "And waiting periods?",
+      "AIA CI Power covers early-stage conditions.",
+    ]);
+  });
+
+  it("rejects editing an assistant message or an unknown id, changing nothing", async () => {
+    const id = await seedLong(OWNER);
+    for (const editMessageId of [`${id}_m1`, "nope"]) {
+      const res = await chatPOST(chatRequest({ message: "x", conversationId: id, editMessageId }));
+      expect(res.status).toBe(404);
+    }
+    expect(await getConversationMessages(id)).toHaveLength(4);
+    expect(modelCalls).toHaveLength(0);
+  });
+
+  it("can't edit messages in another user's chat", async () => {
+    const id = await seedLong(OTHER);
+    const res = await chatPOST(
+      chatRequest({ message: "x", conversationId: id, editMessageId: `${id}_m0` })
+    );
+    expect(res.status).toBe(404);
+    expect(await getConversationMessages(id)).toHaveLength(4);
+  });
+
+  it("requires conversationId alongside editMessageId", async () => {
+    const res = await chatPOST(chatRequest({ message: "x", editMessageId: "abc" }));
+    expect(res.status).toBe(400);
   });
 });
