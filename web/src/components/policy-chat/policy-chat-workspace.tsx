@@ -11,6 +11,14 @@ import {
 import { usePolicyChat } from "@/hooks/use-policy-chat";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { PolicyConversation, PolicyDocument } from "@/lib/types";
 import PolicyDocumentSidebar from "./policy-document-sidebar";
 import PolicyChatHistorySidebar from "./policy-chat-history-sidebar";
@@ -24,6 +32,7 @@ export default function PolicyChatWorkspace() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [showHistoryMobile, setShowHistoryMobile] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PolicyConversation | null>(null);
 
   const {
     documents,
@@ -97,7 +106,7 @@ export default function PolicyChatWorkspace() {
     void refreshDocs();
   }
 
-  async function moveConvToTrash(c: PolicyConversation) {
+  async function confirmMoveConvToTrash(c: PolicyConversation) {
     const ok = await removeConv(c.id);
     if (!ok) {
       toast.error(t.deleteFailed);
@@ -147,7 +156,7 @@ export default function PolicyChatWorkspace() {
       disabled={streaming}
       onSelect={selectConversation}
       onNewChat={newChat}
-      onDelete={(c) => void moveConvToTrash(c)}
+      onDelete={(c) => setPendingDelete(c)}
       onOpenTrash={() => {
         setShowHistoryMobile(false);
         setTrashOpen(true);
@@ -223,6 +232,35 @@ export default function PolicyChatWorkspace() {
         </div>
         {chatArea}
       </div>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.deleteChatConfirmTitle}</DialogTitle>
+            <DialogDescription>
+              {pendingDelete ? t.deleteChatConfirmBody(pendingDelete.title) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const c = pendingDelete;
+                setPendingDelete(null);
+                if (c) void confirmMoveConvToTrash(c);
+              }}
+            >
+              {t.moveToBin}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PolicyChatTrashDialog
         open={trashOpen}
