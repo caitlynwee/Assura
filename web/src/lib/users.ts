@@ -13,6 +13,7 @@ import {
   getUserByEmail,
   getUserByAuthUid,
   linkAuthUid,
+  syncUserEmailByAuthUid,
 } from "./db";
 import * as schema from "./schema";
 import { generateId } from "./utils";
@@ -40,7 +41,10 @@ export async function resolveOrCreateAuthUser(identity: {
   if (!identity?.id) return null;
 
   const byAuthUid = await getUserByAuthUid(identity.id);
-  if (byAuthUid) return byAuthUid;
+  if (byAuthUid) {
+    if (!identity.email) return byAuthUid;
+    return syncUserEmailByAuthUid(identity.id, identity.email);
+  }
   if (!identity.email) return null;
 
   const email = identity.email.trim().toLowerCase();

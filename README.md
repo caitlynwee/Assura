@@ -71,12 +71,17 @@ For Docker, fill in the root `.env`:
 DATABASE_URL=<Supabase PostgreSQL connection string>
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<Supabase publishable/anon key>
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 SUPABASE_SERVICE_ROLE_KEY=<server-only Supabase secret key>
 DEEPSEEK_API_KEY=sk-...
 ```
 
 Use the bare Supabase project URL (no `/rest/v1/` path). Never expose
 `SUPABASE_SERVICE_ROLE_KEY` to the browser or commit real credentials.
+To enable account email changes, add `http://localhost:3000/auth/callback` to
+the Supabase project's allowed redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to the
+app's public origin in non-local deployments and allow that origin's
+`/auth/callback` URL too.
 `web/.env.local` is only needed when running the web app outside Docker; fill
 in the corresponding Supabase and DeepSeek values there too.
 
@@ -93,7 +98,8 @@ that requires the Supabase URL, anon key, and service-role key.
 Other Supabase users can sign in with their own credentials; Assura creates a
 free app profile on first successful sign-in. Personal information is editable
 from **Settings** and stored in the PostgreSQL `users` table. The sign-in email
-is managed by Supabase and is read-only in Settings. Masked relay addresses use
+is managed by Supabase and can be changed from Settings after confirming the
+new address. The shared demo account email remains fixed. Masked relay addresses use
 the `@relay.assura.local` domain and are routed only to local Mailpit; they are
 not real or externally deliverable email addresses.
 

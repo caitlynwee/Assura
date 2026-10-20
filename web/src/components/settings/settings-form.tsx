@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { saveSettingsAction } from "@/app/_actions/settings";
+import {
+  requestEmailChangeAction,
+  saveSettingsAction,
+} from "@/app/_actions/settings";
 import DeleteAccountDialog from "@/components/account/delete-account-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,10 +28,14 @@ export default function SettingsForm({
   isDemoAccount: boolean;
 }) {
   const [name, setName] = useState(initialName);
+  const [newEmail, setNewEmail] = useState("");
   const [profile, setProfile] = useState<UserProfile>(initialProfile);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailNotice, setEmailNotice] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [emailPending, startEmailTransition] = useTransition();
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setProfile((current) => ({ ...current, [key]: value }));
@@ -51,8 +58,75 @@ export default function SettingsForm({
     });
   }
 
+  function submitEmailChange(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setEmailError(null);
+    setEmailNotice(null);
+
+    startEmailTransition(async () => {
+      const result = await requestEmailChangeAction({ email: newEmail });
+      if (result.ok) {
+        setEmailNotice(`Check ${result.pendingEmail} for a confirmation link to finish changing your email.`);
+        setNewEmail("");
+      } else {
+        setEmailError(result.error);
+      }
+    });
+  }
+
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Account email</CardTitle>
+          <CardDescription>
+            Your email is used to sign in. Supabase will send a confirmation link before the new
+            address takes effect. Depending on project settings, you may need to confirm from both
+            your current and new email inboxes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="settings-email">Current email</Label>
+            <Input id="settings-email" type="email" value={email} readOnly />
+          </div>
+          {isDemoAccount ? (
+            <p className="text-sm text-muted-foreground">
+              The shared demo account email is fixed. Create a personal account to use your own
+              sign-in email.
+            </p>
+          ) : (
+            <form onSubmit={submitEmailChange} className="space-y-3">
+              <div className="grid gap-2">
+                <Label htmlFor="settings-new-email">New email</Label>
+                <Input
+                  id="settings-new-email"
+                  type="email"
+                  autoComplete="email"
+                  maxLength={254}
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  required
+                />
+              </div>
+              {emailError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{emailError}</AlertDescription>
+                </Alert>
+              )}
+              {emailNotice && (
+                <Alert>
+                  <AlertDescription>{emailNotice}</AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" loading={emailPending}>
+                Send confirmation link
+              </Button>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+
       <form onSubmit={submit} className="space-y-6">
         <Card>
           <CardHeader>
@@ -73,13 +147,6 @@ export default function SettingsForm({
                 onChange={(event) => setName(event.target.value)}
                 required
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="settings-email">Account email</Label>
-              <Input id="settings-email" type="email" value={email} readOnly />
-              <p className="text-xs text-muted-foreground">
-                Email is managed by your sign-in provider and cannot be changed here.
-              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="settings-age">Age</Label>

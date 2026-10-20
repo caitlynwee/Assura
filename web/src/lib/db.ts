@@ -156,6 +156,27 @@ export async function getUserByAuthUid(authUid: string): Promise<User | null> {
   return rows[0] ? rowToUser(rows[0]) : null;
 }
 
+/** Sync the email from an already-verified Supabase identity to its app row. */
+export async function syncUserEmailByAuthUid(
+  authUid: string,
+  email: string
+): Promise<User | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await getUserByAuthUid(authUid);
+  if (!user) return null;
+
+  const existingEmailOwner = await getUserByEmail(normalizedEmail);
+  if (existingEmailOwner && existingEmailOwner.id !== user.id) return null;
+  if (user.email === normalizedEmail) return user;
+
+  const rows = await getDb()
+    .update(schema.users)
+    .set({ email: normalizedEmail })
+    .where(eq(schema.users.authUid, authUid))
+    .returning();
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+
 /** Back-fill the Supabase auth uid onto an app user row (idempotent link). */
 export async function linkAuthUid(
   appUserId: string,

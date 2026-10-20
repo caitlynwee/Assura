@@ -74,6 +74,7 @@ services:
       # service does NOT receive the service-role key.
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
       SCRAPER_URL: http://scraper:8100
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
