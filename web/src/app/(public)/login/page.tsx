@@ -28,6 +28,15 @@ export default async function LoginPage({
         </>
       }
     >
+      {error === "session-expired" && (
+        <Alert variant="warning" className="mb-4">
+          <TriangleAlertIcon />
+          <AlertDescription>
+            Your saved session expired. Sign in again to continue.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error === "demo" && (
         <Alert variant="warning" className="mb-4">
           <TriangleAlertIcon />

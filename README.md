@@ -27,12 +27,15 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 24+
 
 **Option B — Local (no Docker)**
-- Node.js 20+
+- Node.js 22+
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) — `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - Mailpit — `brew install mailpit`
 
 The app uses Supabase for authentication and PostgreSQL, and DeepSeek for AI features. Configure the Supabase values, `DATABASE_URL`, and `DEEPSEEK_API_KEY` in the root `.env` before starting Docker.
+The web and scraper use small database connection pools for Supabase's limited
+session-mode pool. For larger deployments, use Supabase's transaction-mode
+pooler URL as recommended by Supabase.
 
 ---
 
@@ -87,6 +90,10 @@ This runs the whole stack in Docker with the web app built for production.
 Open http://localhost:3000 — the app is running. Use the seeded demo account
 below. The initial one-shot migration also seeds the demo Supabase identity;
 that requires the Supabase URL, anon key, and service-role key.
+Other Supabase users can sign in with their own credentials; Assura creates a
+free app profile on first successful sign-in. Personal information is editable
+from **Settings** and stored in the PostgreSQL `users` table. The sign-in email
+is managed by Supabase and is read-only in Settings.
 
 ---
 
