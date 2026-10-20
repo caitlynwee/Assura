@@ -132,7 +132,8 @@ async def run_scraper(
         errors = []
 
         # ── Phase 1: Download per source, accumulate text by plan_id ──────────
-        # plan_texts: plan_id → {pdf: str, product_page: str, source_dict: dict}
+        # plan_texts: plan_id → {pdf: str, product_page: str, source_dict: dict,
+        #                         pdf_url: str, product_url: str}
         plan_texts: dict[str, dict] = {}
 
         for source in sources:
@@ -153,17 +154,22 @@ async def run_scraper(
                     f"snippet: {text[200:600]!r}"
                 )
 
-                # Accumulate text by plan_id — PDF source_dict takes priority
+                # Accumulate text + URLs by plan_id — PDF source_dict takes priority
                 for plan_id in (source_dict.get("planIds") or []):
                     if plan_id not in plan_texts:
                         plan_texts[plan_id] = {
                             "pdf": "",
                             "product_page": "",
                             "source_dict": source_dict,
+                            "pdf_url": "",
+                            "product_url": "",
                         }
                     plan_texts[plan_id][source_type] = text
                     if source_type == "pdf":
                         plan_texts[plan_id]["source_dict"] = source_dict
+                        plan_texts[plan_id]["pdf_url"] = source_dict["url"]
+                    elif source_type == "product_page":
+                        plan_texts[plan_id]["product_url"] = source_dict["url"]
 
                 # Update source metadata immediately (per-source, not per-plan)
                 updated_source_dict = update_source_metadata(
@@ -194,6 +200,10 @@ async def run_scraper(
                 combined = "\n\n".join(parts)
 
                 plan_data = await convert_to_plan(combined, source_dict)
+                # Attach both URLs — sourceUrl is PDF if found, else product page
+                plan_data["productUrl"] = info.get("product_url", "")
+                if info.get("pdf_url"):
+                    plan_data["sourceUrl"] = info["pdf_url"]
 
                 insurer = insurers_by_id.get(source_dict["insurerId"])
                 if insurer:
@@ -224,6 +234,7 @@ async def run_scraper(
                     existing_plan.key_benefits = validated.get("keyBenefits", existing_plan.key_benefits)
                     existing_plan.exclusions = validated.get("exclusions", existing_plan.exclusions)
                     existing_plan.source_url = validated.get("sourceUrl", existing_plan.source_url)
+                    existing_plan.product_url = validated.get("productUrl", existing_plan.product_url)
                     existing_plan.data_as_of = validated.get("dataAsOf", existing_plan.data_as_of)
                     existing_plan.updated_badge = True
                     existing_plan.change_notes = old_notes + [f"Updated {started_at[:10]}"]
@@ -246,6 +257,7 @@ async def run_scraper(
                         key_benefits=validated.get("keyBenefits", []),
                         exclusions=validated.get("exclusions", []),
                         source_url=validated.get("sourceUrl", ""),
+                        product_url=validated.get("productUrl", ""),
                         data_as_of=validated.get("dataAsOf", ""),
                         updated_badge=True,
                         change_notes=[f"Added {started_at[:10]}"],
