@@ -18,9 +18,9 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
-from sqlalchemy.pool import NullPool
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
