@@ -30,12 +30,11 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 - Node.js 22+
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) — `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Mailpit — `brew install mailpit`
 
 The app uses Supabase for authentication and PostgreSQL, and DeepSeek for AI features. Configure the Supabase values, `DATABASE_URL`, and `DEEPSEEK_API_KEY` in the root `.env` before starting Docker.
-The web and scraper use small database connection pools for Supabase's limited
-session-mode pool. For larger deployments, use Supabase's transaction-mode
-pooler URL as recommended by Supabase.
+The web, mail service, and scraper use small database connection pools for
+Supabase's limited session-mode pool. For larger deployments, use Supabase's
+transaction-mode pooler URL as recommended by Supabase.
 
 ---
 
@@ -112,19 +111,21 @@ not real or externally deliverable email addresses.
 ```bash
 ./dev.sh up              # web only; development mode with hot reload (Free/basic use)
 ./dev.sh up --build      # web only, rebuilding its image first
-./dev.sh up-premium      # web + scraper email relay + Mailpit for Premium outreach demo
-./dev.sh up-scraper      # scraper + Mailpit without starting the web app
+./dev.sh up-stripe       # web + Stripe CLI webhook forwarding (Free-to-Premium billing test)
+./dev.sh up-stripe --build # rebuild web, then start billing test
+./dev.sh up-premium      # web + isolated mail service + Mailpit for Premium outreach demo
+./dev.sh up-scraper      # scraper only, independent from web and mail
 ./dev.sh up-prod         # full production-built Premium demo
 ./dev.sh down            # stop all Assura services
 ```
 
-The basic web app does not need the scraper or Mailpit. `up` starts only the
-web service and its required one-shot migration/seeding job. The scraper can
-run independently with `up-scraper`. In the current architecture, Premium
-outreach needs both Mailpit and the scraper service because the scraper hosts
-the local email relay and simulated insurer replies; `up-premium` starts those
-dependencies alongside the web app. `up-prod` is the recommended full demo
-flow. First startup builds images and runs database migrations/seeding.
+The basic web app does not need the scraper, mail service, or Mailpit. `up`
+starts only the web service and its required one-shot migration/seeding job.
+Premium outreach uses the dedicated mail service and Mailpit; it does not
+start the scraper. The scraper is an independent service, started only when
+you need plan discovery or brochure scraping. All three services share the
+configured PostgreSQL database. First startup builds images and runs database
+migrations/seeding.
 
 ### Single service — local (no Docker)
 
@@ -141,12 +142,11 @@ Run each in a separate terminal:
 Run the services you're **not** working on in Docker, run your own service locally for fastest hot-reload:
 
 ```bash
-# Working on the web frontend? Run infra in Docker, web locally:
-./dev.sh infra           # starts mailpit + scraper in Docker (background)
+# Working on web locally? Run the mail service + Mailpit in Docker, web locally:
+./dev.sh infra           # starts mail service + Mailpit in Docker (background)
 ./dev.sh web             # run web locally in this terminal
 
-# Working on the scraper? Run Mailpit in Docker, web and scraper locally:
-docker compose up -d mailpit
+# Working on the scraper? Run scraper independently:
 ./dev.sh web
 ./dev.sh scraper
 ```
@@ -161,8 +161,10 @@ docker compose up -d mailpit
 
 ./dev.sh up              Start web only (development/hot reload)
 ./dev.sh up --build      Rebuild web image then start development mode
-./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
-./dev.sh up-scraper      Start scraper + Mailpit separately from web
+./dev.sh up-stripe       Start web + Stripe CLI forwarding for billing tests
+./dev.sh up-stripe --build  Rebuild web, then start billing test
+./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
+./dev.sh up-scraper      Start the scraper independently
 ./dev.sh up-prod         Start full production-built Premium demo (recommended)
 ./dev.sh down            Stop all services
 ./dev.sh restart         Stop + start
@@ -173,7 +175,7 @@ docker compose up -d mailpit
 ./dev.sh web             Run Next.js locally
 ./dev.sh scraper         Run FastAPI locally
 ./dev.sh mailpit         Run Mailpit locally
-./dev.sh infra           Start mailpit + scraper in Docker (background)
+./dev.sh infra           Start mail service + Mailpit in Docker (background)
 
 ./dev.sh seed            Destructively reset the configured database to seed state
 ./dev.sh test            Run scraper test suite (pytest)
@@ -208,8 +210,9 @@ pre-commit run --all-files    # run them once across the repo
 | Service | URL |
 |---|---|
 | Web app | http://localhost:3000 |
-| Scraper API | http://localhost:8100 |
+| Scraper API (when started) | http://localhost:8100 |
 | Scraper API docs | http://localhost:8100/docs |
+| Mail service (Premium) | http://localhost:8200 |
 | Mailpit UI | http://localhost:8025 |
 | Mock brochure | http://localhost:8100/mock/brochure |
 
@@ -231,16 +234,16 @@ identifier; Supabase marks this seeded demo identity as confirmed.
 ## Architecture
 
 ```
-┌─────────────────────────── docker compose network ──────────────────────────┐
-│                                                                               │
-│   web (Next.js :3000)  ──── authenticated HTTP ──── scraper (FastAPI :8100)  │
-│                                                            │                  │
-│                                                            └── mailpit:1025  │
-│                                                                               │
-│   mailpit (:1025 SMTP, :8025 UI)                                             │
-│                                                                               │
-│   web + scraper ───────── Supabase PostgreSQL (DATABASE_URL)                │
-└───────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────── docker compose network ───────────────────────────┐
+│                                                                              │
+│   web (Next.js :3000) ── authenticated HTTP ── mail (FastAPI :8200)          │
+│                                                        │                     │
+│                                                        └── Mailpit :1025     │
+│                                                                              │
+│   scraper (FastAPI :8100)  [independent; starts only when requested]         │
+│                                                                              │
+│   web + mail + scraper ───────── Supabase PostgreSQL (DATABASE_URL)         │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Repo layout:**
@@ -248,7 +251,8 @@ identifier; Supabase marks this seeded demo identity as confirmed.
 ```
 /
 ├── web/          Next.js 16 (App Router) — frontend + all API routes
-├── scraper/      Python FastAPI — scraper pipeline, email relay, personas
+├── scraper/      Python FastAPI — independent plan and brochure scraper
+├── mail-service/ Python FastAPI — Premium email relay and simulated replies
 ├── seed/         Source-of-truth demo data + database reset script
 ├── dev.sh        Development CLI (start here)
 ├── docker-compose.yml
@@ -279,26 +283,29 @@ writers for CRM state.
 - `web/src/app/(app)/outreach/`
 - `web/src/app/api/outreach/`
 - `web/src/components/outreach/`
-- `scraper/app/email_relay/`
-- `scraper/app/personas/`
-- `scraper/app/routers/email.py`
+- `mail-service/app/`
 
-Outreach owns draft generation, consent filtering, Mailpit delivery, and the
-simulated insurer personas. It must not write CRM database records directly. After a
-simulated reply, it calls the authenticated `POST /api/internal/crm/replies`
-endpoint with an inbound message and optional risk flag; the CRM performs the
-state transition and audit logging.
+Outreach owns draft generation, consent filtering, and the authenticated
+handoff to the isolated mail service. The mail service sends only to the
+local Mailpit sandbox, simulates insurer personas, and reads thread context;
+it does not write CRM state. After a simulated reply, it calls the
+authenticated `POST /api/internal/crm/replies` endpoint with an inbound
+message and optional risk flag; the CRM performs the state transition and
+audit logging.
 
 **Startup order:**
 
 ```
 db-migrate (applies migrations + seeds the database, then exits)
     │
-    ├── mailpit  (email sandbox)
-    │
-    ├── scraper  (FastAPI + APScheduler cron)
-    │
     └── web      (Next.js + Supabase Auth)
+
+Premium profile:
+    ├── mailpit  (email sandbox)
+    └── mail     (isolated FastAPI mail service)
+
+Scraper profile:
+    └── scraper  (FastAPI + APScheduler cron; no mail dependency)
 ```
 
 ---
@@ -309,7 +316,7 @@ db-migrate (applies migrations + seeds the database, then exits)
 |---|---|---|
 | **Dominic** | Web frontend & auth | `web/src/app/`, `web/src/components/`, `web/src/middleware.ts` |
 | **Marcus** | Scraper & data pipeline | `scraper/app/scraper/`, `scraper/app/routers/`, PostgreSQL source records |
-| **Jeff** | AI agent, outreach & CRM | `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `scraper/app/personas/`, `scraper/app/email_relay/` |
+| **Jeff** | AI agent, outreach & CRM | `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `mail-service/app/` |
 | **Caitlyn** | Docs & presentation | Architecture diagram, security write-up, slide deck |
 
 Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
@@ -325,21 +332,59 @@ Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `NEXT_PUBLIC_SUPABASE_URL` | Bare Supabase project URL (`https://<project-ref>.supabase.co`) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-safe Supabase publishable/anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase secret key used for demo identity seeding |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase secret key used for demo identity seeding and syncing paid tier claims |
 | `DEEPSEEK_API_KEY` | DeepSeek API key from platform.deepseek.com (the AI layer uses the OpenAI-compatible DeepSeek API) |
+| `STRIPE_SECRET_KEY` | Stripe test-mode secret key (`sk_test_...`); live keys are rejected |
+| `STRIPE_PRICE_ID` | Recurring Stripe test Price ID for the Premium subscription |
+| `STRIPE_WEBHOOK_SECRET` | Stripe CLI or test endpoint webhook signing secret |
 
-`INTERNAL_API_SECRET` can remain at the local demo default unless you choose a
-different value. Mailpit host and port are preconfigured; outreach email is
-local-only and does not require external SMTP credentials.
+`INTERNAL_API_SECRET` is shared by the web app and mail service for their
+internal API calls; change it from the demo default for non-demo environments.
+Mail service delivery is restricted in code to Mailpit hostnames on SMTP port
+1025. It does not accept external SMTP credentials.
+
+### Stripe test billing
+
+Premium upgrades use Stripe Checkout in test mode. Create a recurring SGD
+product price in the Stripe test dashboard, then set its `price_...` ID as
+`STRIPE_PRICE_ID`. Set `STRIPE_SECRET_KEY` to an `sk_test_...` key and keep
+`STRIPE_WEBHOOK_SECRET` server-side. The webhook endpoint is
+`/api/stripe/webhook`. Configure the Stripe Customer Portal in the test
+dashboard so users can manage or cancel their subscription.
+Subscription changes are applied only from verified webhook events; returning
+from Checkout by itself does not grant Premium. The seeded shared demo account
+remains Premium without payment. New accounts start on Free and upgrade through
+Stripe. Live billing is intentionally unavailable until explicitly enabled in
+code and separately configured.
+
+For a single-command local billing test, install the Stripe CLI and configure
+`STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` in the root `.env`, then run
+`./dev.sh up-stripe`. It uses the test secret key to obtain the local webhook
+signing secret, starts forwarding the subscription events above, and passes
+that secret directly to the web container for this run. You do not need to
+copy the CLI-generated secret into `.env` when using this command. Add
+`--build` to rebuild the web image first. The regular `./dev.sh up` command
+does not start Stripe CLI; if you use it for billing tests, configure
+`STRIPE_WEBHOOK_SECRET` yourself. For an externally hosted webhook endpoint,
+configure Stripe to send `customer.subscription.created`,
+`customer.subscription.updated`, and `customer.subscription.deleted` to the
+app's webhook URL and use that endpoint's signing secret.
 
 ### `web/.env.local` — used when running web locally
 
-Set the Supabase URL/keys, `DATABASE_URL`, and `DEEPSEEK_API_KEY`. The example
-file is `web/.env.local.example`.
+Set the Supabase URL/keys (including the server-only service-role key),
+`DATABASE_URL`, `DEEPSEEK_API_KEY`, and Stripe test values. The example file
+is `web/.env.local.example`.
 
 ### `scraper/.env` — used when running scraper locally
 
 Pre-filled example at `scraper/.env.example`.
+
+### `MAIL_SERVICE_URL` — used when running web locally
+
+Set to `http://localhost:8200` in `web/.env.local.example`. Start the mail
+service and Mailpit using `./dev.sh infra` before testing Premium outreach
+from a locally running web app.
 
 ---
 
@@ -384,6 +429,9 @@ is destructive to existing application data; use only when you want a demo reset
 # Scraper — PII blocker, hash chain, change detection, pipeline safety (16 tests)
 ./dev.sh test
 
+# Isolated mail service — local-only Mailpit delivery and internal API auth
+./dev.sh test-mail
+
 # Lint scraper code
 ./dev.sh lint
 ```
@@ -391,7 +439,7 @@ is destructive to existing application data; use only when you want a demo reset
 Web unit tests (policy engine, blocker, audit) are in `web/src/__tests__/` — run with `cd web && npm test`
 (the `test` script is added by the storage-migration branch).
 
-Run the full CI suite locally (web build/lint/test + scraper lint/test) with `./dev.sh ci`.
+Run the full CI suite locally (web build/lint/test + scraper lint/test + mail-service tests) with `./dev.sh ci`.
 
 ---
 
@@ -401,8 +449,11 @@ Run the full CI suite locally (web build/lint/test + scraper lint/test) with `./
 # Added a new npm package?
 ./dev.sh build web
 
-# Added a new Python package (declared in scraper/pyproject.toml)?
+# Added a new Python package to the scraper (declared in scraper/pyproject.toml)?
 ./dev.sh build scraper
+
+# Added a dependency to mail-service/requirements.txt?
+docker compose build mail
 ```
 
 Then `./dev.sh up` to restart.

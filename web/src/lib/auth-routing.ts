@@ -31,9 +31,10 @@ export function isPublicPath(pathname: string): boolean {
     pathname === "/" ||
     AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(`${p}/`)) ||
     pathname.startsWith("/api/auth") ||
+    pathname === "/api/stripe/webhook" ||
     pathname === "/auth/reset" ||
-    // Server-to-server callbacks (Python outreach server → web). No user
-    // session exists; each route enforces the x-internal-api-key header itself.
+    // Server-to-server callbacks (mail service and Stripe) have no user session;
+    // each route validates its own internal key or Stripe signature.
     pathname.startsWith("/api/internal/")
   );
 }

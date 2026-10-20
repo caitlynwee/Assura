@@ -96,6 +96,8 @@ function rowToUser(row: UserRow): User {
     profile: (row.profile as UserProfile | null) ?? {},
     createdAt: row.createdAt,
     ...(row.authUid != null ? { authUid: row.authUid } : {}),
+    stripeCustomerId: row.stripeCustomerId,
+    stripeSubscriptionId: row.stripeSubscriptionId,
   };
 }
 

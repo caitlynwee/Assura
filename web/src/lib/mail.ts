@@ -1,7 +1,7 @@
 /**
  * mail.ts — Mailpit SMTP integration.
  *
- * Sends approved outreach through the local relay service to Mailpit only.
+ * Sends approved outreach through the isolated mail service to Mailpit only.
  *
  * The outreach service appends the AI disclosure footer and owns SMTP delivery.
  * Rate limits are enforced here before forwarding an approved send.
@@ -11,7 +11,7 @@ import { MAX_EMAILS_PER_USER_PER_DAY, FOLLOWUP_COOLDOWN_MS } from "./constants";
 import { getThreadsByUser, getThreadById } from "./db";
 import { logEvent } from "./audit";
 
-const SCRAPER_URL = process.env.SCRAPER_URL ?? "http://localhost:8100";
+const MAIL_SERVICE_URL = process.env.MAIL_SERVICE_URL ?? "http://localhost:8200";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key";
 
 export function generateMaskedAddress(userId: string): string {
@@ -42,7 +42,7 @@ export async function sendEmail(
     await checkFollowUpCooldown(userId, threadId);
   }
 
-  const response = await fetch(`${SCRAPER_URL}/email/send`, {
+  const response = await fetch(`${MAIL_SERVICE_URL}/email/send`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -60,7 +60,7 @@ export async function sendEmail(
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`Outreach server rejected email (${response.status}): ${detail}`);
+    throw new Error(`Mail service rejected email (${response.status}): ${detail}`);
   }
 
   const result = (await response.json()) as {
@@ -70,7 +70,7 @@ export async function sendEmail(
   };
   const messageId = result.message_id;
   if (!messageId || !result.from_address || !result.to_address) {
-    throw new Error("Outreach server returned an incomplete send confirmation.");
+    throw new Error("Mail service returned an incomplete send confirmation.");
   }
 
   logEvent(userId, "email.sent", {

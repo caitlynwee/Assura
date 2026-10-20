@@ -347,6 +347,13 @@ Files: web/src/lib/{users,auth}.ts, web/src/app/_actions/auth.ts, web/src/__test
 Others need to know: Auth-created users default to Free and must complete onboarding/upgrade for premium features. This change does not move CRM/application data out of PostgreSQL.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Document Scraper Environment Variables
+Status: Completed
+Done: Added Firecrawl API key and scraper debug settings to the root environment example; marked the scraper-wide country default temporary pending per-user country support.
+Files: `.env.example`, `TASK.MD`
+Others need to know: `CURRENT_COUNTRY` remains in the template for now and should be removed once scraper uses the user's country.
+Blockers: None.
+---
 
 ## 2026-10-20 | Copilot | Retire stale CRM/outreach handoff
 Status: Completed
@@ -606,8 +613,6 @@ Done:
 Files: web/src/lib/seed.ts, web/src/lib/seed-data.ts, web/src/__tests__/setup.ts, web/drizzle/meta/_journal.json, scraper/tests/test_engine.py, TASK.MD
 Others need to know: Full web ESLint and scraper Ruff still report unrelated pre-existing errors in `web/src/hooks/use-plans.ts` and other scraper files.
 Blockers: None.
----
-
 ## 2026-10-20 | Copilot | Fix scraper CI lint failure
 Status: Completed
 Done:
@@ -628,5 +633,33 @@ Done:
 - Protected scraper run/status endpoints with `INTERNAL_API_SECRET`.
 Files: web/src/app/(app)/admin/, web/src/components/admin/, web/src/lib/{types,auth-routing,session,grant-admin,policy}.ts, web/src/app/api/scraper/, scraper/app/routers/scraper.py
 Others need to know: Admins retain Premium workspace access; only the server-side grant command can assign the tier.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Isolating Mail and Scraper Services
+Status: Completed
+Done: Extracted Premium email delivery/personas into `mail-service`; web email calls now target it, and scraper no longer owns email/persona modules. Added independent Docker profiles, CI coverage, and updated operator/product docs.
+Files: `mail-service/`, `web/src/lib/mail.ts`, `web/src/app/api/crm/threads/[threadId]/reply/route.ts`, `docker-compose.yml`, `dev.sh`, `README.md`, `docs/PROJECT.MD`
+Others need to know: Basic starts web + DB migration; Premium starts web + mail + Mailpit; scraper starts independently. All use PostgreSQL; SMTP is restricted to local Mailpit on port 1025.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Stripe Premium Checkout
+Status: Completed
+Done: Replaced free Premium activation with Stripe test-mode subscription Checkout; signed webhook events synchronize Premium entitlement, and paid users can manage/cancel in Stripe Billing Portal. New signups are Free, while the shared demo remains Premium.
+Files: `web/src/app/_actions/billing.ts`, `web/src/app/api/stripe/webhook/route.ts`, `web/src/lib/stripe.ts`, `web/drizzle/0008_stripe_billing.sql`, `web/src/app/(app)/upgrade/page.tsx`
+Others need to know: Configure a recurring SGD Stripe test Price ID, `sk_test_` key, `whsec_` webhook secret, and server-only Supabase service-role key. Configure Customer Portal and forward the three subscription events listed in README. Stripe IDs are excluded from public-user responses.
+Blockers: Checkout was not exercised against Stripe because test credentials and a Price ID are not configured in this environment.
+---
+## 2026-10-20 | Copilot | Stripe Environment Template
+Status: Completed
+Done: Clarified the root environment template with expected Stripe test credential formats and the local webhook secret workflow; kept credential values blank to avoid exposing secrets in tracked files.
+Files: `.env.example`
+Others need to know: Add real values to the ignored root `.env`, not `.env.example`.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | One-Command Stripe Billing Test
+Status: Completed
+Done: Added `./dev.sh up-stripe [--build]` to start the web container and Stripe CLI event forwarding together; the command obtains a local webhook signing secret and injects it into the container without writing it to `.env`.
+Files: `dev.sh`, `README.md`, `.env.example`
+Others need to know: Requires Stripe CLI and `STRIPE_SECRET_KEY` plus recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
 Blockers: None.
 ---

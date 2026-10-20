@@ -7,6 +7,7 @@ import {
   requestEmailChangeAction,
   saveSettingsAction,
 } from "@/app/_actions/settings";
+import { openBillingPortalAction } from "@/app/_actions/billing";
 import DeleteAccountDialog from "@/components/account/delete-account-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -23,12 +24,14 @@ export default function SettingsForm({
   initialName,
   email,
   tier,
+  hasStripeCustomer,
   initialProfile,
   isDemoAccount,
 }: {
   initialName: string;
   email: string;
   tier: UserTier;
+  hasStripeCustomer: boolean;
   initialProfile: UserProfile;
   isDemoAccount: boolean;
 }) {
@@ -280,7 +283,7 @@ export default function SettingsForm({
           <CardDescription>
             Current plan: <strong>{tier === "admin" ? "Admin" : tier === "premium" ? "Premium" : "Free"}</strong>.
             {tier === "premium"
-              ? " Downgrading removes access to outreach and CRM features; your account and saved data remain."
+              ? " Managing your subscription controls renewal; Premium access continues until Stripe confirms it has ended. Your account and saved data remain."
               : " Free includes plan comparison and cited Q&A."}
           </CardDescription>
         </CardHeader>
@@ -290,11 +293,17 @@ export default function SettingsForm({
               <p className="text-sm text-muted-foreground">
                 The shared demo account stays on Premium so the demo features remain available.
               </p>
+            ) : hasStripeCustomer ? (
+              <form action={openBillingPortalAction}>
+                <Button type="submit" variant="outline">
+                  Manage subscription
+                </Button>
+              </form>
             ) : (
               <form
                 action={downgradeToFreeAction}
                 onSubmit={(event) => {
-                  if (!window.confirm("Downgrade to Free? Premium outreach and CRM access will end immediately.")) {
+                  if (!window.confirm("Downgrade this account to Free? Premium outreach and CRM access will end immediately.")) {
                     event.preventDefault();
                   }
                 }}

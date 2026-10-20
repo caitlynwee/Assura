@@ -10,6 +10,7 @@ This separates "who are the players" (LLM knowledge) from "where is the URL"
 (live web search), giving accurate URLs without hallucination.
 """
 
+import asyncio
 import json
 import re
 
@@ -143,6 +144,7 @@ async def _firecrawl_search(query: str) -> list[dict]:
         data = resp.json()
         results = data.get("data", []) or []
         print(f"[discovery] Firecrawl '{query}' → {len(results)} results")
+        await asyncio.sleep(2.5)  # stay within free-tier rate limit (~20 req/min)
         dump(f"firecrawl_{'pdf' if 'filetype:pdf' in query else 'page'}", {
             "query": query,
             "status_code": resp.status_code,

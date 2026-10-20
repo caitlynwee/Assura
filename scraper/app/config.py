@@ -8,12 +8,6 @@ class Settings(BaseSettings):
 
     # Servers
     scraper_port: int = 8100
-    web_base_url: str = "http://localhost:3000"
-    internal_api_secret: str = "dev-internal-key"
-
-    # Mailpit SMTP sandbox (default: nothing leaves the machine)
-    mailpit_smtp_host: str = "localhost"
-    mailpit_smtp_port: int = 1025
 
     # Database
     database_url: str = ""
@@ -24,9 +18,6 @@ class Settings(BaseSettings):
 
     # Firecrawl — web search for PDF brochure + product page URLs
     fire_crawl_api_key: str = ""
-
-    # Country — swap to any country name to scrape that market's top 5 CI plans
-    current_country: str = "Singapore"
 
     # Scraper behaviour
     scraper_rate_limit_delay: float = 2.0  # seconds between requests to same domain

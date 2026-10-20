@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPlans } from "@/lib/db";
+import { getPlans, getUserById } from "@/lib/db";
 import { planFilterSchema } from "@/lib/validators";
 import { evaluateAction } from "@/lib/policy";
 
@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid filters" }, { status: 400 });
   }
 
-  const country = req.nextUrl.searchParams.get("country") ?? process.env.CURRENT_COUNTRY ?? "Singapore";
+  const user = await getUserById(session.user.id!);
+  const country = user?.profile?.countryOfOrigin ?? "Singapore";
   let plans = await getPlans(country);
   const { insurerId, minCoverage, maxCoverage, earlyStage, sortBy, sortDir, search } =
     parsed.data;
