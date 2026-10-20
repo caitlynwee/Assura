@@ -1,5 +1,18 @@
 import { PolicyTier, type OutreachTemplate, type ThreadStatus } from "./types";
 
+// ─── Auth session persistence ──────────────────────────────────────────────────
+
+/**
+ * Marker cookie recording the user's "Keep me signed in" choice.
+ * - "1": persistent auth cookies (survive browser restart) — the default.
+ * - "0": session-only auth cookies (cleared when the browser closes).
+ *
+ * It is read by the server client and edge middleware when (re)writing the
+ * Supabase session cookies, so a refresh does not silently turn a
+ * session-only login back into a persistent one. httpOnly + sameSite=lax.
+ */
+export const REMEMBER_COOKIE = "sb-remember";
+
 // ─── Policy tiers ─────────────────────────────────────────────────────────────
 
 export const TIER_LABELS: Record<PolicyTier, string> = {
