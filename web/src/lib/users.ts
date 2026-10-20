@@ -1,12 +1,19 @@
 /**
  * users.ts — User record helpers (Node.js runtime only; uses db.ts / Drizzle).
  *
- * Never import from middleware / auth.config.ts.
+ * Never import from middleware / edge code.
  */
 
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { getDb, getUserById, getUserByEmail } from "./db";
+import {
+  getDb,
+  getUserById,
+  getUserByEmail,
+  getUserByAuthUid,
+  linkAuthUid,
+} from "./db";
 import * as schema from "./schema";
 import { generateId } from "./utils";
 import { generateMaskedAddress } from "./mail";
@@ -23,7 +30,58 @@ export const DEFAULT_CONSENT: ConsentFlags = {
   shareIncome: false,        // Tier 3 — never shareable by the AI
 };
 
-export { getUserById as findUserById, getUserByEmail as findUserByEmail };
+export { getUserById as findUserById, getUserByEmail as findUserByEmail, linkAuthUid };
+
+export async function resolveOrCreateAuthUser(identity: {
+  id: string;
+  email: string | null;
+  user_metadata?: Record<string, unknown>;
+} | null | undefined): Promise<User | null> {
+  if (!identity?.id) return null;
+
+  const byAuthUid = await getUserByAuthUid(identity.id);
+  if (byAuthUid) return byAuthUid;
+  if (!identity.email) return null;
+
+  const email = identity.email.trim().toLowerCase();
+  const byEmail = await getUserByEmail(email);
+  if (byEmail) {
+    if (byEmail.authUid && byEmail.authUid !== identity.id) return null;
+    if (byEmail.authUid !== identity.id) await linkAuthUid(byEmail.id, identity.id);
+    return { ...byEmail, authUid: identity.id };
+  }
+
+  const metadataName = identity.user_metadata?.full_name ?? identity.user_metadata?.name;
+  const name =
+    typeof metadataName === "string" && metadataName.trim()
+      ? metadataName.trim().slice(0, 100)
+      : email.split("@")[0];
+
+  try {
+    return await createUser({
+      id: `user_auth_${identity.id}`,
+      name,
+      email,
+      // Supabase is the credential authority; this random hash is never used
+      // for authentication and avoids persisting the user's Supabase password.
+      password: randomBytes(32).toString("hex"),
+      tier: "free",
+      authUid: identity.id,
+    });
+  } catch (error) {
+    const racedUser = await getUserByAuthUid(identity.id);
+    if (racedUser) return racedUser;
+
+    const emailUser = await getUserByEmail(email);
+    if (emailUser && !emailUser.authUid) {
+      await linkAuthUid(emailUser.id, identity.id);
+      return { ...emailUser, authUid: identity.id };
+    }
+    if (emailUser?.authUid === identity.id) return emailUser;
+    if (emailUser) return null;
+    throw error;
+  }
+}
 
 export function toPublicUser(user: User): PublicUser {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -38,10 +96,13 @@ export class EmailTakenError extends Error {
 }
 
 export async function createUser(input: {
+  id?: string;
   name: string;
   email: string;
   password: string;
   tier: UserTier;
+  /** Supabase auth.users.id to link this row to (optional). */
+  authUid?: string;
 }): Promise<User> {
   const db = getDb();
   const email = input.email.trim().toLowerCase();
@@ -49,9 +110,10 @@ export async function createUser(input: {
   const existing = await getUserByEmail(email);
   if (existing) throw new EmailTakenError();
 
-  const id = generateId("user");
+  const id = input.id ?? generateId("user");
   const passwordHash = await bcrypt.hash(input.password, 10);
   const createdAt = new Date().toISOString();
+  const authUid = input.authUid ?? null;
 
   await db.insert(schema.users).values({
     id,
@@ -70,6 +132,7 @@ export async function createUser(input: {
     shareHealthHistory: false,
     shareIncome: false,
     createdAt,
+    authUid,
   });
 
   return {
@@ -82,6 +145,7 @@ export async function createUser(input: {
     onboarded: false,
     consent: { ...DEFAULT_CONSENT },
     createdAt,
+    ...(authUid != null ? { authUid } : {}),
   };
 }
 

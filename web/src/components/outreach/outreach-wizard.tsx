@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  AI_DISCLOSURE_PREFIX,
+  AI_DISCLOSURE_FOOTER,
   MAX_INSURERS_PER_OUTREACH,
   OUTREACH_TEMPLATES,
   THREAD_STATUS_LABELS,
@@ -146,7 +146,12 @@ function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function OutreachWizard({ insurers, maskedInbox, consent, profile }: Props) {
+export default function OutreachWizard({
+  insurers,
+  maskedInbox,
+  consent,
+  profile,
+}: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   const [templateId, setTemplateId] = useState(OUTREACH_TEMPLATES[0].id);
   const [ctx, setCtx] = useState<OutreachContext>({
@@ -514,7 +519,10 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
           Back
         </Button>
         <p className="text-sm text-muted-foreground">
-          From <span className="font-mono text-foreground">{maskedInbox}</span>
+          From{" "}
+          <span className="font-mono text-foreground">
+            {maskedInbox}
+          </span>
         </p>
       </div>
 
@@ -585,7 +593,7 @@ export default function OutreachWizard({ insurers, maskedInbox, consent, profile
                 <CardContent className="space-y-4">
                   <div className="rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">Added automatically: </span>
-                    {AI_DISCLOSURE_PREFIX}
+                    {AI_DISCLOSURE_FOOTER}
                   </div>
 
                   <div className="grid gap-2">

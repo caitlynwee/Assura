@@ -10,7 +10,11 @@ import type { Insurer, Thread } from "@/lib/types";
 
 export const metadata = { title: "Outreach — Assura" };
 
-function buildInsurerOptions(insurers: Insurer[], threads: Thread[], userId: string): InsurerOption[] {
+function buildInsurerOptions(
+  insurers: Insurer[],
+  threads: Thread[],
+  userId: string
+): InsurerOption[] {
   const userThreads = threads.filter((t) => t.userId === userId);
   // Persona is internal (simulation) — never sent to the browser.
   return insurers.map(({ id, name, agentEmail, website }) => {

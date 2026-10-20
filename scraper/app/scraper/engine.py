@@ -55,10 +55,7 @@ async def run_scraper(
                 if not changed_flag:
                     continue
 
-                content = await download_page(
-                    source_dict["url"], response,
-                    source_type=source_dict.get("type", "product_page"),
-                )
+                content = await download_page(source_dict["url"], response)
 
                 # Extract clean text
                 text = extract_text(content)

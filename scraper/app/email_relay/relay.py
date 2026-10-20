@@ -2,15 +2,15 @@
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import make_msgid
 
 import aiosmtplib
 
 from app.config import settings
 
 AI_DISCLOSURE = (
-    "Note: This email is drafted and sent by an AI assistant (Fineprint) on behalf "
-    "of a customer who has reviewed and approved it. The customer's real contact "
-    "details are not shared in this message."
+    "— Sent with the help of Assura, a personal insurance assistant, "
+    "and reviewed and approved by me before sending."
 )
 
 
@@ -19,14 +19,15 @@ async def send_email(
     to_address: str,
     subject: str,
     body: str,
-) -> str:
-    """Send an email via Mailpit. Prepends AI disclosure. Returns message ID."""
-    full_body = f"{AI_DISCLOSURE}\n\n{'─' * 60}\n\n{body}"
+) -> tuple[str, str, str]:
+    """Send an email through local Mailpit and return its ID, sender, and recipient."""
+    full_body = f"{body}\n\n{'─' * 40}\n{AI_DISCLOSURE}"
 
     msg = MIMEMultipart("alternative")
-    msg["From"] = from_address
-    msg["To"] = to_address
     msg["Subject"] = subject
+    msg["Message-ID"] = make_msgid()
+    msg["To"] = to_address
+    msg["From"] = from_address
     msg.attach(MIMEText(full_body, "plain", "utf-8"))
 
     await aiosmtplib.send(
@@ -37,7 +38,7 @@ async def send_email(
         validate_certs=False,
     )
 
-    return msg.get("Message-ID", "unknown")
+    return msg.get("Message-ID", "unknown"), msg["From"], to_address
 
 
 async def check_smtp_connection() -> bool:

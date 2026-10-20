@@ -1,115 +1,83 @@
 /**
- * auth.ts — Full NextAuth.js v5 configuration (Node.js runtime only).
+ * auth.ts — Supabase-backed auth facade (Node.js runtime only).
  *
- * Extends auth.config.ts with:
- *  - Credentials provider (bcrypt against PostgreSQL users table)
- *  - Brute-force throttle: 5 failed attempts per email per 15 min
- *  - Audit-chain events for login success / failure / lockout
- *  - A jwt callback that re-reads the user on every server-side request, so
- *    tier / onboarding changes apply immediately and deleted users are logged out.
- *    Call `refreshSessionCookie()` after changing tier/onboarding so the edge
- *    middleware (which can't read the DB) also sees the new values.
+ * Replaces the old NextAuth v5 config. Supabase Auth now verifies credentials
+ * and issues the session; this facade maps the Supabase session back to the
+ * app's Drizzle `users` row (the source of truth for id/tier/etc.) so the ~16
+ * `auth()` call sites and `crm-api.test.ts`'s `jest.mock("@/lib/auth", …)`
+ * keep working against the SAME shape and import path.
  *
- * This file uses Node.js APIs (bcrypt, postgres driver via db.ts) — never import in middleware.
+ * Uses Node.js APIs (DB via db.ts, next/headers via the server client) — never
+ * import this from middleware/edge. The edge reads tier from the JWT instead.
  */
 
-import NextAuth, { CredentialsSignin } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { authConfig } from "./auth.config";
-import { loginSchema } from "./validators";
-import { getUserByEmail, getUserById } from "./db";
-import { logEvent } from "./audit";
-import { maskEmail } from "./utils";
+import { redirect } from "next/navigation";
+import { getServerClient } from "./supabase/server";
+import { resolveOrCreateAuthUser } from "./users";
+import { syncAuthMetadata } from "./supabase/ensure-demo-user";
+import type { UserTier } from "./types";
 
-// ─── Login throttle (in-memory; fine for a single-process demo) ──────────────
+export type AppSession = {
+  user: {
+    id: string; // app user id (text, e.g. "user_demo")
+    tier: UserTier; // from the app users row (source of truth)
+    maskedInbox: string;
+    onboarded: boolean;
+    email: string;
+    name: string;
+  };
+} | null;
 
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
-const failedAttempts = new Map<string, number[]>();
+/**
+ * Resolve the current session: verify the Supabase user, map to the app row.
+ * The app row is the authority for `tier` (server reads are always fresh —
+ * the JWT `app_metadata` copy exists only for the edge, which can't hit the DB).
+ * Returns null (signed-out) when there is no Supabase user or no linked app row.
+ */
+export async function auth(): Promise<AppSession> {
+  const supabase = await getServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
 
-function recentFailures(key: string): number[] {
-  const cutoff = Date.now() - LOCKOUT_WINDOW_MS;
-  const list = (failedAttempts.get(key) ?? []).filter((t) => t > cutoff);
-  failedAttempts.set(key, list);
-  return list;
-}
+  const appUser = await resolveOrCreateAuthUser(user);
+  if (!appUser) return null;
 
-export class RateLimitedSignin extends CredentialsSignin {
-  code = "rate_limited";
-}
-
-// Compared against when the email is unknown, so response timing doesn't
-// reveal which emails are registered.
-const DUMMY_HASH = bcrypt.hashSync("assura-timing-equaliser", 10);
-
-export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
-  ...authConfig,
-  callbacks: {
-    ...authConfig.callbacks,
-    async jwt({ token, user }) {
-      if (user?.id) token.userId = user.id;
-      if (!token.userId) return null;
-
-      // Always reflect the latest stored state (tier upgrades, onboarding).
-      const fresh = await getUserById(token.userId as string);
-      if (!fresh) return null; // user removed (e.g. seed reset) → sign out
-
-      token.name = fresh.name;
-      token.email = fresh.email;
-      token.tier = fresh.tier;
-      token.maskedInbox = fresh.maskedInbox;
-      token.onboarded = fresh.onboarded;
-      return token;
+  return {
+    user: {
+      id: appUser.id,
+      tier: appUser.tier,
+      maskedInbox: appUser.maskedInbox,
+      onboarded: appUser.onboarded,
+      email: appUser.email,
+      name: appUser.name,
     },
-  },
-  providers: [
-    Credentials({
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const parsed = loginSchema.safeParse(credentials);
-        if (!parsed.success) return null;
+  };
+}
 
-        const email = parsed.data.email.toLowerCase();
-        const { password } = parsed.data;
+/** Sign out via Supabase and redirect (clears the Supabase session cookies). */
+export async function signOut(opts?: { redirectTo?: string }): Promise<void> {
+  const supabase = await getServerClient();
+  await supabase.auth.signOut();
+  redirect(opts?.redirectTo ?? "/");
+}
 
-        if (recentFailures(email).length >= MAX_FAILED_ATTEMPTS) {
-          logEvent("system", "auth.login.locked", { email: maskEmail(email) });
-          throw new RateLimitedSignin();
-        }
-
-        const user = await getUserByEmail(email);
-        const valid = await bcrypt.compare(
-          password,
-          user?.passwordHash ?? DUMMY_HASH
-        );
-
-        if (!user || !valid) {
-          recentFailures(email).push(Date.now());
-          logEvent("system", "auth.login.failed", { email: maskEmail(email) });
-          return null;
-        }
-
-        failedAttempts.delete(email);
-        logEvent(user.id, "auth.login.success", {});
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          tier: user.tier,
-          maskedInbox: user.maskedInbox,
-          onboarded: user.onboarded,
-        };
-      },
-    }),
-  ],
-});
-
-/** Re-issue the session cookie from the latest user record (server actions / route handlers only). */
+/**
+ * Re-sync app_metadata (tier/onboarded) into the Supabase identity and refresh
+ * the session cookie so the edge sees the new values on the next request.
+ * Called after tier/onboarding changes. No-op-safe when keys are absent.
+ */
 export async function refreshSessionCookie(): Promise<void> {
-  await unstable_update({ user: {} });
+  const session = await auth();
+  if (session?.user?.id) {
+    await syncAuthMetadata(session.user.id);
+  }
+  const supabase = await getServerClient();
+  // A plain refresh re-reads the user and re-embeds the current app_metadata
+  // into the newly-minted access token; the server client's setAll writes the
+  // refreshed cookie onto the response. (Live-project assumption — see the
+  // design's demo-setup checklist for the named fallback if a plain refresh
+  // does not pick up the updated app_metadata.)
+  await supabase.auth.refreshSession();
 }

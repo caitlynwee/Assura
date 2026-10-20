@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
     insurerName: insurer.name,
     templatePromptHint: template.promptHint,
     consent: user.consent,
+    userName: user.name,
     userContext,
   });
 
