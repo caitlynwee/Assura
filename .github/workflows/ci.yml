@@ -105,7 +105,7 @@ jobs:
         run: ruff check app/
 
       - name: Test (pytest)
-        run: pytest -v
+        run: python -m pytest -v
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/assura_test
     services:
@@ -122,3 +122,26 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
+  # ── Mail service: isolated Premium outreach delivery ────────────────────────
+  mail-service:
+    name: mail service (test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mail-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Test (pytest)
+        run: python -m pytest -v

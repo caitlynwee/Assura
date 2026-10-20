@@ -22,12 +22,13 @@ THREE DELIVERABLES
      - Activity log page with a "Verify chain" button.
 2. Scraper
    - Cron job at 00:00 SGT plus a "Run now" button.
-   - Checks each source in sources.json (ETag or Last-Modified, else SHA-256 hash).
+   - Checks each source record in PostgreSQL (ETag or Last-Modified, else SHA-256 hash); initial demo records are seeded from typed TypeScript fixtures.
    - If changed: download a versioned copy, extract text, convert to the plan schema with a no-tools LLM call, validate, send to the backend, add a change note and "Updated" badge.
    - Public pages only, robots.txt respected, rate-limited. A failed scrape never deletes the last good data.
    - Demo trick: one source is a local mock brochure page we can edit live.
-3. Outreach server
+3. Outreach service
    - Holds NO user credentials.
+   - Runs separately from the scraper; the Premium demo starts web + mail service + Mailpit, while basic testing needs only web.
    - Sends from a per-user relay address to the local Mailpit sandbox only; no external email is delivered.
    - Every email discloses that it was sent with Assura's help and reviewed and approved by the user.
    - Shares only what the user ticked in onboarding. Never shares name, real email, phone, NRIC, health or income.
@@ -39,16 +40,17 @@ SECURITY DESIGN (30% of the score, so build it properly)
 - Tiers: 0 read, 1 advise and draft (premium, no side effects), 2 send with explicit user approval, 3 blocked for the AI (share NRIC, health, income or phone; agree to buy; book calls), which the AI must escalate to the user.
 - Quarantined reader: all outside text (insurer emails, scraped pages) is parsed by an LLM call with no tools that returns fixed JSON only. The agent that sends emails never sees raw outside text.
 - Personal-data blocker: outgoing emails are scanned for NRIC patterns, phone numbers and health keywords and blocked if found.
-- Audit log: append-only audit.jsonl where each line stores the SHA-256 hash of the previous line. The Verify button re-checks the chain.
-- Known-risk list (for the self-assessment report): wrong AI plan facts, prompt injection, stale scraped data, JSON storage not production-grade, possible financial-advice classification (so factual comparison only, never "buy this"), site terms of use, relay email spoofing, demo-only login.
+- Audit log: append-only PostgreSQL `audit_entries` table where each row stores the SHA-256 hash of the previous row. The Verify button re-checks the chain.
+- Known-risk list (for the self-assessment report): wrong AI plan facts, prompt injection, stale scraped data, database connection/pool limits and operational safeguards, possible financial-advice classification (so factual comparison only, never "buy this"), site terms of use, relay email spoofing, demo-only login.
 
 TECH AND DATA
-- Storage: local JSON files by decision (demo speed), with guardrails: the backend is the only writer, atomic saves (temp file then rename), a seed/ folder and a reset script.
-- Files: users.json, plans.json, sources.json, threads.json, insurers.json, plus audit.jsonl and scraper_runs.jsonl.
-- Repo structure: monorepo with /web (Next.js) and /scraper (Python) sub-folders.
-- Frontend + backend API: Next.js (App Router). API routes handle all business logic. Auth via NextAuth.js (Auth.js v5) with a Credentials provider — real JWT sessions, one demo user hardcoded, no OAuth needed.
-- Background jobs (scraper, relay, reply simulator): separate Python server in /scraper, communicates with /web via internal HTTP. Not combined into the Next.js process.
-- Sandbox email: Mailpit (local, nothing leaves the machine). Needs to be installed before demo.
+- Storage: PostgreSQL is the runtime source of truth. The web app owns schema and migrations through Drizzle; the Python scraper uses SQLAlchemy mappings against the same database and does not manage schema. Supabase provides the hosted PostgreSQL instance and authentication.
+- Structured data: relational columns are used for fields queried directly; PostgreSQL `JSONB` holds nested records and arrays that are read or updated as units (for example profiles, plan benefits, and extracted quotes). The typed TypeScript seed fixture creates the demo user; the scraper discovers and stores the insurer catalog.
+- Audit chain: entries are stored in PostgreSQL `audit_entries`. The `detail` and timestamp values retain their exact serialized text so the chain can be recomputed without JSONB normalization affecting the hash.
+- Repo structure: monorepo with `/web` (Next.js), `/scraper` (Python), and `/mail-service` (Python) sub-folders.
+- Frontend + backend API: Next.js (App Router). API routes handle web business logic. Supabase Auth verifies credentials; the PostgreSQL `users` table stores Assura profile, tier, and consent data.
+- Background jobs: `/scraper` runs plan discovery independently. `/mail-service` handles isolated relay delivery and simulated replies, communicating with `/web` via internal HTTP. Neither is combined into the Next.js process.
+- Sandbox email: Mailpit (local, nothing leaves the machine), started automatically by the Premium Docker profile.
 - Required tests: policy engine, personal-data blocker, hash chain, change detection.
 
 DEMO FLOW (under 4 minutes, doubles as the demo video)
@@ -60,7 +62,7 @@ Payments, real insurers, other categories, claims guidance, buying a policy, mob
 OPEN ITEMS
 - Critical illness confirmed as the one category.
 - Framework confirmed: Next.js + Auth.js v5 (web), Python scraper server (background jobs).
-- Scraper targets: real insurer websites for Level 1 plan data and agent contact emails. sources.json to be populated with actual URLs during build.
+- Scraper targets: real insurer websites for Level 1 plan data and agent contact emails. Source records are maintained in PostgreSQL and initialized from typed TypeScript demo fixtures.
 - Mock brochure page: a locally-served HTML page (within /scraper or /web/public) that can be edited live during the demo to trigger the "Updated" badge.
 - Business side (market numbers, pitch deck, judge Q&A) is being handled separately by the business co-founder.
 

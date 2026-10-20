@@ -49,20 +49,20 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ### Marcus — Scraper
 - Python FastAPI scraper server (`/scraper`)
 - Scrape 6 Singapore CI insurers: AIA, Prudential, Great Eastern, NTUC Income, Manulife, Singlife
-- Extract plan data from brochures → convert via quarantined LLM → update plans.json
+- Extract plan data from brochures → convert via quarantined LLM → update PostgreSQL plan rows
 - Cron job at 00:00 SGT (local for now, cloud later)
 - Change detection: ETag/Last-Modified → SHA-256 hash fallback
 - Mock brochure at `/mock/brochure` (editable live for demo)
-- Files: `scraper/app/scraper/`, `scraper/app/routers/scraper.py`, `data/sources.json`
+- Files: `scraper/app/scraper/`, `scraper/app/routers/scraper.py`, `scraper/app/storage/`
 
 ### Jeff — AI Agent & CRM
 - AI email drafting + thread management (in-process via `web/src/lib/ai.ts` — the standalone
   Hermes agent idea was dropped as overkill for the demo; drafting is one LLM call, no agent loop)
 - Outreach flow: insurer picker → template → AI draft → user approval → send
 - CRM: thread timeline, status management, quote extraction, risk flag display
-- 5 simulated insurer personas (helpful, slow, pushy, data-grabber, injector)
+- 5 simulated insurer personas (helpful, slow, pushy, data-grabber, injector), hosted by the isolated mail service
 - Connect AI APIs; ensure quarantine reader is used for all inbound insurer text
-- Files: `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `scraper/app/personas/`, `scraper/app/email_relay/`
+- Files: `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `mail-service/app/`
 
 ### Caitlyn — Documentation & Deck
 - Technical documentation: system architecture diagram, core algorithm walkthrough, security design write-up
@@ -76,9 +76,9 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ```
 /
 ├── web/          Next.js 16 (App Router) — frontend + API routes
-├── scraper/      Python FastAPI — scraper, email relay, personas
-├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
-├── seed/         Seed data + reset.sh (source of truth for demo state)
+├── scraper/      Python FastAPI — independent plan and brochure scraper
+├── mail-service/ Python FastAPI — Premium mail relay and simulated insurer replies
+├── seed/         PostgreSQL reset script
 ├── docs/         Product spec and hackathon reference docs
 │   └── PROJECT.MD    ← product spec
 ├── AGENTS.md     ← you are here (AI agent instructions, any tool)
@@ -90,7 +90,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ## Architecture Decisions (do not change without team consensus)
 - **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
-- **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` (full handoff lives on that branch). Until that merges, JSON files remain the source of truth.
+- **Storage**: PostgreSQL is the runtime source of truth. The web app owns schema and migrations via Drizzle; the scraper maps the same tables via SQLAlchemy and does not issue DDL. The typed fixture in `web/src/lib/seed-data.ts` seeds the demo user; the scraper discovers and persists insurer, plan, and source records. Selected nested fields use PostgreSQL `JSONB`; audit detail is stored as exact serialized text in `audit_entries` so hash verification remains byte-stable.
 - **Auth**: Supabase Auth verifies credentials; PostgreSQL app profiles supply tier/consent data. `proxy.ts` verifies access-token signatures with Supabase JWKS.
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.
@@ -98,12 +98,13 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 - **Policy engine**: `web/src/lib/policy.ts` — pure code, no LLM, deny by default. Every AI action goes through this.
 - **Quarantine**: All untrusted external text (insurer replies, scraped HTML) → `quarantine.ts` — no-tools LLM, fixed JSON schema, Zod-validated.
 - **Email delivery**: Mailpit only. No external SMTP provider or recipient is configured; every send still requires user approval, PII screening, and the AI disclosure footer.
+- **Service boundaries**: Basic web uses only web + PostgreSQL. Premium outreach uses web + `mail-service` + Mailpit. The scraper runs independently and is not needed by web or mail. Mail service SMTP is restricted to Mailpit hostnames on port 1025.
 
 ## Security — Non-Negotiable (30% of score)
 These must be demonstrably working in the demo:
 1. **Policy tiers**: 0=read, 1=advise/draft (premium), 2=send (approval required), 3=blocked (NRIC/health/income → escalate)
 2. **PII blocker**: NRIC regex `[STFGM]\d{7}[A-Z]`, SG phone, health keywords — blocks outgoing email, shows error to user
-3. **Audit hash chain**: SHA-256 linked entries in `audit.jsonl`, "Verify chain" button shows ✓/✗
+3. **Audit hash chain**: SHA-256 linked entries in PostgreSQL's `audit_entries` table, "Verify chain" button shows ✓/✗
 4. **Quarantine reader**: Insurer replies never reach the send agent raw — always parsed through isolated LLM call
 
 ---
@@ -140,15 +141,15 @@ bash seed/reset.sh
 cd web && cp .env.local.example .env.local   # fill Supabase + DATABASE_URL + DEEPSEEK_API_KEY
 npm install && npm run dev                    # http://localhost:3000
 
-# 3. Scraper server (uv — install: brew install uv)
+# 3. Scraper server (uv — install: brew install uv; only needed for scraping)
 cd scraper && uv venv .venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
 
 # (Or just run `./dev.sh setup` from the repo root to do steps 1-3 at once.)
 
-# 4. Mailpit (install once: brew install mailpit)
-mailpit                                       # UI: http://localhost:8025 | SMTP: localhost:1025
+# Premium mail-service + Mailpit (Docker)
+./dev.sh infra                                 # UI: http://localhost:8025
 ```
 
 Demo login: `demo@assura.local` / `demo1234`

@@ -1,42 +1,21 @@
 /**
- * seed.ts — load seed/*.json into the database.
+ * seed.ts — load typed demo fixtures into the database.
  *
  * Exposes seedDatabase(db) so both the `db:seed` CLI and the test harness can
- * reuse the exact same loader. Rows are inserted in FK-safe order:
- *   insurers → users → plans → sources → threads (+ thread_messages).
- * audit_entries and scraper_runs are intentionally left empty (runtime data).
+ * reuse the exact same loader. It creates only the demo user; insurer, plan,
+ * and source catalog records are discovered/populated by the scraper.
  */
 
-import fs from "fs";
-import path from "path";
 import * as schema from "./schema";
-import type { User } from "./types";
+import { seedUsers } from "./seed-data";
 import type { Database } from "./db";
 
-function readSeed<T>(seedDir: string, file: string): T {
-  const raw = fs.readFileSync(path.join(seedDir, file), "utf-8");
-  return JSON.parse(raw) as T;
-}
-
-/** Resolve the repo-root seed/ directory from the web/ working dir. */
-export function resolveSeedDir(): string {
-  // When run from web/ (cwd), the seed dir is ../seed. Fall back to an env
-  // override for containerized contexts.
-  return (
-    process.env.SEED_DIR ?? path.resolve(process.cwd(), "../seed")
-  );
-}
-
-export async function seedDatabase(
-  db: Database,
-  seedDir: string = resolveSeedDir()
-): Promise<void> {
-  const users = readSeed<User[]>(seedDir, "users.json");
+export async function seedDatabase(db: Database): Promise<void> {
 
   // ── users only — insurers/plans/sources are populated by the scraper ──
-  if (users.length) {
+  if (seedUsers.length) {
     await db.insert(schema.users).values(
-      users.map((u) => ({
+      seedUsers.map((u) => ({
         id: u.id,
         email: u.email,
         passwordHash: u.passwordHash,

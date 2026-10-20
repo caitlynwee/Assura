@@ -347,6 +347,13 @@ Files: web/src/lib/{users,auth}.ts, web/src/app/_actions/auth.ts, web/src/__test
 Others need to know: Auth-created users default to Free and must complete onboarding/upgrade for premium features. This change does not move CRM/application data out of PostgreSQL.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Document Scraper Environment Variables
+Status: Completed
+Done: Added Firecrawl API key and scraper debug settings to the root environment example; marked the scraper-wide country default temporary pending per-user country support.
+Files: `.env.example`, `TASK.MD`
+Others need to know: `CURRENT_COUNTRY` remains in the template for now and should be removed once scraper uses the user's country.
+Blockers: None.
+---
 
 ## 2026-10-20 | Copilot | Retire stale CRM/outreach handoff
 Status: Completed
@@ -546,4 +553,71 @@ Done:
 - Tests: 76/76 (13 new for bin/purge/edit/ownership). Build, tsc, lint clean. Verified in a browser.
 Others need to know:
 - ⚠ Drizzle SKIPS any migration whose `when` is earlier than the newest one already recorded in the DB, and the shared Supabase DB has hand-dated future migrations. On merging main, the branch's 0002_chat_history/0003_chat_trash were replaced by ONE idempotent 0005_chat_history (`when` 1792620000000, CREATE … IF NOT EXISTS) so it is safe whether or not the chat tables already exist. Any NEW migration must use a `when` later than 1792620000000. Please don't migrate the shared DB from unmerged branches.
+---
+
+## 2026-10-20 | Copilot | Add country and birthday to user profile
+Status: Completed
+Done:
+- Added country of origin and date of birth to Settings and onboarding; profile JSONB persistence requires no schema migration.
+- Replaced age entry with birthday and derive age for comparison/outreach; only derived age is eligible for insurer sharing with explicit consent.
+- Removed occupation from profile entry/sharing because it is not used in current comparison or outreach; coverage and monthly budget remain optional and support both flows.
+- Validate birthdays as real dates for ages 18–80; country, exact birthday, and legacy-age fallback are handled safely.
+- Verified focused and full web tests, changed-file ESLint, TypeScript, and production build.
+Files: web/src/lib/profile.ts, web/src/lib/types.ts, web/src/lib/validators.ts, web/src/lib/onboarding.ts, web/src/components/settings/settings-form.tsx, web/src/components/onboarding/onboarding-form.tsx, web/src/components/outreach/outreach-wizard.tsx, web/src/app/(app)/compare/page.tsx
+Others need to know: Country and exact birthday are retained in the account but never sent to insurers; legacy profiles keep their saved age until a birthday is entered.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Clarify PostgreSQL runtime storage
+Status: Completed
+Done:
+- Updated the agent guide and project spec to identify PostgreSQL as runtime source of truth, with Drizzle owning schema/migrations and scraper SQLAlchemy mapping the same database.
+- Clarified that JSONB is used for nested database fields and `seed/*.json` files are fixtures, not runtime persistence.
+- Corrected audit-chain, scraper data, and known-risk descriptions to match the current PostgreSQL implementation.
+Files: AGENTS.md, docs/PROJECT.MD, TASK.MD
+Others need to know: Historical entries in TASK.MD intentionally retain their original wording; the current architecture guidance is corrected.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Remove JSON seed-file dependency
+Status: Completed
+Done:
+- Moved the demo seed records into typed TypeScript fixtures in `web/src/lib/seed-data.ts`; PostgreSQL seeding and tests now consume those fixtures directly.
+- Removed the five `seed/*.json` files, `SEED_DIR` configuration, and Docker seed-volume mount.
+- Updated reset, scraper comments, architecture docs, and current references to describe the new fixture location.
+- Preserved PostgreSQL JSONB, API/LLM JSON serialization, and historical task entries; those are data formats/protocol details, not seed-file dependencies.
+Files: web/src/lib/seed-data.ts, web/src/lib/seed.ts, web/src/__tests__/setup.ts, seed/reset.sh, docker-compose.yml, AGENTS.md, docs/PROJECT.MD, README.md
+Others need to know: The project no longer requires checked-in JSON seed files to start/reset demo state.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Limit profile country picker options
+Status: Completed
+Done:
+- Replaced free-text country-of-origin inputs in Settings and onboarding with pickers for Singapore and China.
+- Restricted the profile type and server-side validation to those same options.
+- Added regression coverage for accepted and rejected country values.
+Files: web/src/lib/countries.ts, web/src/lib/types.ts, web/src/lib/validators.ts, web/src/components/settings/settings-form.tsx, web/src/components/onboarding/onboarding-form.tsx, web/src/__tests__/profile.test.ts
+Others need to know: The available country list is intentionally limited to Singapore and China for now.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Integrate latest main before publishing
+Status: Completed
+Done:
+- Integrated the newer `origin/main` scraper and chat-history work without rewriting shared main history.
+- Preserved the no-JSON seed design: the TypeScript fixture seeds the demo account; the scraper discovers catalog records; test setup uses a minimal test insurer.
+- Registered the country migrations after the latest existing migration timestamp so fresh test databases apply them in order.
+- Updated the scraper downloader test for its response and `source_type` arguments.
+- Verified 91 web tests, production build, TypeScript, and 19 scraper tests; focused changed-file ESLint passes.
+Files: web/src/lib/seed.ts, web/src/lib/seed-data.ts, web/src/__tests__/setup.ts, web/drizzle/meta/_journal.json, scraper/tests/test_engine.py, TASK.MD
+Others need to know: Full web ESLint and scraper Ruff still report unrelated pre-existing errors in `web/src/hooks/use-plans.ts` and other scraper files.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Isolating Mail and Scraper Services
+Status: Completed
+Done: Extracted Premium email delivery/personas into `mail-service`; web email calls now target it, and scraper no longer owns email/persona modules. Added independent Docker profiles, CI coverage, and updated operator/product docs.
+Files: `mail-service/`, `web/src/lib/mail.ts`, `web/src/app/api/crm/threads/[threadId]/reply/route.ts`, `docker-compose.yml`, `dev.sh`, `README.md`, `docs/PROJECT.MD`
+Others need to know: Basic starts web + DB migration; Premium starts web + mail + Mailpit; scraper starts independently. All use PostgreSQL; SMTP is restricted to local Mailpit on port 1025.
+Blockers: None.
 ---

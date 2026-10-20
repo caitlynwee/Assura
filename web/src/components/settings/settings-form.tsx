@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { UserProfile } from "@/lib/types";
+import { dateOfBirthInputBounds } from "@/lib/profile";
+import { COUNTRY_OF_ORIGIN_OPTIONS } from "@/lib/countries";
 import { Trash2Icon } from "lucide-react";
 
 export default function SettingsForm({
@@ -42,6 +44,14 @@ export default function SettingsForm({
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateDateOfBirth(value: string) {
+    setProfile((current) => {
+      const next = { ...current, dateOfBirth: value || undefined };
+      if (value) delete next.age;
+      return next;
+    });
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -135,8 +145,8 @@ export default function SettingsForm({
           <CardHeader>
             <CardTitle>Personal information</CardTitle>
             <CardDescription>
-              These details are stored in your Assura account. They are only included in an
-              insurer enquiry when you separately allow that field under Privacy &amp; consent.
+              Your details are stored in your Assura account. Your birthday and country are never
+              sent to insurers; you can separately consent to sharing your derived age.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -152,17 +162,40 @@ export default function SettingsForm({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-age">Age</Label>
+              <Label htmlFor="settings-birthday">Birthday</Label>
               <Input
-                id="settings-age"
-                type="number"
-                min={18}
-                max={80}
-                value={profile.age ?? ""}
-                onChange={(event) =>
-                  update("age", event.target.value ? Number(event.target.value) : undefined)
-                }
+                id="settings-birthday"
+                type="date"
+                {...dateOfBirthInputBounds()}
+                value={profile.dateOfBirth ?? ""}
+                onChange={(event) => updateDateOfBirth(event.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-country">Country of origin</Label>
+              <Select
+                value={profile.countryOfOrigin ?? "unset"}
+                onValueChange={(value) =>
+                  update(
+                    "countryOfOrigin",
+                    value === "unset"
+                      ? undefined
+                      : COUNTRY_OF_ORIGIN_OPTIONS.find((country) => country === value)
+                  )
+                }
+              >
+                <SelectTrigger id="settings-country">
+                  <SelectValue placeholder="Select country…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unset">Not provided</SelectItem>
+                  {COUNTRY_OF_ORIGIN_OPTIONS.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="settings-gender">Gender</Label>
@@ -200,15 +233,6 @@ export default function SettingsForm({
                   <SelectItem value="yes">Smoker</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="settings-occupation">Occupation</Label>
-              <Input
-                id="settings-occupation"
-                maxLength={80}
-                value={profile.occupation ?? ""}
-                onChange={(event) => update("occupation", event.target.value || undefined)}
-              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="settings-coverage">Coverage needed (SGD)</Label>

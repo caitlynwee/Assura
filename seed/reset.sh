@@ -9,8 +9,6 @@ WEB_DIR="$REPO_ROOT/web"
 
 # Default to local dev Postgres; override with DATABASE_URL env var.
 export DATABASE_URL="${DATABASE_URL:-postgres://postgres:dev@localhost:5432/assura}"
-export SEED_DIR="$SCRIPT_DIR"
-
 echo "Resetting database at $DATABASE_URL ..."
 
 # Apply any pending migrations (idempotent).
@@ -21,7 +19,7 @@ npx tsx src/lib/migrate.ts
 RESET=1 npx tsx src/lib/seed.ts
 
 # Ensure the demo Supabase auth identity exists and re-link user_demo.auth_uid.
-# RESET=1 above wiped auth_uid (seed/users.json has none), so this must re-run.
+# RESET=1 above wipes auth_uid, so the demo identity must be re-linked.
 # Early-returns (no throw) when Supabase keys are absent, so keyless resets pass.
 npx tsx src/lib/seed-auth.ts
 

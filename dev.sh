@@ -32,13 +32,13 @@ usage() {
   DOCKER
     ./dev.sh up              Start web only (dev mode, hot reload; Free/basic use)
     ./dev.sh up --build      Start web only, rebuilding its image first
-    ./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
-    ./dev.sh up-scraper      Start scraper + Mailpit separately from the web
+    ./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
+    ./dev.sh up-scraper      Start scraper independently (no web or mail required)
     ./dev.sh up-prod         Start the full production-built Premium demo
     ./dev.sh down            Stop everything
     ./dev.sh restart         down + up
-    ./dev.sh build [svc]     Rebuild image(s)  svc: web | scraper
-    ./dev.sh logs  [svc]     Tail logs         svc: web | scraper | mailpit
+    ./dev.sh build [svc]     Rebuild image(s)  svc: web | mail | scraper
+    ./dev.sh logs  [svc]     Tail logs         svc: web | mail | mailpit | scraper
 
   LOCAL (single service, no Docker)
     ./dev.sh web             Run Next.js on :3000 (dev, hot-reload)
@@ -47,16 +47,17 @@ usage() {
     ./dev.sh mailpit         Run Mailpit  SMTP :1025  UI :8025
 
   MIXED (infra in Docker, one service local)
-    ./dev.sh infra           Start mailpit + scraper in Docker (background)
-    ./dev.sh infra-web       Start mailpit + scraper in Docker, run web locally
+    ./dev.sh infra           Start mail service + Mailpit in Docker (background)
+    ./dev.sh infra-web       Start mail service + Mailpit in Docker, run web locally
 
   UTILITIES
     ./dev.sh seed            Reset configured database to seed state (destructive)
     ./dev.sh db:migrate      Apply Drizzle migrations
     ./dev.sh db:seed         Load seed data (RESET=1 truncates first)
     ./dev.sh test            Run scraper test suite (pytest)
+    ./dev.sh test-mail       Run mail service test suite (pytest)
     ./dev.sh lint            Lint scraper/app with ruff
-    ./dev.sh ci              Run all CI checks locally (web + scraper)
+    ./dev.sh ci              Run all CI checks locally (web + scraper + mail)
     ./dev.sh setup           Prepare root .env for Docker
     ./dev.sh setup --local   Also create local env and install host dependencies
 
@@ -78,17 +79,17 @@ cmd_up() {
 cmd_up_premium() {
   require_env
   if [ "${1:-}" = "--build" ]; then
-    info "Starting web, scraper relay, and Mailpit for the Premium demo (with rebuild)..."
-    docker compose up --build web scraper mailpit
+    info "Starting web, mail service, and Mailpit for the Premium demo (with rebuild)..."
+    docker compose up --build web mail mailpit
   else
-    info "Starting web, scraper relay, and Mailpit for the Premium demo..."
-    docker compose up web scraper mailpit
+    info "Starting web, mail service, and Mailpit for the Premium demo..."
+    docker compose up web mail mailpit
   fi
 }
 
 cmd_up_scraper() {
   require_env
-  info "Starting scraper separately (Mailpit starts as its email dependency)..."
+  info "Starting scraper independently..."
   docker compose up scraper
 }
 
@@ -96,8 +97,8 @@ cmd_up_prod() {
   # Whole stack in Docker with the web app BUILT (production) — no live
   # recompiling. Uses the prod override which swaps web to Dockerfile.prod.
   require_env
-  info "Starting all services with PRODUCTION web (building image)..."
-  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+  info "Starting production web, mail service, and Mailpit (building images)..."
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build web mail mailpit
 }
 
 cmd_down() {
@@ -160,19 +161,19 @@ cmd_mailpit() {
 
 cmd_infra() {
   require_env
-  info "Starting mailpit + scraper in Docker (background)..."
-  docker compose up -d mailpit scraper
+  info "Starting mail service + Mailpit in Docker (background)..."
+  WEB_BASE_URL=http://host.docker.internal:3000 docker compose up -d mail mailpit
   echo ""
   echo "  Mailpit UI  → http://localhost:8025"
-  echo "  Scraper     → http://localhost:8100"
+  echo "  Mail API    → http://localhost:8200"
   echo ""
   info "Now run web locally:  ./dev.sh web"
 }
 
 cmd_infra_web() {
   require_env
-  info "Starting mailpit + scraper relay in Docker (background)..."
-  docker compose up -d mailpit scraper
+  info "Starting mail service + Mailpit in Docker (background)..."
+  WEB_BASE_URL=http://host.docker.internal:3000 docker compose up -d mail mailpit
   info "Starting Next.js locally..."
   cd "$ROOT/web"
   npm run dev
@@ -204,6 +205,13 @@ cmd_test() {
   "$VENV/bin/pytest" -v
 }
 
+cmd_test_mail() {
+  require_venv
+  info "Running mail service test suite..."
+  cd "$ROOT/mail-service"
+  "$VENV/bin/python" -m pytest -v
+}
+
 cmd_lint() {
   require_venv
   info "Linting scraper/app..."
@@ -228,6 +236,8 @@ cmd_ci() {
   (cd "$ROOT/scraper" && "$VENV/bin/ruff" check app/)
   info "scraper: test (pytest)..."
   (cd "$ROOT/scraper" && "$VENV/bin/pytest" -v)
+  info "mail service: test (pytest)..."
+  (cd "$ROOT/mail-service" && "$VENV/bin/python" -m pytest -v)
   info "CI checks passed."
 }
 
@@ -273,6 +283,8 @@ cmd_setup() {
   fi
   info "Installing scraper dependencies (uv)..."
   VIRTUAL_ENV="$VENV" uv pip install -e "$ROOT/scraper/.[dev]" -q
+  info "Installing mail service test dependencies (uv)..."
+  VIRTUAL_ENV="$VENV" uv pip install -r "$ROOT/mail-service/requirements.txt" -q
   info "Installing Playwright browser..."
   "$VENV/bin/playwright" install chromium
 
@@ -286,7 +298,7 @@ cmd_setup() {
   echo "  Next steps:"
   echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
   echo "  2. ./dev.sh up          ← web only (Free/basic use; hot reload)"
-  echo "     ./dev.sh up-premium  ← web + scraper relay + Mailpit"
+  echo "     ./dev.sh up-premium  ← web + mail service + Mailpit"
   echo "     ./dev.sh up-prod     ← full production-built Premium demo"
   echo ""
 }
@@ -311,6 +323,7 @@ case "${1:-}" in
   db:migrate)  cmd_db_migrate ;;
   db:seed)     cmd_db_seed ;;
   test)        cmd_test ;;
+  test-mail)   cmd_test_mail ;;
   lint)        cmd_lint ;;
   ci)          cmd_ci ;;
   setup)       cmd_setup "${2:-}" ;;

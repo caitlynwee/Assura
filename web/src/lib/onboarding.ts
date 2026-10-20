@@ -30,6 +30,7 @@ export async function completeOnboarding(
     ...parsed.data.consent,
     shareHealthHistory: false, // Tier 3 — blocked
     shareIncome: false,        // Tier 3 — blocked
+    shareOccupation: false,
   };
 
   let notPremium = false;
