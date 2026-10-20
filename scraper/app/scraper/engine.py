@@ -55,7 +55,15 @@ def _upsert_discovered(session, discovered: list[dict]) -> None:
         # PDF brochure source
         if co.get("brochure_url"):
             pdf_id = f"src_{co['insurer_id']}_ci_pdf"
-            if not session.query(Source).filter_by(id=pdf_id).first():
+            existing_pdf = session.query(Source).filter_by(id=pdf_id).first()
+            if existing_pdf:
+                if existing_pdf.url != co["brochure_url"]:
+                    existing_pdf.url = co["brochure_url"]
+                    existing_pdf.content_hash = None
+                    existing_pdf.etag = None
+                    existing_pdf.last_modified = None
+                    existing_pdf.status = "pending"
+            else:
                 session.add(
                     Source(
                         id=pdf_id,
@@ -77,7 +85,15 @@ def _upsert_discovered(session, discovered: list[dict]) -> None:
         # Product page source
         if co.get("product_url"):
             page_id = f"src_{co['insurer_id']}_ci_page"
-            if not session.query(Source).filter_by(id=page_id).first():
+            existing_page = session.query(Source).filter_by(id=page_id).first()
+            if existing_page:
+                if existing_page.url != co["product_url"]:
+                    existing_page.url = co["product_url"]
+                    existing_page.content_hash = None
+                    existing_page.etag = None
+                    existing_page.last_modified = None
+                    existing_page.status = "pending"
+            else:
                 session.add(
                     Source(
                         id=page_id,
@@ -123,6 +139,7 @@ async def run_scraper(
             sources = session.query(Source).filter_by(id=source_id).all()
         else:
             sources = session.query(Source).filter_by(country=country).all()
+        print(f"[engine] loaded {len(sources)} sources: {[s.id for s in sources]}")
 
         insurers_by_id = {i.id: i for i in session.query(Insurer).all()}
         plans_by_id = {p.id: p for p in session.query(Plan).all()}
@@ -142,6 +159,7 @@ async def run_scraper(
             try:
                 changed_flag, response = await has_changed(source_dict)
                 if not changed_flag:
+                    print(f"[engine] {source_dict['id']} unchanged — skipping")
                     continue
 
                 source_type = source_dict.get("type", "product_page")
@@ -181,6 +199,7 @@ async def run_scraper(
 
             except Exception as exc:  # noqa: BLE001
                 msg = str(exc) or type(exc).__name__
+                print(f"[engine] ERROR {source_dict['id']}: {type(exc).__name__}: {msg}")
                 errors.append(
                     {"sourceId": source_dict["id"], "message": f"{type(exc).__name__}: {msg}"}
                 )
