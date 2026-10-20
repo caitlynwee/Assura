@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  downgradeToFreeAction,
   requestEmailChangeAction,
   saveSettingsAction,
 } from "@/app/_actions/settings";
@@ -19,11 +20,13 @@ import { Trash2Icon } from "lucide-react";
 export default function SettingsForm({
   initialName,
   email,
+  tier,
   initialProfile,
   isDemoAccount,
 }: {
   initialName: string;
   email: string;
+  tier: "free" | "premium";
   initialProfile: UserProfile;
   isDemoAccount: boolean;
 }) {
@@ -246,6 +249,40 @@ export default function SettingsForm({
           Save personal information
         </Button>
       </form>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan</CardTitle>
+          <CardDescription>
+            Current plan: <strong>{tier === "premium" ? "Premium" : "Free"}</strong>.
+            {tier === "premium"
+              ? " Downgrading removes access to outreach and CRM features; your account and saved data remain."
+              : " Free includes plan comparison and cited Q&A."}
+          </CardDescription>
+        </CardHeader>
+        {tier === "premium" && (
+          <CardContent>
+            {isDemoAccount ? (
+              <p className="text-sm text-muted-foreground">
+                The shared demo account stays on Premium so the demo features remain available.
+              </p>
+            ) : (
+              <form
+                action={downgradeToFreeAction}
+                onSubmit={(event) => {
+                  if (!window.confirm("Downgrade to Free? Premium outreach and CRM access will end immediately.")) {
+                    event.preventDefault();
+                  }
+                }}
+              >
+                <Button type="submit" variant="outline">
+                  Downgrade to Free
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       <Card className="border-destructive/40">
         <CardHeader>

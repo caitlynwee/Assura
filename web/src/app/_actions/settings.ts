@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { auth, refreshSessionCookie } from "@/lib/auth";
 import { logEvent } from "@/lib/audit";
 import { updateUser } from "@/lib/users";
 import { profileSchema } from "@/lib/validators";
@@ -87,4 +88,28 @@ export async function saveSettingsAction(input: unknown): Promise<SettingsResult
   revalidatePath("/", "layout");
   revalidatePath("/settings");
   return { ok: true };
+}
+
+export async function downgradeToFreeAction(): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) return redirect("/login");
+  if (session.user.email.toLowerCase() === DEMO_EMAIL) {
+    return redirect("/settings?toast=downgrade-demo-blocked");
+  }
+  if (session.user.tier === "free") {
+    return redirect("/settings?toast=already-free");
+  }
+
+  const updated = await updateUser(session.user.id, (user) => {
+    user.tier = "free";
+  });
+  if (!updated) return redirect("/login");
+
+  await logEvent(session.user.id, "user.tier_changed", {
+    from: session.user.tier,
+    to: "free",
+  });
+  await refreshSessionCookie();
+  revalidatePath("/", "layout");
+  redirect("/compare?toast=downgraded");
 }

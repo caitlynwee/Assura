@@ -458,3 +458,15 @@ Files: web/src/app/_actions/settings.ts, web/src/app/auth/callback/route.ts, web
 Others need to know: Add `http://localhost:3000/auth/callback` to Supabase Auth's allowed redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to the public app origin in hosted environments.
 Blockers: None.
 ---
+
+## 2026-10-20 | Copilot | Allow Premium users to downgrade
+Status: Completed
+Done:
+- Added a Settings plan section so regular Premium users can confirm an immediate downgrade to Free; user data remains stored.
+- Refreshes Supabase auth metadata after the tier change and redirects to Compare with success feedback.
+- Protects the shared Premium demo account from downgrade and covers both permitted and blocked cases in tests.
+- Verified 21 focused web tests, changed-file ESLint, production build, and Docker Compose configuration.
+Files: web/src/app/_actions/settings.ts, web/src/app/(app)/settings/page.tsx, web/src/components/settings/settings-form.tsx, web/src/components/toast-on-param.tsx, web/src/__tests__/settings.test.ts
+Others need to know: Demo account remains Premium for the judging flow; regular users can downgrade and later use the existing Upgrade page to regain Premium.
+Blockers: None.
+---

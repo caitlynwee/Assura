@@ -24,6 +24,7 @@ export default async function SettingsPage({
       <SettingsForm
         initialName={user.name}
         email={user.email}
+        tier={user.tier}
         initialProfile={user.profile ?? {}}
         isDemoAccount={user.email.toLowerCase() === "demo@fineprint.local"}
       />
