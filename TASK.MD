@@ -652,3 +652,10 @@ Files: `dev.sh`, `docker-compose.yml`, `README.md`, `.env.example`
 Others need to know: Requires Docker, `STRIPE_SECRET_KEY`, and recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Fix Stripe Checkout Return Redirect Loop
+Status: Completed
+Done: Added a Checkout return handler that syncs app metadata and refreshes the Supabase session cookie before navigating to Premium pages. A retryable confirmation state avoids automatic redirect loops if the webhook is still processing.
+Files: `web/src/app/auth/stripe-return/route.ts`, `web/src/app/(app)/upgrade/page.tsx`, `web/src/lib/{auth,stripe}.ts`, `web/src/app/_actions/billing.ts`
+Others need to know: The previous loop was caused by edge middleware reading a stale Free-tier JWT after the database had already been upgraded to Premium.
+Blockers: None.
+---
