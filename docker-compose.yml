@@ -51,6 +51,20 @@ services:
       mailpit:
         condition: service_started
 
+  stripe-cli:
+    profiles: ["stripe"]
+    image: stripe/stripe-cli:latest
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    command:
+      - listen
+      - --events=customer.subscription.created,customer.subscription.updated,customer.subscription.deleted
+      - --forward-to
+      - http://web:3000/api/stripe/webhook
+    depends_on:
+      web:
+        condition: service_started
+
   scraper:
     profiles: ["scraper"]
     build:
@@ -68,8 +82,15 @@ services:
       FIRE_CRAWL_API_KEY: ${FIRE_CRAWL_API_KEY:-}
       LLM_MODEL: deepseek-chat
       DEBUG_SCRAPER: ${DEBUG_SCRAPER:-}
-      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      # Supabase Storage for stored brochure PDFs (optional; keyless = upload
+      # skipped). Reuses the stack's Supabase project. The service-role key is
+      # SERVER ONLY — never prefix it NEXT_PUBLIC_.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_DOCUMENTS_BUCKET: ${SUPABASE_DOCUMENTS_BUCKET:-documents}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
 
   web:
     build:

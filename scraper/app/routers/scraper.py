@@ -1,6 +1,6 @@
 """scraper.py — HTTP endpoints for triggering and checking the scraper."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
@@ -15,9 +15,18 @@ class TriggerRequest(BaseModel):
     country: str | None = None
 
 
+def require_internal_api_key(api_key: str | None) -> None:
+    if api_key != settings.internal_api_secret:
+        raise HTTPException(status_code=401, detail="Invalid internal API key")
+
+
 @router.post("/run")
-async def run_now(body: TriggerRequest | None = None):
+async def run_now(
+    body: TriggerRequest | None = None,
+    x_internal_api_key: str | None = Header(default=None),
+):
     """Trigger a scrape immediately (manual 'Run now' button)."""
+    require_internal_api_key(x_internal_api_key)
     source_id = body.source_id if body else None
     country = body.country if body else None
     result = await run_scraper(trigger="manual", source_id=source_id, country=country)
@@ -25,8 +34,9 @@ async def run_now(body: TriggerRequest | None = None):
 
 
 @router.get("/status")
-async def get_status():
+async def get_status(x_internal_api_key: str | None = Header(default=None)):
     """Return the last scraper run result and next scheduled time."""
+    require_internal_api_key(x_internal_api_key)
     session = get_session()
     try:
         last = (
@@ -53,5 +63,7 @@ async def get_status():
     return {
         "last_run": last_run,
         "scraper_available": True,
-        "next_scheduled": f"Daily at {settings.scraper_cron_hour:02d}:00 SGT",
+        # No automatic schedule — the scraper only runs when an admin triggers it
+        # (each run costs Firecrawl tokens).
+        "next_scheduled": "Manual only (admin-triggered)",
     }

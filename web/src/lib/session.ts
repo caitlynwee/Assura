@@ -7,6 +7,17 @@ import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { findUserById, toPublicUser } from "./users";
 import type { PublicUser } from "./types";
+import { VIEW_COOKIE_NAME } from "./view-mode";
+
+/**
+ * Read the raw "view as" cookie for cosmetic preview (admin-only feature).
+ * Returns the requested view string as-is; admin-gating is the job of
+ * `resolveEffectiveViewTier` in `view-mode.ts`. This is NOT a security boundary.
+ */
+export async function readViewCookie(): Promise<string | null> {
+  const jar = await cookies();
+  return jar.get(VIEW_COOKIE_NAME)?.value ?? null;
+}
 
 /** Fresh user record for the current session (no passwordHash), or null. */
 export async function getCurrentUser(): Promise<PublicUser | null> {
@@ -30,4 +41,11 @@ export async function requireUser(): Promise<PublicUser> {
     .getAll()
     .some((c) => /^(__Secure-)?sb-[a-z0-9]+-auth-token(\.\d+)?$/.test(c.name));
   redirect(hasSessionCookie ? "/auth/reset" : "/login");
+}
+
+/** Like requireUser, but redirects non-admin users away from operations pages. */
+export async function requireAdmin(): Promise<PublicUser> {
+  const user = await requireUser();
+  if (user.tier !== "admin") redirect("/compare");
+  return user;
 }

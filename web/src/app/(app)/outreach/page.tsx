@@ -7,8 +7,12 @@ import OutreachWizard, { type InsurerOption } from "@/components/outreach/outrea
 import PageHeader from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Insurer, Thread } from "@/lib/types";
+import { getInsurerRecipientAddress } from "@/lib/insurer-recipient";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Outreach — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).outreach.meta };
+}
 
 function buildInsurerOptions(
   insurers: Insurer[],
@@ -24,7 +28,7 @@ function buildInsurerOptions(
     return {
       id,
       name,
-      agentEmail,
+      agentEmail: getInsurerRecipientAddress(id, agentEmail),
       website,
       existingThread: latest ? { id: latest.id, status: latest.status } : undefined,
     };
@@ -33,7 +37,7 @@ function buildInsurerOptions(
 
 export default async function OutreachPage() {
   const user = await requireUser();
-  if (user.tier !== "premium") redirect("/upgrade?from=/outreach");
+  if (user.tier !== "premium" && user.tier !== "admin") redirect("/upgrade?from=/outreach");
   if (!user.onboarded) redirect("/onboarding");
 
   let insurers: Insurer[] = [];
@@ -50,17 +54,18 @@ export default async function OutreachPage() {
   }
 
   const insurerOptions = buildInsurerOptions(insurers, threads, user.id);
+  const t = (await getT()).outreach;
 
   return (
     <div className="max-w-5xl space-y-6">
       <PageHeader
-        title="Outreach"
-        description="Pick up to 5 insurers and a question. Assura drafts each email — you edit and approve before anything is sent."
+        title={t.title}
+        description={t.description}
       />
       {insurerOptions.length === 0 ? (
         <Card>
           <CardContent className="text-sm text-muted-foreground">
-            No insurers found. Run <code className="font-mono">bash seed/reset.sh</code> to load demo data.
+            {t.noInsurersBefore} <code className="font-mono">bash seed/reset.sh</code> {t.noInsurersAfter}
           </CardContent>
         </Card>
       ) : (

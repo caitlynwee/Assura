@@ -15,10 +15,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserProfile } from "@/lib/types";
+import type { UserProfile, UserTier } from "@/lib/types";
 import { dateOfBirthInputBounds } from "@/lib/profile";
 import { COUNTRY_OF_ORIGIN_OPTIONS } from "@/lib/countries";
 import { Trash2Icon } from "lucide-react";
+import { useT } from "@/lib/i18n/client";
 
 export default function SettingsForm({
   initialName,
@@ -30,7 +31,7 @@ export default function SettingsForm({
 }: {
   initialName: string;
   email: string;
-  tier: "free" | "premium";
+  tier: UserTier;
   hasStripeCustomer: boolean;
   initialProfile: UserProfile;
   isDemoAccount: boolean;
@@ -44,6 +45,9 @@ export default function SettingsForm({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [emailPending, startEmailTransition] = useTransition();
+  const tt = useT();
+  const t = tt.account.settings;
+  const p = tt.profile;
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setProfile((current) => ({ ...current, [key]: value }));
@@ -67,7 +71,7 @@ export default function SettingsForm({
     startTransition(async () => {
       const result = await saveSettingsAction({ name, profile: cleanProfile });
       if (result.ok) {
-        toast.success("Your settings have been saved.");
+        toast.success(t.saved);
       } else {
         setError(result.error);
       }
@@ -82,7 +86,7 @@ export default function SettingsForm({
     startEmailTransition(async () => {
       const result = await requestEmailChangeAction({ email: newEmail });
       if (result.ok) {
-        setEmailNotice(`Check ${result.pendingEmail} for a confirmation link to finish changing your email.`);
+        setEmailNotice(t.checkInbox(result.pendingEmail));
         setNewEmail("");
       } else {
         setEmailError(result.error);
@@ -94,27 +98,22 @@ export default function SettingsForm({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Account email</CardTitle>
-          <CardDescription>
-            Your email is used to sign in. Supabase will send a confirmation link before the new
-            address takes effect. Depending on project settings, you may need to confirm from both
-            your current and new email inboxes.
-          </CardDescription>
+          <CardTitle>{t.emailCardTitle}</CardTitle>
+          <CardDescription>{t.emailCardDesc}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2">
-            <Label htmlFor="settings-email">Current email</Label>
+            <Label htmlFor="settings-email">{t.currentEmail}</Label>
             <Input id="settings-email" type="email" value={email} readOnly />
           </div>
           {isDemoAccount ? (
             <p className="text-sm text-muted-foreground">
-              The shared demo account email is fixed. Create a personal account to use your own
-              sign-in email.
+              {t.demoEmailFixed}
             </p>
           ) : (
             <form onSubmit={submitEmailChange} className="space-y-3">
               <div className="grid gap-2">
-                <Label htmlFor="settings-new-email">New email</Label>
+                <Label htmlFor="settings-new-email">{t.newEmail}</Label>
                 <Input
                   id="settings-new-email"
                   type="email"
@@ -136,7 +135,7 @@ export default function SettingsForm({
                 </Alert>
               )}
               <Button type="submit" loading={emailPending}>
-                Send confirmation link
+                {t.sendConfirmation}
               </Button>
             </form>
           )}
@@ -146,15 +145,12 @@ export default function SettingsForm({
       <form onSubmit={submit} className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Personal information</CardTitle>
-            <CardDescription>
-              Your details are stored in your Assura account. Your birthday and country are never
-              sent to insurers; you can separately consent to sharing your derived age.
-            </CardDescription>
+            <CardTitle>{t.personalTitle}</CardTitle>
+            <CardDescription>{t.personalDesc}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="settings-name">Name</Label>
+              <Label htmlFor="settings-name">{t.name}</Label>
               <Input
                 id="settings-name"
                 autoComplete="name"
@@ -165,7 +161,7 @@ export default function SettingsForm({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-birthday">Birthday</Label>
+              <Label htmlFor="settings-birthday">{p.birthday}</Label>
               <Input
                 id="settings-birthday"
                 type="date"
@@ -175,7 +171,7 @@ export default function SettingsForm({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-country">Country of origin</Label>
+              <Label htmlFor="settings-country">{p.country}</Label>
               <Select
                 value={profile.countryOfOrigin ?? "unset"}
                 onValueChange={(value) =>
@@ -188,20 +184,20 @@ export default function SettingsForm({
                 }
               >
                 <SelectTrigger id="settings-country">
-                  <SelectValue placeholder="Select country…" />
+                  <SelectValue placeholder={p.selectCountry} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unset">Not provided</SelectItem>
+                  <SelectItem value="unset">{p.notProvided}</SelectItem>
                   {COUNTRY_OF_ORIGIN_OPTIONS.map((country) => (
                     <SelectItem key={country} value={country}>
-                      {country}
+                      {p.countries[country] ?? country}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-gender">Gender</Label>
+              <Label htmlFor="settings-gender">{p.gender}</Label>
               <Select
                 value={profile.gender ?? "unset"}
                 onValueChange={(value) =>
@@ -209,18 +205,18 @@ export default function SettingsForm({
                 }
               >
                 <SelectTrigger id="settings-gender">
-                  <SelectValue placeholder="Select…" />
+                  <SelectValue placeholder={p.select} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unset">Not provided</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                  <SelectItem value="unset">{p.notProvided}</SelectItem>
+                  <SelectItem value="female">{p.female}</SelectItem>
+                  <SelectItem value="male">{p.male}</SelectItem>
+                  <SelectItem value="prefer_not_to_say">{p.preferNotToSay}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-smoker">Smoker status</Label>
+              <Label htmlFor="settings-smoker">{p.smokerStatus}</Label>
               <Select
                 value={profile.smoker === undefined ? "unset" : profile.smoker ? "yes" : "no"}
                 onValueChange={(value) =>
@@ -228,17 +224,17 @@ export default function SettingsForm({
                 }
               >
                 <SelectTrigger id="settings-smoker">
-                  <SelectValue placeholder="Select…" />
+                  <SelectValue placeholder={p.select} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unset">Not provided</SelectItem>
-                  <SelectItem value="no">Non-smoker</SelectItem>
-                  <SelectItem value="yes">Smoker</SelectItem>
+                  <SelectItem value="unset">{p.notProvided}</SelectItem>
+                  <SelectItem value="no">{p.nonSmoker}</SelectItem>
+                  <SelectItem value="yes">{p.smoker}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-coverage">Coverage needed (SGD)</Label>
+              <Label htmlFor="settings-coverage">{p.coverageNeeded}</Label>
               <Input
                 id="settings-coverage"
                 type="number"
@@ -251,7 +247,7 @@ export default function SettingsForm({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="settings-budget">Monthly budget (SGD)</Label>
+              <Label htmlFor="settings-budget">{p.monthlyBudget}</Label>
               <Input
                 id="settings-budget"
                 type="number"
@@ -273,43 +269,41 @@ export default function SettingsForm({
         )}
 
         <Button type="submit" loading={pending}>
-          Save personal information
+          {t.savePersonal}
         </Button>
       </form>
 
       <Card>
         <CardHeader>
-          <CardTitle>Plan</CardTitle>
+          <CardTitle>{t.planTitle}</CardTitle>
           <CardDescription>
-            Current plan: <strong>{tier === "premium" ? "Premium" : "Free"}</strong>.
-            {tier === "premium"
-              ? " Managing your subscription controls renewal; Premium access continues until Stripe confirms it has ended. Your account and saved data remain."
-              : " Free includes plan comparison and cited Q&A."}
+            {t.currentPlan} <strong>{tier === "admin" ? tt.common.admin : tier === "premium" ? tt.common.premium : tt.common.free}</strong>.
+            {tier === "premium" ? t.premiumPlanNote : t.freePlanNote}
           </CardDescription>
         </CardHeader>
         {tier === "premium" && (
           <CardContent>
             {isDemoAccount ? (
               <p className="text-sm text-muted-foreground">
-                The shared demo account stays on Premium so the demo features remain available.
+                {t.demoStaysPremium}
               </p>
             ) : hasStripeCustomer ? (
               <form action={openBillingPortalAction}>
                 <Button type="submit" variant="outline">
-                  Manage subscription
+                  {t.manageSubscription}
                 </Button>
               </form>
             ) : (
               <form
                 action={downgradeToFreeAction}
                 onSubmit={(event) => {
-                  if (!window.confirm("Downgrade this account to Free? Premium outreach and CRM access will end immediately.")) {
+                  if (!window.confirm(t.confirmDowngrade)) {
                     event.preventDefault();
                   }
                 }}
               >
                 <Button type="submit" variant="outline">
-                  Downgrade to Free
+                  {t.downgrade}
                 </Button>
               </form>
             )}
@@ -319,16 +313,13 @@ export default function SettingsForm({
 
       <Card className="border-destructive/40">
         <CardHeader>
-          <CardTitle>Delete account</CardTitle>
-          <CardDescription>
-            Permanently delete your profile, outreach threads, and extracted quotes.
-            Your append-only audit entries are retained.
-          </CardDescription>
+          <CardTitle>{t.deleteTitle}</CardTitle>
+          <CardDescription>{t.deleteDesc}</CardDescription>
         </CardHeader>
         <CardContent>
           {isDemoAccount && (
             <p className="mb-3 text-sm text-muted-foreground">
-              The shared demo account is protected from deletion.
+              {t.demoProtected}
             </p>
           )}
           <Button
@@ -338,7 +329,7 @@ export default function SettingsForm({
             disabled={isDemoAccount}
           >
             <Trash2Icon />
-            Delete account
+            {t.deleteButton}
           </Button>
         </CardContent>
       </Card>

@@ -5,14 +5,14 @@ web pages, the authenticated app, the API routes (business logic), auth, and the
 libraries (policy engine, PII blocker, audit hash chain, quarantine reader).
 
 > **Start from the repo root, not here.** Setup, Docker, Mailpit, seeding, and the full
-> architecture are documented in the root [`README.md`](../README.md). Run `./dev.sh setup`
-> once, then `./dev.sh up` (Docker) or `./dev.sh web` (local).
+> architecture are documented in the root [`README.md`](../README.md). Run `./scripts/run.sh setup`
+> once, then `./scripts/run.sh up` (Docker) or `./scripts/run.sh web` (local).
 
 ## Local dev (web only)
 
 ```bash
 # From the repo root (needs AUTH_SECRET + DEEPSEEK_API_KEY in web/.env.local):
-./dev.sh web            # → http://localhost:3000
+./scripts/run.sh web            # → http://localhost:3000
 ```
 
 Or directly:

@@ -10,15 +10,14 @@ import PageHeader from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { getT } from "@/lib/i18n/server";
+import { safeBillingReturnTo } from "@/lib/stripe";
 
-export const metadata = { title: "Upgrade — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).account.upgrade.meta };
+}
 
-const FEATURES: [LucideIcon, string, string][] = [
-  [SendIcon, "AI outreach", "Assura drafts enquiries to up to 5 insurers. You edit and approve every email."],
-  [LockKeyholeIcon, "Masked inbox", "Insurers reply to a relay address. Your real email and phone stay private."],
-  [InboxIcon, "CRM", "Every thread tracked, quotes extracted, pushy or suspicious replies flagged."],
-  [ScrollTextIcon, "Audit log", "Every AI action recorded in a tamper-evident hash chain you can verify."],
-];
+const FEATURE_ICONS: LucideIcon[] = [SendIcon, LockKeyholeIcon, InboxIcon, ScrollTextIcon];
 
 export default async function UpgradePage({
   searchParams,
@@ -27,47 +26,56 @@ export default async function UpgradePage({
 }) {
   const user = await requireUser();
   const { from, checkout, error } = await searchParams;
-  if (user.tier === "premium") redirect(from?.startsWith("/") && !from.startsWith("//") ? from : "/outreach");
+  const t = (await getT()).account.upgrade;
+  const returnTo = safeBillingReturnTo(from ?? "/outreach");
+  if (user.tier === "admin") {
+    redirect(returnTo);
+  }
+  if (user.tier === "premium" && checkout !== "success") {
+    redirect(`/auth/stripe-return?from=${encodeURIComponent(returnTo)}`);
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        eyebrow="Premium feature"
-        title="Let Assura contact insurers for you"
-        description="Your Free plan includes plan comparison and cited Q&A. Premium adds AI-assisted outreach, with you in control of every message."
+        eyebrow={t.eyebrow}
+        title={t.title}
+        description={t.description}
       />
 
       {checkout === "success" && (
         <Alert>
           <AlertDescription>
-            Checkout completed. Premium access will turn on after Stripe confirms your subscription. Refresh this page in a moment if needed.
+            {t.checkoutSuccess}
           </AlertDescription>
         </Alert>
       )}
       {checkout === "cancelled" && (
         <Alert>
-          <AlertDescription>No payment was taken. You can start checkout whenever you are ready.</AlertDescription>
+          <AlertDescription>{t.checkoutCancelled}</AlertDescription>
         </Alert>
       )}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>
             {error === "not-configured"
-              ? "Stripe test billing is not configured yet. Please try again later."
-              : "We couldn't start secure checkout. Please try again."}
+              ? t.notConfigured
+              : t.checkoutFailed}
           </AlertDescription>
         </Alert>
       )}
 
       <p className="text-sm text-muted-foreground">
-        Premium is a recurring subscription. Stripe shows the configured price and billing period before you pay.
+        {t.recurring}
       </p>
       <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-        Stripe test mode is enabled. Use a Stripe test payment method; no real payment will be collected.
+        {t.testMode}
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        {FEATURES.map(([Icon, title, desc]) => (
+        {t.features.map(({ title, desc }, i) => {
+          const Icon = FEATURE_ICONS[i];
+          return (
           <Card key={title} className="gap-0 py-5">
             <CardHeader className="px-5">
               <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -77,23 +85,30 @@ export default async function UpgradePage({
               <CardDescription>{desc}</CardDescription>
             </CardHeader>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
-      <form action={startPremiumCheckoutAction} className="flex flex-wrap items-center gap-3">
-        <input
-          type="hidden"
-          name="returnTo"
-          value={from === "/onboarding" || !from ? "/onboarding" : from}
-        />
-        <SubmitButton pendingText="Upgrading…">
-          <SparklesIcon />
-          Continue to Stripe Checkout
-        </SubmitButton>
-        <Button asChild variant="ghost">
-          <Link href="/compare">Maybe later</Link>
+      {checkout === "success" ? (
+        <Button asChild>
+          <Link href={`/auth/stripe-return?from=${encodeURIComponent(returnTo)}`}>{t.continueToAssura}</Link>
         </Button>
-      </form>
+      ) : (
+        <form action={startPremiumCheckoutAction} className="flex flex-wrap items-center gap-3">
+          <input
+            type="hidden"
+            name="returnTo"
+            value={from === "/onboarding" || !from ? "/onboarding" : from}
+          />
+          <SubmitButton pendingText={t.upgrading}>
+            <SparklesIcon />
+            {t.continueCheckout}
+          </SubmitButton>
+          <Button asChild variant="ghost">
+            <Link href="/compare">{t.maybeLater}</Link>
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

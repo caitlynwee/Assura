@@ -75,16 +75,18 @@ export async function signOut(opts?: { redirectTo?: string }): Promise<void> {
  * the session cookie so the edge sees the new values on the next request.
  * Called after tier/onboarding changes. No-op-safe when keys are absent.
  */
-export async function refreshSessionCookie(): Promise<void> {
+export async function refreshSessionCookie(): Promise<AppSession> {
   const session = await auth();
-  if (session?.user?.id) {
-    await syncAuthMetadata(session.user.id);
-  }
+  if (!session?.user?.id) return null;
+
+  await syncAuthMetadata(session.user.id);
   const supabase = await getServerClient();
   // A plain refresh re-reads the user and re-embeds the current app_metadata
   // into the newly-minted access token; the server client's setAll writes the
   // refreshed cookie onto the response. (Live-project assumption — see the
   // design's demo-setup checklist for the named fallback if a plain refresh
   // does not pick up the updated app_metadata.)
-  await supabase.auth.refreshSession();
+  const { error } = await supabase.auth.refreshSession();
+  if (error) throw new Error(`Could not refresh Supabase session: ${error.message}`);
+  return session;
 }

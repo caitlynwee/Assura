@@ -6,6 +6,10 @@ jest.mock("@/lib/supabase/ensure-demo-user", () => ({
   syncAuthMetadata: jest.fn(async () => {}),
   ensureDemoAuthUser: jest.fn(async () => {}),
 }));
+jest.mock("@/lib/auth", () => ({
+  auth: jest.fn(),
+  refreshSessionCookie: jest.fn(),
+}));
 jest.mock("@/lib/audit", () => ({
   logEvent: jest.fn(async () => {}),
 }));
@@ -14,10 +18,12 @@ import { createUser, findUserById, updateUser, toPublicUser } from "@/lib/users"
 import { syncSubscriptionEntitlement, getStripeClient, getStripePriceId } from "@/lib/stripe";
 import { syncAuthMetadata } from "@/lib/supabase/ensure-demo-user";
 import { logEvent } from "@/lib/audit";
+import { refreshSessionCookie, type AppSession } from "@/lib/auth";
 import { evaluateRoute } from "@/lib/auth-routing";
 import { signupSchema } from "@/lib/validators";
 import { NextRequest } from "next/server";
 import { POST as stripeWebhookPOST } from "@/app/api/stripe/webhook/route";
+import { GET as stripeReturnGET } from "@/app/auth/stripe-return/route";
 
 const originalStripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const originalStripePriceId = process.env.STRIPE_PRICE_ID;
@@ -184,5 +190,81 @@ describe("Stripe configuration", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Invalid Stripe webhook signature." });
+  });
+});
+
+describe("Stripe Checkout return", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("refreshes the auth cookie before returning a newly upgraded user", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_billing_test",
+        tier: "premium",
+        maskedInbox: "billing-test@relay.assura.local",
+        onboarded: true,
+        email: "billing-test@example.com",
+        name: "Billing Test",
+      },
+    } satisfies AppSession);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://localhost:3000/auth/stripe-return?from=%2Foutreach")
+    );
+
+    expect(refreshSessionCookie).toHaveBeenCalledTimes(1);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/outreach");
+  });
+
+  it("shows a processing state if Stripe has not synced Premium yet", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_billing_test",
+        tier: "free",
+        maskedInbox: "billing-test@relay.assura.local",
+        onboarded: false,
+        email: "billing-test@example.com",
+        name: "Billing Test",
+      },
+    } satisfies AppSession);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://localhost:3000/auth/stripe-return?from=%2Foutreach")
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/upgrade?checkout=success&from=%2Foutreach"
+    );
+  });
+
+  it("does not allow an external return URL", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_billing_test",
+        tier: "premium",
+        maskedInbox: "billing-test@relay.assura.local",
+        onboarded: true,
+        email: "billing-test@example.com",
+        name: "Billing Test",
+      },
+    } satisfies AppSession);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://localhost:3000/auth/stripe-return?from=%2F%2Fevil.example")
+    );
+
+    expect(response.headers.get("location")).toBe("http://localhost:3000/onboarding");
+  });
+
+  it("sends signed-out users to login", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue(null);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://localhost:3000/auth/stripe-return?from=%2Foutreach")
+    );
+
+    expect(response.headers.get("location")).toBe("http://localhost:3000/login");
   });
 });

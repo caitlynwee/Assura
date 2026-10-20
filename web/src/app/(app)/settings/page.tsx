@@ -5,8 +5,12 @@ import SettingsForm from "@/components/settings/settings-form";
 import { requireUser } from "@/lib/session";
 import { DEMO_EMAIL } from "@/lib/demo";
 import { findUserById } from "@/lib/users";
+import { getT } from "@/lib/i18n/server";
+import type { Messages } from "@/lib/i18n/messages";
 
-export const metadata = { title: "Settings — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).account.settings.meta };
+}
 
 export default async function SettingsPage({
   searchParams,
@@ -16,15 +20,16 @@ export default async function SettingsPage({
   const user = await requireUser();
   const appUser = await findUserById(user.id);
   const params = await searchParams;
+  const t = (await getT()).account.settings;
 
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader
-        title="Settings"
-        description="Manage your personal information and account."
+        title={t.title}
+        description={t.description}
       />
-      <SettingsEmailNotice email={params.email} emailError={params.emailError} />
-      <SettingsBillingNotice billing={params.billing} />
+      <SettingsEmailNotice t={t} email={params.email} emailError={params.emailError} />
+      <SettingsBillingNotice t={t} billing={params.billing} />
       <SettingsForm
         initialName={user.name}
         email={user.email}
@@ -37,12 +42,14 @@ export default async function SettingsPage({
   );
 }
 
-function SettingsBillingNotice({ billing }: { billing?: string }) {
+type T = Messages["account"]["settings"];
+
+function SettingsBillingNotice({ t, billing }: { t: T; billing?: string }) {
   if (!billing) return null;
   const message =
     billing === "unavailable"
-      ? "No Stripe subscription is linked to this account yet."
-      : "We couldn't open Stripe Billing Portal. Please try again later.";
+      ? t.billingUnavailable
+      : t.billingPortalFailed;
   return (
     <p role="alert" className="text-sm text-destructive">
       {message}
@@ -51,34 +58,35 @@ function SettingsBillingNotice({ billing }: { billing?: string }) {
 }
 
 function SettingsEmailNotice({
+  t,
   email,
   emailError,
 }: {
+  t: T;
   email?: string;
   emailError?: string;
 }) {
   if (email === "updated") {
     return (
       <p role="status" className="text-sm text-green-700">
-        Your email address has been updated.
+        {t.emailUpdated}
       </p>
     );
   }
   if (email === "pending") {
     return (
       <p role="status" className="text-sm">
-        Confirmation received. Follow any remaining confirmation instructions from Supabase; the
-        new address will appear here when the change is complete.
+        {t.emailPending}
       </p>
     );
   }
   if (emailError) {
     const message =
       emailError === "email-conflict"
-        ? "The confirmed email is already linked to another Assura account. Contact support."
+        ? t.emailConflict
         : emailError === "invalid-link"
-          ? "This email confirmation link is invalid or incomplete."
-          : "We couldn't confirm the email change. Request a new confirmation email and try again.";
+          ? t.emailInvalidLink
+          : t.emailConfirmFailed;
     return (
       <p role="alert" className="text-sm text-destructive">
         {message}

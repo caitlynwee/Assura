@@ -3,21 +3,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { findUserById } from "@/lib/users";
-import { getSiteUrl, getStripeClient, getStripePriceId } from "@/lib/stripe";
-
-function safeReturnTo(value: FormDataEntryValue | null): string {
-  if (typeof value !== "string") return "/onboarding";
-  const path = value.trim();
-  if (
-    !path.startsWith("/") ||
-    path.startsWith("//") ||
-    path.startsWith("/api/") ||
-    path === "/upgrade"
-  ) {
-    return "/onboarding";
-  }
-  return path;
-}
+import { getSiteUrl, getStripeClient, getStripePriceId, safeBillingReturnTo } from "@/lib/stripe";
 
 export async function startPremiumCheckoutAction(formData: FormData): Promise<void> {
   const session = await auth();
@@ -30,7 +16,7 @@ export async function startPremiumCheckoutAction(formData: FormData): Promise<vo
 
     const stripe = getStripeClient();
     const siteUrl = getSiteUrl();
-    const returnTo = safeReturnTo(formData.get("returnTo"));
+    const returnTo = safeBillingReturnTo(formData.get("returnTo"));
     const price = await stripe.prices.retrieve(getStripePriceId());
     if (!price.active || price.type !== "recurring" || price.currency !== "sgd") {
       throw new Error("The configured Premium price must be active, recurring, and in SGD.");
@@ -43,7 +29,7 @@ export async function startPremiumCheckoutAction(formData: FormData): Promise<vo
       customer_email: user.stripeCustomerId ? undefined : user.email,
       metadata: { appUserId: user.id },
       subscription_data: { metadata: { appUserId: user.id } },
-      success_url: `${siteUrl}/upgrade?checkout=success&from=${encodeURIComponent(returnTo)}`,
+      success_url: `${siteUrl}/auth/stripe-return?from=${encodeURIComponent(returnTo)}`,
       cancel_url: `${siteUrl}/upgrade?checkout=cancelled`,
     });
 

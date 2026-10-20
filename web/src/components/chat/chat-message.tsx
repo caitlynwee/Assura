@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ChatMessage as ChatMessageType } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
 
 interface Props {
   message: ChatMessageType;
@@ -24,6 +25,8 @@ export default function ChatMessage({ message, onEdit }: Props) {
   const isUser = message.role === "user";
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
+  const tt = useT();
+  const t = tt.chat;
 
   const trimmed = draft.trim();
   const canSave = trimmed.length > 0 && trimmed.length <= MAX_LENGTH;
@@ -67,18 +70,18 @@ export default function ChatMessage({ message, onEdit }: Props) {
             autoFocus
             rows={3}
             maxLength={MAX_LENGTH}
-            aria-label="Edit your message"
+            aria-label={t.editYourMessage}
             className="resize-none bg-card"
           />
           <div className="flex items-center justify-end gap-2">
             <span className="mr-auto text-xs text-muted-foreground">
-              Enter to send · Esc to cancel
+              {t.editHint}
             </span>
             <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
-              Cancel
+              {tt.common.cancel}
             </Button>
             <Button size="sm" onClick={save} disabled={!canSave}>
-              Send
+              {t.send}
             </Button>
           </div>
         </div>
@@ -97,11 +100,11 @@ export default function ChatMessage({ message, onEdit }: Props) {
               variant="ghost"
               size="sm"
               onClick={startEditing}
-              aria-label="Edit message"
+              aria-label={t.editLabel}
               className="h-7 px-2 text-xs text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
             >
               <PencilIcon className="size-3.5" />
-              Edit
+              {t.edit}
             </Button>
           )}
           {!isUser && message.citations && message.citations.length > 0 && (

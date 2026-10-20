@@ -10,8 +10,10 @@
  */
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth, signOut } from "@/lib/auth";
 import { getServerClient } from "@/lib/supabase/server";
+import { REMEMBER_COOKIE } from "@/lib/constants";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { deleteUserCascade } from "@/lib/db";
 import { syncAuthMetadata } from "@/lib/supabase/ensure-demo-user";
@@ -26,6 +28,17 @@ import { logEvent } from "@/lib/audit";
 import { maskEmail } from "@/lib/utils";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/demo";
 import type { User } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
+import type { Messages } from "@/lib/i18n/messages";
+
+/** Localized message for a signup validation issue (by field + check). */
+function signupIssueMessage(a: Messages["auth"], field: string, code: string): string {
+  if (field === "name") return a.errNameRequired;
+  if (field === "email") return a.errEmailInvalid;
+  if (field === "confirmPassword") return a.errPasswordsMismatch;
+  if (field === "password") return code === "too_small" ? a.errPasswordShort : a.errPasswordWeak;
+  return a.errCouldNotCreate;
+}
 
 export type FormState = {
   error?: string;
@@ -52,6 +65,24 @@ function safeCallback(raw: FormDataEntryValue | null, fallback: string): string 
   return path;
 }
 
+/**
+ * Record the "Keep me signed in" choice in a marker cookie that later requests
+ * (server client refresh + edge middleware) read to decide whether to keep the
+ * Supabase session cookies persistent or session-only. Persistent choices use a
+ * 1-year marker; session-only choices drop maxAge so the marker itself also
+ * clears on browser close.
+ */
+async function setRememberCookie(remember: boolean): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(REMEMBER_COOKIE, remember ? "1" : "0", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    ...(remember ? { maxAge: 60 * 60 * 24 * 365 } : {}),
+  });
+}
+
 /** True when a Supabase auth error is a rate-limit (HTTP 429 / known code). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isRateLimited(err: any): boolean {
@@ -72,14 +103,25 @@ export async function loginAction(
   const emailRaw = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectTo = safeCallback(formData.get("callbackUrl"), "/compare");
+  const a = (await getT()).auth;
+  // Checkbox persistence. The form posts a hidden "remember=0" plus, when the
+  // box is checked, the Radix checkbox's "remember=on". Treat the user as
+  // remembered when any posted value is "on" (checked), regardless of field
+  // order.
+  const remember = formData.getAll("remember").some((v) => v === "on");
 
   const parsed = loginSchema.safeParse({ email: emailRaw, password });
   if (!parsed.success) {
-    return { error: "Please enter your email and password.", values: { email: emailRaw } };
+    return { error: a.errEnterCredentials, values: { email: emailRaw } };
   }
   const email = parsed.data.email.toLowerCase();
 
-  const supabase = await getServerClient();
+  // Record the preference BEFORE sign-in so the session cookies written by
+  // signInWithPassword already honor it (the marker isn't yet visible to the
+  // client's getAll() this request, so also pass the explicit override).
+  await setRememberCookie(remember);
+
+  const supabase = await getServerClient({ stripMaxAge: !remember });
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password: parsed.data.password,
@@ -89,19 +131,19 @@ export async function loginAction(
     if (isRateLimited(error)) {
       logEvent("system", "auth.login.locked", { email: maskEmail(email) });
       return {
-        error: "Too many failed attempts. Please wait a few minutes and try again.",
+        error: a.errTooManyAttempts,
         values: { email },
       };
     }
     logEvent("system", "auth.login.failed", { email: maskEmail(email) });
-    return { error: "Invalid email or password.", values: { email } };
+    return { error: a.errInvalidCredentials, values: { email } };
   }
 
   const appUser = await resolveOrCreateAuthUser(data.user);
   if (!appUser) {
     // Authenticated with Supabase but no app row — treat as failed login.
     logEvent("system", "auth.login.failed", { email: maskEmail(email) });
-    return { error: "Invalid email or password.", values: { email } };
+    return { error: a.errInvalidCredentials, values: { email } };
   }
 
   logEvent(appUser.id, "auth.login.success", {});
@@ -118,6 +160,10 @@ function withToast(path: string, key: string): string {
 
 export async function demoLoginAction(formData: FormData): Promise<void> {
   const redirectTo = safeCallback(formData.get("callbackUrl"), "/compare");
+
+  // The demo button has no checkbox; keep the demo session persistent and clear
+  // any session-only marker left by a prior sign-in on this browser.
+  await setRememberCookie(true);
 
   const supabase = await getServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -157,13 +203,14 @@ export async function signupAction(
     tier: "free",
   };
   const values = { name: raw.name, email: raw.email, tier: raw.tier };
+  const a = (await getT()).auth;
 
   const parsed = signupSchema.safeParse(raw);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) {
       const key = String(issue.path[0] ?? "form");
-      fieldErrors[key] ??= issue.message;
+      fieldErrors[key] ??= signupIssueMessage(a, key, issue.code);
     }
     return { fieldErrors, values };
   }
@@ -174,7 +221,7 @@ export async function signupAction(
   //    already has an app row (prevents orphaned Supabase identities).
   const existing = await findUserByEmail(email);
   if (existing) {
-    return { fieldErrors: { email: new EmailTakenError().message }, values };
+    return { fieldErrors: { email: a.errEmailTaken }, values };
   }
 
   // 2. Create the Supabase identity.
@@ -185,9 +232,9 @@ export async function signupAction(
   });
   if (error || !data.user) {
     if (error && /already/i.test(error.message)) {
-      return { fieldErrors: { email: new EmailTakenError().message }, values };
+      return { fieldErrors: { email: a.errEmailTaken }, values };
     }
-    return { error: "Could not create your account. Please try again.", values };
+    return { error: a.errCouldNotCreate, values };
   }
   const authUid = data.user.id;
 
@@ -213,9 +260,9 @@ export async function signupAction(
       await admin.auth.admin.deleteUser(authUid).catch(() => {});
     }
     if (err instanceof EmailTakenError) {
-      return { fieldErrors: { email: err.message }, values };
+      return { fieldErrors: { email: a.errEmailTaken }, values };
     }
-    return { error: "Could not create your account. Please try again.", values };
+    return { error: a.errCouldNotCreate, values };
   }
 
   // 6. Stamp app_metadata (tier/onboarded/appUserId) and audit.

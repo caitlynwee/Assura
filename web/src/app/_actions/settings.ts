@@ -11,6 +11,7 @@ import { getServerClient } from "@/lib/supabase/server";
 import { DEMO_EMAIL } from "@/lib/demo";
 import { maskEmail } from "@/lib/utils";
 import { openBillingPortalAction } from "@/app/_actions/billing";
+import { getT } from "@/lib/i18n/server";
 
 const settingsSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -33,17 +34,18 @@ export async function requestEmailChangeAction(
   input: unknown
 ): Promise<EmailChangeResult> {
   const session = await auth();
-  if (!session?.user?.id) return { ok: false, error: "Please sign in again." };
+  const t = (await getT()).account.settings;
+  if (!session?.user?.id) return { ok: false, error: t.errSignInAgain };
   if (session.user.email.toLowerCase() === DEMO_EMAIL) {
-    return { ok: false, error: "The shared demo account email cannot be changed." };
+    return { ok: false, error: t.errDemoEmail };
   }
 
   const parsed = emailChangeSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Enter a valid email address." };
+    return { ok: false, error: t.errValidEmail };
   }
   if (parsed.data.email === session.user.email.toLowerCase()) {
-    return { ok: false, error: "Enter a different email address." };
+    return { ok: false, error: t.errDifferentEmail };
   }
 
   const supabase = await getServerClient();
@@ -55,10 +57,10 @@ export async function requestEmailChangeAction(
   );
   if (error) {
     if (error.code === "email_exists" || error.code === "user_already_exists") {
-      return { ok: false, error: "An account already uses that email address." };
+      return { ok: false, error: t.errEmailInUse };
     }
     console.error("[settings] Supabase email change request failed:", error.message);
-    return { ok: false, error: "We couldn't start the email change. Please try again." };
+    return { ok: false, error: t.errEmailChange };
   }
 
   await logEvent(session.user.id, "auth.email_change_requested", {
@@ -69,18 +71,19 @@ export async function requestEmailChangeAction(
 
 export async function saveSettingsAction(input: unknown): Promise<SettingsResult> {
   const session = await auth();
-  if (!session?.user?.id) return { ok: false, error: "Please sign in again." };
+  const t = (await getT()).account.settings;
+  if (!session?.user?.id) return { ok: false, error: t.errSignInAgain };
 
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Some fields are invalid. Please check your information." };
+    return { ok: false, error: t.errInvalidFields };
   }
 
   const updated = await updateUser(session.user.id, (user) => {
     user.name = parsed.data.name;
     user.profile = parsed.data.profile;
   });
-  if (!updated) return { ok: false, error: "Your account could not be found." };
+  if (!updated) return { ok: false, error: t.errNotFound };
 
   await logEvent(session.user.id, "user.profile_updated", {
     fields: Object.keys(parsed.data.profile),

@@ -15,9 +15,14 @@ export const AUTH_PAGES = ["/login", "/signup"];
 /** Premium-only areas. Free users are sent to /upgrade. (APIs are separately
  *  enforced by the policy engine — this is the UI layer of defence in depth.) */
 export const PREMIUM_PATHS = ["/onboarding", "/outreach", "/crm", "/activity"];
+export const ADMIN_PATHS = ["/admin"];
 
 export function isPremiumPath(pathname: string): boolean {
   return PREMIUM_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+export function isAdminPath(pathname: string): boolean {
+  return ADMIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 /** Reachable without a session. */
@@ -59,8 +64,12 @@ export function evaluateRoute({ pathname, isLoggedIn, tier }: RouteContext): Rou
     return { type: "redirect", to: "/compare" };
   }
 
-  if (isLoggedIn && isPremiumPath(pathname) && tier !== "premium") {
+  if (isLoggedIn && isPremiumPath(pathname) && tier !== "premium" && tier !== "admin") {
     return { type: "redirect", to: `/upgrade?from=${encodeURIComponent(pathname)}` };
+  }
+
+  if (isLoggedIn && isAdminPath(pathname) && tier !== "admin") {
+    return { type: "redirect", to: "/compare" };
   }
 
   if (isPublicPath(pathname) || isLoggedIn) return { type: "allow" };

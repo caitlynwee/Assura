@@ -4,6 +4,7 @@ import { evaluateAction } from "@/lib/policy";
 describe("Policy engine", () => {
   const premiumCtx = { userId: "user_demo", userTier: "premium" as const };
   const freeCtx = { userId: "user_demo", userTier: "free" as const };
+  const adminCtx = { userId: "admin", userTier: "admin" as const };
 
   it("allows read_plans for all tiers", () => {
     expect(evaluateAction("read_plans", freeCtx).outcome).toBe("allow");
@@ -18,6 +19,11 @@ describe("Policy engine", () => {
   it("allows send_email only with userApproved=true", () => {
     expect(evaluateAction("send_email", premiumCtx).outcome).toBe("deny");
     expect(evaluateAction("send_email", { ...premiumCtx, userApproved: true }).outcome).toBe("allow");
+  });
+
+  it("allows admin operations without a user approval prompt", () => {
+    expect(evaluateAction("trigger_scraper", adminCtx).outcome).toBe("allow");
+    expect(evaluateAction("trigger_scraper", premiumCtx).outcome).toBe("deny");
   });
 
   it("escalates blocked actions (share_nric, share_health)", () => {

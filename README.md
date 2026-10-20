@@ -10,7 +10,7 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 - [Prerequisites](#prerequisites)
 - [First-time setup](#first-time-setup)
 - [Running the project](#running-the-project)
-- [dev.sh cheat sheet](#devsh-cheat-sheet)
+- [run.sh cheat sheet](#runsh-cheat-sheet)
 - [Key URLs](#key-urls)
 - [Demo credentials](#demo-credentials)
 - [Architecture](#architecture)
@@ -50,12 +50,12 @@ cd Assura
 ### 2. Run setup
 
 ```bash
-./dev.sh setup
+./scripts/run.sh setup
 ```
 
 By default, this creates only the root `.env` template needed by Docker; it
 does not require Node.js, Python, or uv on the host. To install host-side
-development dependencies as well, use `./dev.sh setup --local`.
+development dependencies as well, use `./scripts/run.sh setup --local`.
 
 The local setup (`--local`) also:
 - Creates `.env` and `web/.env.local` from the example files
@@ -87,7 +87,7 @@ in the corresponding Supabase and DeepSeek values there too.
 ### 4. Start the project
 
 ```bash
-./dev.sh up-prod
+./scripts/run.sh up-prod
 ```
 
 This runs the whole stack in Docker with the web app built for production.
@@ -109,12 +109,14 @@ not real or externally deliverable email addresses.
 ### Docker
 
 ```bash
-./dev.sh up              # web only; development mode with hot reload (Free/basic use)
-./dev.sh up --build      # web only, rebuilding its image first
-./dev.sh up-premium      # web + isolated mail service + Mailpit for Premium outreach demo
-./dev.sh up-scraper      # scraper only, independent from web and mail
-./dev.sh up-prod         # full production-built Premium demo
-./dev.sh down            # stop all Assura services
+./scripts/run.sh up              # web only; development mode with hot reload (Free/basic use)
+./scripts/run.sh up --build      # web only, rebuilding its image first
+./scripts/run.sh up-stripe       # web + mail + Mailpit + Dockerized Stripe CLI
+./scripts/run.sh up-stripe --build # rebuild app images, then start the full billing demo
+./scripts/run.sh up-premium      # web + isolated mail service + Mailpit for Premium outreach demo
+./scripts/run.sh up-scraper      # scraper only, independent from web and mail
+./scripts/run.sh up-prod         # full production-built Premium demo
+./scripts/run.sh down            # stop all Assura services
 ```
 
 The basic web app does not need the scraper, mail service, or Mailpit. `up`
@@ -130,9 +132,9 @@ migrations/seeding.
 Run each in a separate terminal:
 
 ```bash
-./dev.sh web             # Next.js   → http://localhost:3000
-./dev.sh scraper         # FastAPI   → http://localhost:8100
-./dev.sh mailpit         # Mailpit   → http://localhost:8025
+./scripts/run.sh web             # Next.js   → http://localhost:3000
+./scripts/run.sh scraper         # FastAPI   → http://localhost:8100
+./scripts/run.sh mailpit         # Mailpit   → http://localhost:8025
 ```
 
 ### Mixed (recommended for active development)
@@ -141,42 +143,44 @@ Run the services you're **not** working on in Docker, run your own service local
 
 ```bash
 # Working on web locally? Run the mail service + Mailpit in Docker, web locally:
-./dev.sh infra           # starts mail service + Mailpit in Docker (background)
-./dev.sh web             # run web locally in this terminal
+./scripts/run.sh infra           # starts mail service + Mailpit in Docker (background)
+./scripts/run.sh web             # run web locally in this terminal
 
 # Working on the scraper? Run scraper independently:
-./dev.sh web
-./dev.sh scraper
+./scripts/run.sh web
+./scripts/run.sh scraper
 ```
 
 ---
 
-## dev.sh cheat sheet
+## run.sh cheat sheet
 
 ```
-./dev.sh setup           Prepare root .env for Docker
-./dev.sh setup --local   Also install local development dependencies
+./scripts/run.sh setup           Prepare root .env for Docker
+./scripts/run.sh setup --local   Also install local development dependencies
 
-./dev.sh up              Start web only (development/hot reload)
-./dev.sh up --build      Rebuild web image then start development mode
-./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
-./dev.sh up-scraper      Start the scraper independently
-./dev.sh up-prod         Start full production-built Premium demo (recommended)
-./dev.sh down            Stop all services
-./dev.sh restart         Stop + start
-./dev.sh build web       Rebuild one image (web or scraper)
-./dev.sh logs            Tail all logs
-./dev.sh logs web        Tail logs for one service
+./scripts/run.sh up              Start web only (development/hot reload)
+./scripts/run.sh up --build      Rebuild web image then start development mode
+./scripts/run.sh up-stripe       Start full billing demo (Stripe CLI runs in Docker)
+./scripts/run.sh up-stripe --build  Rebuild app images, then start billing demo
+./scripts/run.sh up-premium      Start web + mail service + Mailpit for Premium demo
+./scripts/run.sh up-scraper      Start the scraper independently
+./scripts/run.sh up-prod         Start full production-built Premium demo (recommended)
+./scripts/run.sh down            Stop all services
+./scripts/run.sh restart         Stop + start
+./scripts/run.sh build web       Rebuild one image (web or scraper)
+./scripts/run.sh logs            Tail all logs
+./scripts/run.sh logs web        Tail logs for one service
 
-./dev.sh web             Run Next.js locally
-./dev.sh scraper         Run FastAPI locally
-./dev.sh mailpit         Run Mailpit locally
-./dev.sh infra           Start mail service + Mailpit in Docker (background)
+./scripts/run.sh web             Run Next.js locally
+./scripts/run.sh scraper         Run FastAPI locally
+./scripts/run.sh mailpit         Run Mailpit locally
+./scripts/run.sh infra           Start mail service + Mailpit in Docker (background)
 
-./dev.sh seed            Destructively reset the configured database to seed state
-./dev.sh test            Run scraper test suite (pytest)
-./dev.sh lint            Lint scraper/app with ruff
-./dev.sh ci              Run all CI checks locally (web + scraper)
+./scripts/run.sh seed            Destructively reset the configured database to seed state
+./scripts/run.sh test            Run scraper test suite (pytest)
+./scripts/run.sh lint            Lint scraper/app with ruff
+./scripts/run.sh ci              Run all CI checks locally (web + scraper)
 ```
 
 ---
@@ -189,7 +193,7 @@ GitHub Actions runs on every push and pull request to `main` (`.github/workflows
 - **scraper** — dependencies via **uv** → `ruff` → `pytest`
 
 CI provisions PostgreSQL for the automated database-backed tests.
-Run the same checks locally before pushing with `./dev.sh ci`.
+Run the same checks locally before pushing with `./scripts/run.sh ci`.
 
 Optional pre-commit hooks (ruff + eslint + hygiene checks) live in `.pre-commit-config.yaml`:
 
@@ -250,7 +254,7 @@ identifier; Supabase marks this seeded demo identity as confirmed.
 ├── scraper/      Python FastAPI — independent plan and brochure scraper
 ├── mail-service/ Python FastAPI — Premium email relay and simulated replies
 ├── seed/         Source-of-truth demo data + database reset script
-├── dev.sh        Development CLI (start here)
+├── scripts/run.sh  Development CLI (start here)
 ├── docker-compose.yml
 ├── docs/         Product spec and hackathon reference docs
 ├── AGENTS.md     AI agent instructions (tool-agnostic: Claude, Kiro, Copilot, ...)
@@ -338,6 +342,9 @@ Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 internal API calls; change it from the demo default for non-demo environments.
 Mail service delivery is restricted in code to Mailpit hostnames on SMTP port
 1025. It does not accept external SMTP credentials.
+If an insurer has no configured contact address, outreach displays and uses a
+deterministic `@insurer.assura.local` demo address; simulated replies use the
+same address. All messages remain inside Mailpit.
 
 ### Stripe test billing
 
@@ -345,21 +352,41 @@ Premium upgrades use Stripe Checkout in test mode. Create a recurring SGD
 product price in the Stripe test dashboard, then set its `price_...` ID as
 `STRIPE_PRICE_ID`. Set `STRIPE_SECRET_KEY` to an `sk_test_...` key and keep
 `STRIPE_WEBHOOK_SECRET` server-side. The webhook endpoint is
-`/api/stripe/webhook`; for local development, run Stripe CLI:
-
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-
-Copy the CLI's `whsec_...` value into `.env` / `web/.env.local`. Subscribe the
-endpoint to `customer.subscription.created`, `customer.subscription.updated`,
-and `customer.subscription.deleted`. Configure the Stripe Customer Portal in
-the test dashboard so users can manage or cancel their subscription.
+`/api/stripe/webhook`. Configure the Stripe Customer Portal in the test
+dashboard so users can manage or cancel their subscription.
 Subscription changes are applied only from verified webhook events; returning
-from Checkout by itself does not grant Premium. The seeded shared demo account
-remains Premium without payment. New accounts start on Free and upgrade through
-Stripe. Live billing is intentionally unavailable until explicitly enabled in
-code and separately configured.
+from Checkout by itself does not grant Premium. After Checkout, Assura refreshes
+the Supabase session so edge route gating sees the webhook-synchronized tier;
+if the webhook is still processing, the upgrade page offers a safe retry.
+The seeded shared demo account remains Premium without payment. New accounts
+start on Free and upgrade through Stripe. Live billing is intentionally
+unavailable until explicitly enabled in code and separately configured.
+
+For a single-command local billing test, configure `STRIPE_SECRET_KEY` and
+`STRIPE_PRICE_ID` in the root `.env`, then run
+`./scripts/run.sh up-stripe`. This one command starts the web app, Premium mail service,
+Mailpit, and Stripe webhook forwarding using the Stripe CLI Docker image (no
+Stripe CLI installation on the host is required; Docker pulls the image if
+needed). It uses the test secret key to obtain the local webhook signing
+secret, then passes that secret directly to the web container for this run.
+You do not need to copy the CLI-generated secret into `.env` when using this
+command. Add `--build` to rebuild the app images first.
+The independent scraper and the configured Supabase/PostgreSQL service are not
+started by this command; Supabase credentials and `DATABASE_URL` must already
+be configured in `.env`. The regular `./scripts/run.sh up` command does not start
+Stripe CLI; if you use it for billing tests, configure `STRIPE_WEBHOOK_SECRET`
+yourself. For an externally hosted webhook endpoint, configure Stripe to send
+`customer.subscription.created`, `customer.subscription.updated`, and
+`customer.subscription.deleted` to the app's webhook URL and use that
+endpoint's signing secret.
+
+When running Stripe CLI directly from PowerShell, quote the comma-separated
+event list so PowerShell passes it as one argument:
+
+```powershell
+stripe login
+stripe listen --events "customer.subscription.created,customer.subscription.updated,customer.subscription.deleted" --forward-to http://localhost:3000/api/stripe/webhook
+```
 
 ### `web/.env.local` — used when running web locally
 
@@ -374,17 +401,38 @@ Pre-filled example at `scraper/.env.example`.
 ### `MAIL_SERVICE_URL` — used when running web locally
 
 Set to `http://localhost:8200` in `web/.env.local.example`. Start the mail
-service and Mailpit using `./dev.sh infra` before testing Premium outreach
+service and Mailpit using `./scripts/run.sh infra` before testing Premium outreach
 from a locally running web app.
 
 ---
+
+## Admin operations
+
+Users with the `admin` tier can open `/admin` to monitor scraper availability,
+review the latest run summary and errors, and manually rescrape all configured
+insurer websites. Manual runs are recorded in the audit chain and the web-to-
+scraper requests use `INTERNAL_API_SECRET`; keep that value identical in the
+web and scraper environments and never expose it to the browser.
+
+The admin tier is intentionally not selectable during signup. Grant it only
+through the server-side CLI after the account has signed in once and has a
+linked Supabase identity:
+
+```bash
+cd web
+npm run db:grant-admin -- operator@example.com
+```
+
+The command updates both PostgreSQL and Supabase `app_metadata`. The operator
+must then sign out and back in so the new role is copied into the access token
+used by middleware.
 
 ## Resetting demo data
 
 To restore the configured PostgreSQL database to the clean demo state:
 
 ```bash
-./dev.sh seed
+./scripts/run.sh seed
 ```
 
 This truncates and reseeds the configured database, and recreates/links the
@@ -397,19 +445,19 @@ is destructive to existing application data; use only when you want a demo reset
 
 ```bash
 # Scraper — PII blocker, hash chain, change detection, pipeline safety (16 tests)
-./dev.sh test
+./scripts/run.sh test
 
 # Isolated mail service — local-only Mailpit delivery and internal API auth
-./dev.sh test-mail
+./scripts/run.sh test-mail
 
 # Lint scraper code
-./dev.sh lint
+./scripts/run.sh lint
 ```
 
 Web unit tests (policy engine, blocker, audit) are in `web/src/__tests__/` — run with `cd web && npm test`
 (the `test` script is added by the storage-migration branch).
 
-Run the full CI suite locally (web build/lint/test + scraper lint/test + mail-service tests) with `./dev.sh ci`.
+Run the full CI suite locally (web build/lint/test + scraper lint/test + mail-service tests) with `./scripts/run.sh ci`.
 
 ---
 
@@ -417,13 +465,13 @@ Run the full CI suite locally (web build/lint/test + scraper lint/test + mail-se
 
 ```bash
 # Added a new npm package?
-./dev.sh build web
+./scripts/run.sh build web
 
 # Added a new Python package to the scraper (declared in scraper/pyproject.toml)?
-./dev.sh build scraper
+./scripts/run.sh build scraper
 
 # Added a dependency to mail-service/requirements.txt?
 docker compose build mail
 ```
 
-Then `./dev.sh up` to restart.
+Then `./scripts/run.sh up` to restart.

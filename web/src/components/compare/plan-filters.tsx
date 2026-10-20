@@ -1,13 +1,13 @@
 "use client";
 
 import { RotateCcwIcon, SearchIcon } from "lucide-react";
-import { usePlanFilters } from "@/hooks/use-plans";
+import { usePlanFilters, type PlanSortBy } from "@/hooks/use-plans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { useT } from "@/lib/i18n/client";
 
 // Radix Select items can't use "" as a value, so "all" stands for "no filter".
 const ALL = "all";
@@ -18,19 +18,44 @@ const INSURERS = [
   ["greateastern", "Great Eastern"],
   ["income", "NTUC Income"],
   ["manulife", "Manulife"],
+  ["singlife", "Singlife"],
 ] as const;
 
-type SortBy = "coverageAmount" | "premiums" | "illnessesCovered" | "planName";
+/** Coverage (sum assured) bands → [minCoverage, maxCoverage] for /api/plans. Labels: t.compare.filters.ranges. */
+export const COVERAGE_RANGES: Record<string, { min?: number; max?: number }> = {
+  "0-50000": { max: 50_000 },
+  "50001-100000": { min: 50_001, max: 100_000 },
+  "100001-200000": { min: 100_001, max: 200_000 },
+  "200001-": { min: 200_001 },
+};
 
-export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean }) {
-  const { filters, setFilter, reset } = usePlanFilters();
+/** Sort choices as "<field>:<direction>" so one dropdown sets both. Labels: t.compare.filters.sorts. */
+const SORTS = [
+  "coverageAmount:desc",
+  "coverageAmount:asc",
+  "premium:asc",
+  "premium:desc",
+  "illnessesCovered:desc",
+  "planName:asc",
+];
+
+function coverageKey(min?: number, max?: number): string {
+  const hit = Object.entries(COVERAGE_RANGES).find(([, r]) => r.min === min && r.max === max);
+  return hit ? hit[0] : ALL;
+}
+
+export default function PlanFilters() {
+  const { filters, setFilter, update, reset } = usePlanFilters();
+  const t = useT().compare.filters;
+  const tc = useT().common;
+  const sortValue = filters.sortBy ? `${filters.sortBy}:${filters.sortDir ?? "asc"}` : ALL;
 
   return (
     <Card className="py-4">
       <CardContent className="flex flex-wrap items-end gap-4 px-4">
         <div className="grid min-w-[220px] flex-1 gap-1.5">
           <Label htmlFor="plan-search" className="text-xs text-muted-foreground">
-            Search
+            {t.search}
           </Label>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -38,15 +63,15 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
               id="plan-search"
               value={filters.search ?? ""}
               onChange={(e) => setFilter("search", e.target.value || undefined)}
-              placeholder="Plan or insurer name"
+              placeholder={t.searchPlaceholder}
               className="pl-8"
             />
           </div>
         </div>
 
-        <div className="grid min-w-[180px] gap-1.5">
+        <div className="grid min-w-[170px] gap-1.5">
           <Label htmlFor="f-insurer" className="text-xs text-muted-foreground">
-            Insurer
+            {t.insurer}
           </Label>
           <Select
             value={filters.insurerId ?? ALL}
@@ -56,7 +81,7 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All insurers</SelectItem>
+              <SelectItem value={ALL}>{t.allInsurers}</SelectItem>
               {INSURERS.map(([id, name]) => (
                 <SelectItem key={id} value={id}>
                   {name}
@@ -66,9 +91,34 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
           </Select>
         </div>
 
-        <div className="grid min-w-[150px] gap-1.5">
+        <div className="grid min-w-[170px] gap-1.5">
+          <Label htmlFor="f-coverage" className="text-xs text-muted-foreground">
+            {t.coverage}
+          </Label>
+          <Select
+            value={coverageKey(filters.minCoverage, filters.maxCoverage)}
+            onValueChange={(v) => {
+              const r = v === ALL ? undefined : COVERAGE_RANGES[v];
+              update({ minCoverage: r?.min, maxCoverage: r?.max });
+            }}
+          >
+            <SelectTrigger id="f-coverage">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t.anyAmount}</SelectItem>
+              {Object.keys(COVERAGE_RANGES).map((key) => (
+                <SelectItem key={key} value={key}>
+                  {t.ranges[key]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid min-w-[140px] gap-1.5">
           <Label htmlFor="f-early" className="text-xs text-muted-foreground">
-            Early stage CI
+            {t.earlyStage}
           </Label>
           <Select
             value={filters.earlyStage ?? ALL}
@@ -78,53 +128,42 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Any</SelectItem>
-              <SelectItem value="true">Yes</SelectItem>
-              <SelectItem value="false">No</SelectItem>
+              <SelectItem value={ALL}>{tc.any}</SelectItem>
+              <SelectItem value="true">{tc.yes}</SelectItem>
+              <SelectItem value="false">{tc.no}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="grid min-w-[170px] gap-1.5">
+        <div className="grid min-w-[190px] gap-1.5">
           <Label htmlFor="f-sort" className="text-xs text-muted-foreground">
-            Sort by
+            {t.sortBy}
           </Label>
           <Select
-            value={filters.sortBy ?? ALL}
-            onValueChange={(v) => setFilter("sortBy", v === ALL ? undefined : (v as SortBy))}
+            value={sortValue}
+            onValueChange={(v) => {
+              if (v === ALL) return update({ sortBy: undefined, sortDir: undefined });
+              const [by, dir] = v.split(":") as [PlanSortBy, "asc" | "desc"];
+              update({ sortBy: by, sortDir: dir });
+            }}
           >
             <SelectTrigger id="f-sort">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Default</SelectItem>
-              <SelectItem value="coverageAmount">Coverage amount</SelectItem>
-              <SelectItem value="premiums">Premium (M/30)</SelectItem>
-              <SelectItem value="illnessesCovered">Illnesses covered</SelectItem>
-              <SelectItem value="planName">Plan name</SelectItem>
+              <SelectItem value={ALL}>{t.sortDefault}</SelectItem>
+              {SORTS.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {t.sorts[value]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
 
-        {hasBudget && (
-          <div className="grid gap-1.5">
-            <Label htmlFor="f-within-budget" className="text-xs text-muted-foreground">
-              Within my budget
-            </Label>
-            <div className="flex h-9 items-center gap-2">
-              <Switch
-                id="f-within-budget"
-                checked={filters.withinBudgetOnly ?? false}
-                onCheckedChange={(v) => setFilter("withinBudgetOnly", v || undefined)}
-              />
-              <span className="text-sm text-muted-foreground">Emphasize</span>
-            </div>
-          </div>
-        )}
-
         <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
           <RotateCcwIcon />
-          Reset
+          {tc.reset}
         </Button>
       </CardContent>
     </Card>

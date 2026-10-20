@@ -11,10 +11,11 @@
  * RESET=1 re-seed wipes user_demo.auth_uid, so this must re-link every reset.
  */
 
-import { ensureDemoAuthUser } from "./supabase/ensure-demo-user";
+import { ensureDemoAuthUser, ensureTeamAuthUsers } from "./supabase/ensure-demo-user";
 
 async function main() {
   await ensureDemoAuthUser();
+  await ensureTeamAuthUsers();
   console.log("[seed-auth] done.");
 }
 

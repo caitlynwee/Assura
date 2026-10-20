@@ -5,8 +5,11 @@ import { Separator } from "@/components/ui/separator";
 import AuthCard from "@/components/auth/auth-card";
 import LoginForm from "@/components/auth/login-form";
 import DemoLoginButton from "@/components/auth/demo-login-button";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Sign in — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).auth.signInMeta };
+}
 
 export default async function LoginPage({
   searchParams,
@@ -14,16 +17,18 @@ export default async function LoginPage({
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
 }) {
   const { callbackUrl, error } = await searchParams;
+  const t = await getT();
+  const a = t.auth;
 
   return (
     <AuthCard
-      title="Welcome back"
-      subtitle="Sign in to compare plans and manage your insurer enquiries."
+      title={a.welcomeBack}
+      subtitle={a.signInSubtitle}
       footer={
         <>
-          New to Assura?{" "}
+          {a.newToAssura}{" "}
           <Link href="/signup" className="font-medium text-primary hover:underline">
-            Create an account
+            {a.createAccountLink}
           </Link>
         </>
       }
@@ -32,7 +37,7 @@ export default async function LoginPage({
         <Alert variant="warning" className="mb-4">
           <TriangleAlertIcon />
           <AlertDescription>
-            Your saved session expired. Sign in again to continue.
+            {a.sessionExpired}
           </AlertDescription>
         </Alert>
       )}
@@ -42,7 +47,7 @@ export default async function LoginPage({
           <TriangleAlertIcon />
           <AlertDescription>
             <p>
-              Demo login failed. Run <code className="font-mono">bash seed/reset.sh</code> to seed the demo user.
+              {a.demoFailedBefore} <code className="font-mono">bash seed/reset.sh</code> {a.demoFailedAfter}
             </p>
           </AlertDescription>
         </Alert>
@@ -52,7 +57,7 @@ export default async function LoginPage({
 
       <div className="my-5 flex items-center gap-3" aria-hidden="true">
         <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">or</span>
+        <span className="text-xs text-muted-foreground">{t.common.or}</span>
         <Separator className="flex-1" />
       </div>
 

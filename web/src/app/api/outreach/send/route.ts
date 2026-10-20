@@ -13,6 +13,7 @@ import {
 } from "@/lib/db";
 import { generateId } from "@/lib/utils";
 import type { Thread, ThreadMessage } from "@/lib/types";
+import { getInsurerRecipientAddress } from "@/lib/insurer-recipient";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -37,7 +38,10 @@ export async function POST(req: NextRequest) {
       userApproved: parsed.data.userApproved,
     });
   } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 403 });
+    return NextResponse.json(
+      { error: (err as Error).message },
+      { status: 403 },
+    );
   }
 
   const { insurerId, subject, body: emailBody, threadId } = parsed.data;
@@ -48,7 +52,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       { error: (err as Error).message, code: "PII_BLOCKED" },
-      { status: 422 }
+      { status: 422 },
     );
   }
 
@@ -67,7 +71,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Thread not found" }, { status: 404 });
     }
     if (existingThread.insurerId !== insurerId) {
-      return NextResponse.json({ error: "Insurer does not match thread" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Insurer does not match thread" },
+        { status: 400 },
+      );
     }
   }
 
@@ -75,7 +82,7 @@ export async function POST(req: NextRequest) {
   try {
     delivery = await sendEmail({
       from: fromAddress,
-      to: insurer.agentEmail,
+      to: getInsurerRecipientAddress(insurer.id, insurer.agentEmail),
       subject,
       body: emailBody,
       userId,
@@ -83,8 +90,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     return NextResponse.json(
-      { error: `Could not send through the outreach server: ${(err as Error).message}` },
-      { status: 502 }
+      {
+        error: `Could not send through the outreach server: ${(err as Error).message}`,
+      },
+      { status: 502 },
     );
   }
 
@@ -131,5 +140,8 @@ export async function POST(req: NextRequest) {
     resolvedThreadId = thread.id;
   }
 
-  return NextResponse.json({ threadId: resolvedThreadId, messageId: delivery.messageId });
+  return NextResponse.json({
+    threadId: resolvedThreadId,
+    messageId: delivery.messageId,
+  });
 }

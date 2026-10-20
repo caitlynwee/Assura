@@ -469,6 +469,22 @@ Others need to know: Personal/health/income data is never shared unless separate
 Blockers: None.
 ---
 
+## 2026-10-20 | Copilot | Verify Local Outreach Delivery
+Status: Completed
+Done: Rebuilt and restarted the Stripe Docker demo stack, verified Mailpit SMTP health and delivery to the fallback insurer address, and passed five mail-service tests plus five targeted web tests and targeted ESLint.
+Files: `TASK.MD`, `web/src/__tests__/outreach-send.test.ts`
+Others need to know: The Stripe demo stack is running; a verification message is visible in Mailpit at `http://localhost:8025`.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Prepare Kiro Context Handoff
+Status: Completed
+Done: Documented the outreach recipient fix, validation, Docker runtime status, outstanding worktree cautions, and suggested continuation steps for Kiro.
+Files: `docs/HANDOFF-2026-10-20.md`, `TASK.MD`
+Others need to know: The handoff distinguishes the uncommitted outreach changes from additional demo-user seed edits that need separate review.
+Blockers: None.
+---
+
 ## 2026-10-20 | Copilot | Rebrand local masked relay addresses
 Status: Completed
 Done:
@@ -620,6 +636,16 @@ Done: Extracted Premium email delivery/personas into `mail-service`; web email c
 Files: `mail-service/`, `web/src/lib/mail.ts`, `web/src/app/api/crm/threads/[threadId]/reply/route.ts`, `docker-compose.yml`, `dev.sh`, `README.md`, `docs/PROJECT.MD`
 Others need to know: Basic starts web + DB migration; Premium starts web + mail + Mailpit; scraper starts independently. All use PostgreSQL; SMTP is restricted to local Mailpit on port 1025.
 Blockers: None.
+
+
+## 2026-10-20 | Dominic | Compare: profile-matched plans + coverage filter/sort
+Status: Completed
+Done:
+- Compare defaults to "Only show plans that match my profile" (checkbox to show all). Pure, LLM-free rules in `web/src/lib/relevance.ts`, each applied only when the profile has the field: budget (annual premium for the user's age band/gender/smoker ≤ monthly budget × 12), coverage (sum assured ≥ coverage needed), age (from date of birth via profileAge; some coverage term still runs ≥ 5 years). Profile chips + "Showing X of Y" + why plans are hidden; ✓/✗ reason tooltip per row; non-matching rows greyed when showing all. Factual filter, not a recommendation.
+- Smokers: when a plan publishes no smoker rate the non-smoker rate is shown with * and a note — never an invented price.
+- Coverage-amount filter (Up to S$50k … Above S$200k → minCoverage/maxCoverage). Clickable Coverage / Premium / Illnesses / Plan headers sort ↑↓; sort dropdown has high→low / low→high. Sorting is client-side so Premium sorts by the user's own premium (was fixed M/30). Monthly equivalent under each premium. Singlife added to the insurer filter. Replaces the "Within my budget — Emphasize" switch (budget is now part of matching).
+- Tests: relevance.test.ts (12). Build/tsc/lint clean; verified in a browser (30 y/o male smoker, S$90/mo, S$150k → 3 of 14 seed plans, as computed by hand).
+Others need to know: Matching needs plans in the DB — on a fresh DB run the scraper ("Refresh data") first, since seed no longer loads plans.
 ---
 ## 2026-10-20 | Copilot | Stripe Premium Checkout
 Status: Completed
@@ -633,5 +659,92 @@ Status: Completed
 Done: Clarified the root environment template with expected Stripe test credential formats and the local webhook secret workflow; kept credential values blank to avoid exposing secrets in tracked files.
 Files: `.env.example`
 Others need to know: Add real values to the ignored root `.env`, not `.env.example`.
+
+## 2026-10-20 | Copilot | Fix scraper CI lint failure
+Status: Completed
+Done:
+- Corrected SQLAlchemy import ordering in the scraper database mapping.
+- Replaced deprecated `timezone.utc` usage with Python 3.11's `datetime.UTC` alias.
+- Verified Ruff with no errors and all 19 scraper tests passing.
+Files: scraper/app/storage/database.py, scraper/app/utils/debug_dump.py
+Others need to know: The repeated CI notifications were caused by these two Ruff errors in the scraper job; pushing this fix will allow the workflow to pass.
 Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Add admin operations tier
+Status: Completed
+Done:
+- Added the `admin` tier with edge/server authorization and an admin-only dashboard.
+- Added protected manual rescraping, latest-run status/error reporting, and audit logging.
+- Added the `db:grant-admin` CLI to update PostgreSQL and Supabase app metadata together.
+- Protected scraper run/status endpoints with `INTERNAL_API_SECRET`.
+Files: web/src/app/(app)/admin/, web/src/components/admin/, web/src/lib/{types,auth-routing,session,grant-admin,policy}.ts, web/src/app/api/scraper/, scraper/app/routers/scraper.py
+Others need to know: Admins retain Premium workspace access; only the server-side grant command can assign the tier.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | One-Command Stripe Billing Demo
+Status: Completed
+Done: `./dev.sh up-stripe [--build]` starts web, Premium mail, Mailpit, and the Dockerized Stripe CLI together; it obtains a local webhook signing secret and injects it into the web container without writing it to `.env`, so no host Stripe CLI installation is needed.
+Files: `dev.sh`, `docker-compose.yml`, `README.md`, `.env.example`
+Others need to know: Requires Docker, `STRIPE_SECRET_KEY`, and recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Fix Stripe Checkout Return Redirect Loop
+Status: Completed
+Done: Added a Checkout return handler that syncs app metadata and refreshes the Supabase session cookie before navigating to Premium pages. A retryable confirmation state avoids automatic redirect loops if the webhook is still processing.
+Files: `web/src/app/auth/stripe-return/route.ts`, `web/src/app/(app)/upgrade/page.tsx`, `web/src/lib/{auth,stripe}.ts`, `web/src/app/_actions/billing.ts`
+Others need to know: The previous loop was caused by edge middleware reading a stale Free-tier JWT after the database had already been upgraded to Premium.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Repair Stripe Billing Migration on Startup
+Status: Completed
+Done: Added an idempotent catch-up migration for Stripe customer/subscription columns and registered it in the Drizzle journal so Compose startup can repair databases that missed the billing migration.
+Files: `web/drizzle/0009_stripe_billing_catchup.sql`, `web/drizzle/meta/_journal.json`
+Others need to know: `npx drizzle-kit check` passes; the user confirmed this migration resolved the Docker Compose startup issue.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Fix Outreach With Missing Insurer Contacts
+Status: Completed
+Done: Confirmed empty insurer contact emails caused Mailpit's `invalid TO parameter` SMTP rejection. Added deterministic local demo addresses for insurers without configured contacts and reused them for outgoing messages and simulated replies.
+Files: `web/src/lib/insurer-recipient.ts`, `web/src/app/(app)/outreach/page.tsx`, `web/src/app/api/outreach/send/route.ts`, `mail-service/app/{relay,simulator}.py`
+Others need to know: Messages remain local to Mailpit; rebuild/restart mail and web services with `./dev.sh up-stripe --build` to load the changes.
+Blockers: None.
+
+
+## 2026-10-20 | Dominic | English ⇄ Simplified Chinese for the whole site
+Status: Completed
+Done:
+- Language toggle ("中文" / "English") in the app top bar and the public navbar. Choice is stored in the `assura-locale` cookie (1 year) so server pages, server actions, API routes and client components agree and it survives reloads; first visit follows the browser language (zh-* → Chinese). `<html lang>` and page titles follow it.
+- `web/src/lib/i18n/`: `config.ts`, `server.ts` (`getT()`/`getLocale()` for server components/actions/routes), `client.tsx` (`<I18nProvider>`, `useT()`, `useLocale()`), and `messages/sections/*.ts` with English and Chinese side by side via `section(en, zh)` — a missing/extra translation is a TypeScript error.
+- Every page/component translated: home, login/signup (incl. validation errors), layout, settings, onboarding, upgrade, delete account, toasts, compare (incl. match reasons), chat (history, bin, edit), outreach, CRM, activity, admin dashboard. Dates use zh-CN formatting.
+- Plan Q&A answers come back in Simplified Chinese when Chinese is selected (plan/insurer names and citations kept verbatim so sources stay checkable). Outreach emails stay English (they go to Singapore insurers); a note says so. Plan data, insurer names, emails and audit action IDs are data and stay as-is.
+- Tests: i18n.test.ts (same keys, same function signatures, nothing empty, Chinese entries really Chinese, browser-language default). Suite 126/126; build/tsc/lint clean; every page checked in a browser in both languages.
+Others need to know: New UI text → add it to the matching file in `web/src/lib/i18n/messages/sections/` (both languages) and use `useT()` (client) or `await getT()` (server). Terms: critical illness = 危疾, premium (price) = 保费, Free/Premium tier = 免费版/高级版.
+---
+## 2026-10-20 | Jeff | Admin view-as-role switcher
+Status: Completed
+Done: Added an admin-only, COSMETIC "View as: Free/Premium/Admin" switcher in the topbar. Selecting a view changes only what the UI renders (sidebar nav gating, locked premium items, Upgrade CTA/tier badge, Admin link) with no re-login and no permission/DB change. Choice persists via cookie `assura_view_as` + localStorage `assura:view-as`, defaults to the real tier, and seeds the server layout so there's no flash. Non-admins never see the switcher and can never cosmetically upgrade (resolver ignores the cookie for them).
+Files: `web/src/lib/view-mode.ts` (new pure resolver + constants), `web/src/lib/session.ts` (readViewCookie), `web/src/components/view-mode/view-mode-provider.tsx` (new), `web/src/components/view-mode/view-as-switcher.tsx` (new), `web/src/app/(app)/layout.tsx`, `web/src/components/layout/topbar.tsx`, `web/src/components/layout/sidebar.tsx`, `web/src/__tests__/view-mode.test.ts` (new)
+Others need to know: Purely presentation — real authorization is UNCHANGED (edge middleware `auth-routing.ts` still gates /admin, /outreach etc. by JWT tier; an admin in Free view can still reach those pages, by design). Verified: `npm run build` exit 0, `npm run lint` exit 0 (no new errors), `npm test` 17 suites / 129 tests pass incl. new view-mode.test.ts.
+Blockers: None.
+---
+## 2026-10-20 | Jeff | Realistic Mailpit reply listener
+Status: Completed
+Done: Replaced the manual "Simulate insurer reply" button with a background Mailpit-polling listener in mail-service. On FastAPI startup a lifespan task polls the Mailpit HTTP API (~3s), and for each new outreach email TO an insurer FROM a user relay address it two-stage auto-replies: an immediate "ticketed" ack (ref #<6 hex>), then a delayed (~6s, separate asyncio task) persona answer via the existing personas.py. Dedup via an in-memory processed-ID set; loop prevention (never react to messages FROM insurer addresses); resilient poll/handler try/except; Mailpit-only + internal-api-key auth unchanged. Removed the manual trigger: web reply route, mail-service POST /email/reply, ReplyRequest model, and the simulate_reply wrapper (refactored into reusable build_persona_reply/send_and_record_reply/post_inbound_to_crm/build_ack_message). CRM thread-detail now auto-refreshes (pollUntilChanged on load + periodic refresh) so ack+answer appear without a manual refresh. Slow persona still withholds until a 2nd outbound follow-up.
+Files: `mail-service/app/{config,simulator,listener,main}.py`, `mail-service/app/routers/email.py`, `mail-service/tests/test_listener.py`, `web/src/components/crm/thread-detail.tsx`, deleted `web/src/app/api/crm/threads/[threadId]/reply/route.ts`
+Others need to know: Insurer replies are no longer user-triggered — they arrive automatically from the listener. Quarantine/quote-extraction path on the web side is unchanged (injector hidden text still handled by CRM extraction). New mail-service settings: mailpit_api_base, listener_enabled, listener_poll_seconds (3.0), reply_delay_seconds (6.0). Verification: `./dev.sh test-mail` 18 passed, `./dev.sh lint` clean, mail-service ruff clean; web `npm run build` exit 0, `npm run lint` clean, `npm test` 122 passed.
+Blockers: Could not run the live Docker Mailpit stack in this environment; poll→detect→ack→delayed-answer→CRM-callback wiring is covered by unit tests with mocked Mailpit API + CRM callback.
+---
+
+## 2026-10-20 | Marcus | Stored Brochure PDFs
+Status: Completed
+Done:
+- Scraper now keeps a real copy of each brochure PDF: new download_raw_pdf() (plain httpx, robots+rate-limit reuse, content-type/magic-byte check) + new pdf_store.store_pdf() (Supabase Storage REST upload, x-upsert, public-URL build, keyless no-op, failure-safe).
+- engine.run_scraper gained a decoupled, idempotent best-effort stored-PDF pass (after Phase 2) that seeds stored_doc_url for any plan with a known PDF source URL and no stored copy — independent of change detection. Failures never fail the run or wipe data. No scheduler/cron reintroduced; trigger stays POST /scraper/run.
+- Schema (additive, nullable): plans.stored_doc_url via Drizzle (migration 0011) + SQLAlchemy Plan mapping + Plan TS type storedDocUrl?. Migration is a pure ADD COLUMN.
+- Compare UI Source column now shows three views: Official page (productUrl), Official brochure (sourceUrl, live insurer PDF), Our copy/backup (storedDocUrl, only when present). i18n updated en+zh.
+- Supabase env wired into scraper/.env.example + docker-compose scraper service (reuses NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, no secrets committed).
+Files: scraper/app/config.py, scraper/app/scraper/downloader.py, scraper/app/scraper/pdf_store.py (new), scraper/app/scraper/engine.py, scraper/app/storage/database.py, scraper/.env.example, scraper/tests/test_pdf_store.py (new), scraper/tests/test_engine.py, web/src/lib/schema.ts, web/src/lib/types.ts, web/drizzle/0011_adorable_lady_vermin.sql (+meta), web/src/components/compare/plan-table.tsx, web/src/lib/i18n/messages/sections/compare.ts, docker-compose.yml
+Others need to know: stored_doc_url is nullable; existing rows stay NULL until the next admin-triggered run seeds them. Supabase config is optional — keyless = upload silently skipped, scrape still succeeds. The "documents" bucket must be public for the links to open.
+Blockers: none
 ---

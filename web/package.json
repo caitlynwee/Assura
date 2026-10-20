@@ -11,7 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/lib/migrate.ts",
     "db:seed": "tsx src/lib/seed.ts",
-    "db:seed-auth": "tsx src/lib/seed-auth.ts"
+    "db:seed-auth": "tsx src/lib/seed-auth.ts",
+    "db:grant-admin": "tsx src/lib/grant-admin.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

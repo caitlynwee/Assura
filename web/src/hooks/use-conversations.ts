@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { ChatConversation } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
 
 async function fetchConversations(): Promise<ChatConversation[]> {
   const res = await fetch("/api/chat/conversations", { cache: "no-store" });
@@ -14,15 +15,16 @@ async function fetchConversations(): Promise<ChatConversation[]> {
 export function useConversations() {
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const errText = useT().chat.loadHistoryFailed;
 
   const refresh = useCallback(() => {
     return fetchConversations()
       .then((list) => {
         setConversations(list);
-        setError(null);
+        setFailed(false);
       })
-      .catch(() => setError("Couldn't load your chat history."))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -31,9 +33,9 @@ export function useConversations() {
     fetchConversations()
       .then((list) => {
         setConversations(list);
-        setError(null);
+        setFailed(false);
       })
-      .catch(() => setError("Couldn't load your chat history."))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -60,6 +62,7 @@ export function useConversations() {
     [refresh]
   );
 
+  const error = failed ? errText : null;
   return { conversations, loading, error, refresh, remove, restore };
 }
 
@@ -73,7 +76,8 @@ export function useTrash(open: boolean) {
   const [items, setItems] = useState<TrashedConversation[]>([]);
   const [retentionDays, setRetentionDays] = useState(30);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const binErr = useT().chat.loadBinFailed;
 
   const load = useCallback(() => {
     return fetch("/api/chat/trash", { cache: "no-store" })
@@ -84,9 +88,9 @@ export function useTrash(open: boolean) {
       .then((data) => {
         setItems(data.conversations ?? []);
         if (typeof data.retentionDays === "number") setRetentionDays(data.retentionDays);
-        setError(null);
+        setFailed(false);
       })
-      .catch(() => setError("Couldn't load recently deleted chats."))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -106,9 +110,9 @@ export function useTrash(open: boolean) {
       .then((data) => {
         setItems(data.conversations ?? []);
         if (typeof data.retentionDays === "number") setRetentionDays(data.retentionDays);
-        setError(null);
+        setFailed(false);
       })
-      .catch(() => setError("Couldn't load recently deleted chats."))
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -136,5 +140,6 @@ export function useTrash(open: boolean) {
     setItems((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  const error = failed ? binErr : null;
   return { items, retentionDays, loading, error, reload: load, deleteForever, empty, forget };
 }

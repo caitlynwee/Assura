@@ -20,8 +20,17 @@ import {
   integer,
   jsonb,
   bigserial,
+  customType,
 } from "drizzle-orm/pg-core";
 import type { UserProfile } from "./types";
+
+// PostgreSQL bytea ↔ Node Buffer. postgres.js returns bytea as a Buffer and
+// accepts a Buffer on insert, so the driver mapping is an identity cast.
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return "bytea";
+  },
+});
 
 // ─── users ──────────────────────────────────────────────────────────────────
 // ConsentFlags is flattened to 8 boolean columns (queryable, matches flat seed).
@@ -30,7 +39,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
-  tier: text("tier").notNull(), // 'free' | 'premium'
+  tier: text("tier").notNull(), // 'free' | 'premium' | 'admin'
   maskedInbox: text("masked_inbox").notNull(),
   onboarded: boolean("onboarded").notNull(),
   // ConsentFlags (8 booleans)
@@ -84,12 +93,28 @@ export const plans = pgTable("plans", {
   exclusions: jsonb("exclusions").notNull(), // string[]
   sourceUrl: text("source_url").notNull(),
   productUrl: text("product_url").notNull().default(""),
+  storedDocUrl: text("stored_doc_url"), // our cached copy of the brochure PDF (nullable)
   dataAsOf: text("data_as_of").notNull(), // YYYY-MM-DD
   updatedBadge: boolean("updated_badge").notNull(),
   changeNotes: jsonb("change_notes").notNull(), // string[]
   version: integer("version").notNull(),
   scrapedAt: text("scraped_at").notNull(), // ISO 8601
   country: text("country").notNull(),
+});
+
+// ─── plan_brochures ───────────────────────────────────────────────────────────
+// Brochure files an admin uploads when manually adding a plan (a fallback for
+// failed scraping). Stored IN the database (bytea) rather than an external
+// bucket so it needs no extra infra and works in the Docker image; served back
+// through GET /api/plans/brochure/[id]. Size-capped in the upload route.
+export const planBrochures = pgTable("plan_brochures", {
+  id: text("id").primaryKey(),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  size: integer("size").notNull(), // bytes
+  data: bytea("data").notNull(),
+  uploadedBy: text("uploaded_by").notNull(), // app user id of the admin
+  uploadedAt: text("uploaded_at").notNull(), // ISO 8601
 });
 
 // ─── sources ────────────────────────────────────────────────────────────────
