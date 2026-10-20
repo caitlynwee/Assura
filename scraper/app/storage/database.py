@@ -153,7 +153,12 @@ def get_engine():
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
         url = url.replace("postgres://", "postgresql+psycopg://", 1)
         is_local = "localhost" in url or "127.0.0.1" in url
-        connect_args = {} if is_local else {"sslmode": "require"}
+        # prepare_threshold=None disables server-side prepared statements, which
+        # break on Supabase transaction-mode pooler (port 6543) because each
+        # transaction may land on a different backend that doesn't share state.
+        connect_args: dict = {"prepare_threshold": None}
+        if not is_local:
+            connect_args["sslmode"] = "require"
         _engine = create_engine(
             url,
             poolclass=NullPool,  # release connections immediately — scraper is a batch job
