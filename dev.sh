@@ -99,7 +99,9 @@ cmd_up_stripe() {
   esac
 
   info "Getting the local Stripe webhook signing secret..."
-  if ! webhook_secret="$(STRIPE_API_KEY="$stripe_key" stripe listen --print-secret)"; then
+  if ! webhook_secret="$(STRIPE_API_KEY="$stripe_key" stripe listen \
+    --events=customer.subscription.created,customer.subscription.updated,customer.subscription.deleted \
+    --print-secret)"; then
     error "Could not get a webhook secret. Check that the Stripe CLI can authenticate with this test key."
   fi
   case "$webhook_secret" in
