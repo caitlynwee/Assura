@@ -27,12 +27,15 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 24+
 
 **Option B — Local (no Docker)**
-- Node.js 20+
+- Node.js 22+
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) — `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - Mailpit — `brew install mailpit`
 
 The app uses Supabase for authentication and PostgreSQL, and DeepSeek for AI features. Configure the Supabase values, `DATABASE_URL`, and `DEEPSEEK_API_KEY` in the root `.env` before starting Docker.
+The web and scraper use small database connection pools for Supabase's limited
+session-mode pool. For larger deployments, use Supabase's transaction-mode
+pooler URL as recommended by Supabase.
 
 ---
 
@@ -68,12 +71,17 @@ For Docker, fill in the root `.env`:
 DATABASE_URL=<Supabase PostgreSQL connection string>
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<Supabase publishable/anon key>
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 SUPABASE_SERVICE_ROLE_KEY=<server-only Supabase secret key>
 DEEPSEEK_API_KEY=sk-...
 ```
 
 Use the bare Supabase project URL (no `/rest/v1/` path). Never expose
 `SUPABASE_SERVICE_ROLE_KEY` to the browser or commit real credentials.
+To enable account email changes, add `http://localhost:3000/auth/callback` to
+the Supabase project's allowed redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to the
+app's public origin in non-local deployments and allow that origin's
+`/auth/callback` URL too.
 `web/.env.local` is only needed when running the web app outside Docker; fill
 in the corresponding Supabase and DeepSeek values there too.
 
@@ -87,24 +95,36 @@ This runs the whole stack in Docker with the web app built for production.
 Open http://localhost:3000 — the app is running. Use the seeded demo account
 below. The initial one-shot migration also seeds the demo Supabase identity;
 that requires the Supabase URL, anon key, and service-role key.
+Other Supabase users can sign in with their own credentials; Assura creates a
+free app profile on first successful sign-in. Personal information is editable
+from **Settings** and stored in the PostgreSQL `users` table. The sign-in email
+is managed by Supabase and can be changed from Settings after confirming the
+new address. The shared demo account email remains fixed. Masked relay addresses use
+the `@relay.assura.local` domain and are routed only to local Mailpit; they are
+not real or externally deliverable email addresses.
 
 ---
 
 ## Running the project
 
-### All services together (Docker)
+### Docker
 
 ```bash
-./dev.sh up-prod         # recommended for the full demo; built web app in Docker
-./dev.sh up              # development mode; web runs with hot reload in Docker
-./dev.sh up --build      # development mode, rebuild images first
-./dev.sh down            # stop everything
-./dev.sh restart         # stop then start
+./dev.sh up              # web only; development mode with hot reload (Free/basic use)
+./dev.sh up --build      # web only, rebuilding its image first
+./dev.sh up-premium      # web + scraper email relay + Mailpit for Premium outreach demo
+./dev.sh up-scraper      # scraper + Mailpit without starting the web app
+./dev.sh up-prod         # full production-built Premium demo
+./dev.sh down            # stop all Assura services
 ```
 
-Both commands run the whole stack, including Mailpit. `up-prod` is the
-recommended presentation/test flow; `up` is for active development. The first
-start builds images and runs database migrations/seeding.
+The basic web app does not need the scraper or Mailpit. `up` starts only the
+web service and its required one-shot migration/seeding job. The scraper can
+run independently with `up-scraper`. In the current architecture, Premium
+outreach needs both Mailpit and the scraper service because the scraper hosts
+the local email relay and simulated insurer replies; `up-premium` starts those
+dependencies alongside the web app. `up-prod` is the recommended full demo
+flow. First startup builds images and runs database migrations/seeding.
 
 ### Single service — local (no Docker)
 
@@ -125,8 +145,9 @@ Run the services you're **not** working on in Docker, run your own service local
 ./dev.sh infra           # starts mailpit + scraper in Docker (background)
 ./dev.sh web             # run web locally in this terminal
 
-# Working on the scraper? Run everything else in Docker:
-docker compose up -d mailpit web
+# Working on the scraper? Run Mailpit in Docker, web and scraper locally:
+docker compose up -d mailpit
+./dev.sh web
 ./dev.sh scraper
 ```
 
@@ -138,9 +159,11 @@ docker compose up -d mailpit web
 ./dev.sh setup           Prepare root .env for Docker
 ./dev.sh setup --local   Also install local development dependencies
 
-./dev.sh up              Start all services in Docker (development/hot reload)
-./dev.sh up --build      Rebuild images then start in development mode
-./dev.sh up-prod         Start all services with production-built web (recommended demo)
+./dev.sh up              Start web only (development/hot reload)
+./dev.sh up --build      Rebuild web image then start development mode
+./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
+./dev.sh up-scraper      Start scraper + Mailpit separately from web
+./dev.sh up-prod         Start full production-built Premium demo (recommended)
 ./dev.sh down            Stop all services
 ./dev.sh restart         Stop + start
 ./dev.sh build web       Rebuild one image (web or scraper)
@@ -196,9 +219,12 @@ pre-commit run --all-files    # run them once across the repo
 
 | Field | Value |
 |---|---|
-| Email | `demo@fineprint.local` |
+| Email | `demo@assura.local` |
 | Password | `demo1234` |
 | Tier | Premium |
+
+The demo email uses the non-deliverable `.local` domain and is only a sign-in
+identifier; Supabase marks this seeded demo identity as confirmed.
 
 ---
 

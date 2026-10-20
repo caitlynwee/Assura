@@ -1,11 +1,11 @@
 [
   {
     "id": "user_demo",
-    "email": "demo@fineprint.local",
+    "email": "demo@assura.local",
     "passwordHash": "$2b$10$fl8xtGoL3PPh77IWiCHgk.2MAjn6iN7MRofEki3Q7DWDh7MtHzyA2",
     "name": "Demo User",
     "tier": "premium",
-    "maskedInbox": "user-demo@relay.fineprint.local",
+    "maskedInbox": "user-demo@relay.assura.local",
     "onboarded": true,
     "consent": {
       "shareAge": true,

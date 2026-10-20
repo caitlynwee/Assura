@@ -68,7 +68,7 @@ function makeThread(userId: string, overrides: Partial<Thread> = {}): Thread {
       {
         id: `msg_${id}`,
         direction: "outbound",
-        from: "user-demo@relay.fineprint.local",
+        from: "user-demo@relay.assura.local",
         to: "agent@aia.example",
         subject: "CI plan enquiry",
         body: "Could you share coverage and premium details?",
@@ -107,7 +107,7 @@ beforeAll(async () => {
       passwordHash: "x",
       name: "Other User",
       tier: "premium",
-      maskedInbox: "other@relay.fineprint.local",
+      maskedInbox: "other@relay.assura.local",
       onboarded: true,
       shareAge: false,
       shareGender: false,

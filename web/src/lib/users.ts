@@ -13,6 +13,7 @@ import {
   getUserByEmail,
   getUserByAuthUid,
   linkAuthUid,
+  syncUserEmailByAuthUid,
 } from "./db";
 import * as schema from "./schema";
 import { generateId } from "./utils";
@@ -40,7 +41,10 @@ export async function resolveOrCreateAuthUser(identity: {
   if (!identity?.id) return null;
 
   const byAuthUid = await getUserByAuthUid(identity.id);
-  if (byAuthUid) return byAuthUid;
+  if (byAuthUid) {
+    if (!identity.email) return byAuthUid;
+    return syncUserEmailByAuthUid(identity.id, identity.email);
+  }
   if (!identity.email) return null;
 
   const email = identity.email.trim().toLowerCase();
@@ -131,6 +135,7 @@ export async function createUser(input: {
     shareOccupation: false,
     shareHealthHistory: false,
     shareIncome: false,
+    profile: {},
     createdAt,
     authUid,
   });
@@ -144,6 +149,7 @@ export async function createUser(input: {
     maskedInbox: "",
     onboarded: false,
     consent: { ...DEFAULT_CONSENT },
+    profile: {},
     createdAt,
     ...(authUid != null ? { authUid } : {}),
   };
@@ -153,8 +159,6 @@ export async function createUser(input: {
  * Read-modify-write a single user. Applies the mutator to a copy of the user,
  * then persists all mutable fields back to the DB. Returns the updated user,
  * or undefined if missing.
- *
- * Note: `profile` on the User type is not persisted (no DB column yet).
  */
 export async function updateUser(
   id: string,
@@ -164,7 +168,11 @@ export async function updateUser(
   if (!user) return undefined;
 
   // Apply the mutation to a mutable copy.
-  const mutable: User = { ...user, consent: { ...user.consent } };
+  const mutable: User = {
+    ...user,
+    consent: { ...user.consent },
+    profile: { ...(user.profile ?? {}) },
+  };
   mutate(mutable);
 
   // Determine maskedInbox: generate one if the mutation left it blank.
@@ -174,8 +182,10 @@ export async function updateUser(
     .update(schema.users)
     .set({
       tier: mutable.tier,
+      name: mutable.name,
       maskedInbox,
       onboarded: mutable.onboarded,
+      profile: mutable.profile ?? {},
       shareAge: mutable.consent.shareAge,
       shareGender: mutable.consent.shareGender,
       shareSmokerStatus: mutable.consent.shareSmokerStatus,

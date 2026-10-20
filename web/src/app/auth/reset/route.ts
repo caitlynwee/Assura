@@ -4,8 +4,15 @@
  * requireUser() redirects here instead of looping between /login and /compare.
  */
 
-import { signOut } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
-export async function GET() {
-  await signOut({ redirectTo: "/login" });
+export async function GET(request: Request) {
+  const cookieStore = await cookies();
+  for (const cookie of cookieStore.getAll()) {
+    if (/^(?:__Secure-)?sb-.+-auth-token(?:\.\d+)?$/.test(cookie.name)) {
+      cookieStore.delete(cookie.name);
+    }
+  }
+  return NextResponse.redirect(new URL("/login?error=session-expired", request.url));
 }
