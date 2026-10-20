@@ -46,6 +46,6 @@
 
 # ── DevOps / infra — shared, owner reviews ───────────────────────────────────
 /.github/                           @caitlynwee
-/dev.sh                             @caitlynwee
+/scripts/run.sh                             @caitlynwee
 /docker-compose.yml                 @caitlynwee
 /.pre-commit-config.yaml            @caitlynwee
