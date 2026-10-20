@@ -387,3 +387,25 @@ Files: .env.example, README.md, dev.sh, web/.env.local.example, TASK.MD
 Others need to know: Use `./dev.sh up-prod` from any working directory for the Docker demo; it uses the root `.env`. Use `./dev.sh up` for Docker hot reload.
 Blockers: Push the resolved branch and complete GitHub PR merge.
 ---
+
+## 2026-10-20 | Copilot | Retire completed CRM/outreach handoff
+Status: Completed
+Done:
+- Confirmed the CRM/outreach integration, Mailpit delivery, persona simulations, quote workflow, audit verification, and Docker demo are implemented and have been exercised.
+- The handoff's remaining suggestions are optional improvements, not blockers for the working demo; removed the stale handoff rather than keep obsolete setup and validation guidance.
+- Removed the live AGENTS.md pointer; TASK.MD and PROJECT.MD remain the current project references.
+Files: docs/HANDOFF.md, AGENTS.md, TASK.MD
+Others need to know: The open/draft PR #7 and its remaining live Supabase smoke-test/merge decisions are tracked separately; this does not mark PR #7 merged or ready.
+Blockers: None for retiring this handoff.
+---
+
+## 2026-10-20 | Copilot | Retire Supabase Auth PR handoff
+Status: In Progress (PR #7 remains open and draft)
+Done:
+- Reconciled the PR handoff with current state: Docker demo login and Mailpit-only outreach are verified; web tests/build and scraper tests/targeted Ruff pass.
+- Removed the real-inbox/Brevo test from scope; approved outreach is deliberately local-only.
+- Removed the stale handoff; this log now carries the remaining PR gates.
+Files: docs/HANDOFF-supabase-auth-pr7.md, TASK.MD
+Others need to know: Still unverified against the live Supabase project: new-account signup and account deletion. Signup previously hit Supabase's email rate limit. PR #7 must remain draft until those checks are completed or explicitly waived, and the user approves merging.
+Blockers: Live Supabase signup/account-deletion smoke test and user decision on PR readiness/merge.
+---
