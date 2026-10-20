@@ -224,10 +224,22 @@ export interface BlockerResult {
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {
+  /** Server id. Present on saved messages; needed to edit a user message. */
+  id?: string;
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
   timestamp: string;
+}
+
+/** A saved Plan Q&A conversation (one entry in the chat-history sidebar). */
+export interface ChatConversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  /** ISO time it was moved to "Recently deleted"; null while active. */
+  deletedAt?: string | null;
 }
 
 export interface Citation {
