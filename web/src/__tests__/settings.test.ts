@@ -11,6 +11,7 @@ jest.mock("@/lib/auth", () => ({
       onboarded: true,
     },
   })),
+  refreshSessionCookie: jest.fn(async () => {}),
 }));
 
 jest.mock("@/lib/audit", () => ({
@@ -21,11 +22,30 @@ jest.mock("next/cache", () => ({
   revalidatePath: jest.fn(),
 }));
 
-import { findUserById } from "@/lib/users";
-import { saveSettingsAction } from "@/app/_actions/settings";
+jest.mock("next/navigation", () => ({
+  redirect: jest.fn(),
+}));
+
+import { findUserById, updateUser } from "@/lib/users";
+import { saveSettingsAction, downgradeToFreeAction } from "@/app/_actions/settings";
+import { auth, refreshSessionCookie } from "@/lib/auth";
+import { logEvent } from "@/lib/audit";
+import { redirect } from "next/navigation";
 
 describe("saveSettingsAction", () => {
   beforeEach(async () => {
+    jest.clearAllMocks();
+    (auth as jest.Mock).mockReset();
+    (auth as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_demo",
+        name: "Demo User",
+        email: "demo@fineprint.local",
+        tier: "premium",
+        maskedInbox: "",
+        onboarded: true,
+      },
+    });
     await resetDatabase();
   });
 
@@ -67,5 +87,49 @@ describe("saveSettingsAction", () => {
       name: "Demo User",
       profile: {},
     });
+  });
+
+  it("downgrades a personal Premium account to Free and refreshes auth metadata", async () => {
+    (auth as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_demo",
+        name: "Demo User",
+        email: "person@example.com",
+        tier: "premium",
+        maskedInbox: "",
+        onboarded: true,
+      },
+    });
+
+    await downgradeToFreeAction();
+
+    expect((await findUserById("user_demo"))?.tier).toBe("free");
+    expect(logEvent).toHaveBeenCalledWith("user_demo", "user.tier_changed", {
+      from: "premium",
+      to: "free",
+    });
+    expect(refreshSessionCookie).toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/compare?toast=downgraded");
+  });
+
+  it("keeps the shared demo account on Premium", async () => {
+    await updateUser("user_demo", (user) => {
+      user.tier = "premium";
+    });
+    (auth as jest.Mock).mockResolvedValueOnce({
+      user: {
+        id: "user_demo",
+        name: "Demo User",
+        email: "demo@fineprint.local",
+        tier: "premium",
+        maskedInbox: "",
+        onboarded: true,
+      },
+    });
+
+    await downgradeToFreeAction();
+
+    expect((await findUserById("user_demo"))?.tier).toBe("premium");
+    expect(redirect).toHaveBeenCalledWith("/settings?toast=downgrade-demo-blocked");
   });
 });
