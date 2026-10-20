@@ -6,7 +6,7 @@ Files land at ./scraper/app/debug/<tag>_<timestamp>.json on the host
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 DEBUG_DIR = Path(__file__).parent.parent / "debug"
@@ -21,7 +21,7 @@ def dump(tag: str, data: object) -> None:
         return
     try:
         DEBUG_DIR.mkdir(exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
+        ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%f")
         path = DEBUG_DIR / f"{tag}_{ts}.json"
         with path.open("w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2, default=str)

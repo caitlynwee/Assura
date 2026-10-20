@@ -114,7 +114,12 @@ async function verifyAccessToken(
       algorithms: ["ES256", "RS256"],
     });
     const appMetadata = (payload.app_metadata ?? {}) as { tier?: string };
-    const tier: UserTier = appMetadata.tier === "premium" ? "premium" : "free";
+    const tier: UserTier =
+      appMetadata.tier === "admin"
+        ? "admin"
+        : appMetadata.tier === "premium"
+          ? "premium"
+          : "free";
     return { isLoggedIn: true, tier };
   } catch {
     // Expired / forged / wrong-algorithm tokens → treat as signed-out.

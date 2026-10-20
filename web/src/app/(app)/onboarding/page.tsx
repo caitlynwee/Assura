@@ -11,7 +11,7 @@ export const metadata = { title: "Privacy & consent — Assura" };
 
 export default async function OnboardingPage() {
   const user = await requireUser();
-  if (user.tier !== "premium") redirect("/upgrade?from=/onboarding");
+  if (user.tier !== "premium" && user.tier !== "admin") redirect("/upgrade?from=/onboarding");
 
   return (
     <div className="max-w-4xl space-y-6">

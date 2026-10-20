@@ -33,7 +33,7 @@ function buildInsurerOptions(
 
 export default async function OutreachPage() {
   const user = await requireUser();
-  if (user.tier !== "premium") redirect("/upgrade?from=/outreach");
+  if (user.tier !== "premium" && user.tier !== "admin") redirect("/upgrade?from=/outreach");
   if (!user.onboarded) redirect("/onboarding");
 
   let insurers: Insurer[] = [];
