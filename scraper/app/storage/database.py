@@ -61,6 +61,7 @@ class Plan(Base):
     key_benefits = Column(JSONB, nullable=False)
     exclusions = Column(JSONB, nullable=False)
     source_url = Column(Text, nullable=False)
+    product_url = Column(Text, nullable=False, server_default="")
     data_as_of = Column(Text, nullable=False)
     updated_badge = Column(Boolean, nullable=False)
     change_notes = Column(JSONB, nullable=False)
@@ -186,6 +187,7 @@ def plan_to_camel(plan: Plan) -> dict[str, Any]:
         "keyBenefits": plan.key_benefits,
         "exclusions": plan.exclusions,
         "sourceUrl": plan.source_url,
+        "productUrl": plan.product_url,
         "dataAsOf": plan.data_as_of,
         "updatedBadge": plan.updated_badge,
         "changeNotes": plan.change_notes,
