@@ -1,19 +1,23 @@
 import Link from "next/link";
 import AuthCard from "@/components/auth/auth-card";
 import SignupForm from "@/components/auth/signup-form";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Create account — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).auth.signUpMeta };
+}
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  const a = (await getT()).auth;
   return (
     <AuthCard
-      title="Create your Assura account"
-      subtitle="Compare critical illness plans. Let AI ask insurers the hard questions — with your approval."
+      title={a.signUpTitle}
+      subtitle={a.signUpSubtitle}
       footer={
         <>
-          Already have an account?{" "}
+          {a.haveAccount}{" "}
           <Link href="/login" className="font-medium text-primary hover:underline">
-            Sign in
+            {a.signInLink}
           </Link>
         </>
       }

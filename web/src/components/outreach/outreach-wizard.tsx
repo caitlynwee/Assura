@@ -41,8 +41,8 @@ import {
   AI_DISCLOSURE_FOOTER,
   MAX_INSURERS_PER_OUTREACH,
   OUTREACH_TEMPLATES,
-  THREAD_STATUS_LABELS,
 } from "@/lib/constants";
+import { useLocale, useT } from "@/lib/i18n/client";
 import type { ConsentFlags, ThreadStatus, UserProfile } from "@/lib/types";
 import { profileAge } from "@/lib/profile";
 import ApprovalDialog from "./approval-dialog";
@@ -124,16 +124,14 @@ function toInt(v: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-const STATUS_BADGE: Record<
-  DraftStatus,
-  { label: string; variant: "gray" | "blue" | "green" | "red" | "yellow" }
-> = {
-  drafting: { label: "Drafting…", variant: "gray" },
-  ready: { label: "Ready for review", variant: "blue" },
-  sending: { label: "Sending…", variant: "yellow" },
-  sent: { label: "Sent", variant: "green" },
-  blocked: { label: "Blocked", variant: "red" },
-  failed: { label: "Failed", variant: "red" },
+// Labels: t.outreach.draftStatus[status].
+const STATUS_VARIANT: Record<DraftStatus, "gray" | "blue" | "green" | "red" | "yellow"> = {
+  drafting: "gray",
+  ready: "blue",
+  sending: "yellow",
+  sent: "green",
+  blocked: "red",
+  failed: "red",
 };
 
 function StepTitle({ n, children }: { n: number; children: React.ReactNode }) {
@@ -168,6 +166,15 @@ export default function OutreachWizard({
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [step, setStep] = useState<"compose" | "review">("compose");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const tt = useT();
+  const t = tt.outreach;
+  const pl = tt.profile;
+  const { locale } = useLocale();
+  // Server error text is English; in Chinese show our own translated message.
+  const serverText = (msg: unknown): string | undefined =>
+    locale === "en" && typeof msg === "string" ? msg : undefined;
+  const tplText = (id: string, fallback: { label: string; description: string }) =>
+    t.templates[id] ?? fallback;
 
   const template = OUTREACH_TEMPLATES.find((t) => t.id === templateId)!;
   const byId = useMemo(() => new Map(insurers.map((i) => [i.id, i])), [insurers]);
@@ -287,19 +294,19 @@ export default function OutreachWizard({
         if (res.ok) {
           patchDraft(d.insurerId, { status: "sent", threadId: data.threadId });
         } else if (data.code === "PII_BLOCKED") {
-          patchDraft(d.insurerId, { status: "blocked", approved: false, error: data.error });
+          patchDraft(d.insurerId, { status: "blocked", approved: false, error: serverText(data.error) ?? t.blockedGeneric });
         } else {
           patchDraft(d.insurerId, {
             status: "failed",
             approved: false,
-            error: data.error ?? `Send failed (HTTP ${res.status}).`,
+            error: serverText(data.error) ?? t.sendFailed(res.status),
           });
         }
       } catch {
         patchDraft(d.insurerId, {
           status: "failed",
           approved: false,
-          error: "Network error — is the dev server and Mailpit running?",
+          error: t.networkError,
         });
       }
     }
@@ -317,7 +324,7 @@ export default function OutreachWizard({
       {
         key: "age",
         consentKey: "shareAge",
-        label: "Age",
+        label: t.ctx.age,
         input: (
           <Input
             id="ctx-age"
@@ -332,7 +339,7 @@ export default function OutreachWizard({
       {
         key: "gender",
         consentKey: "shareGender",
-        label: "Gender",
+        label: t.ctx.gender,
         input: (
           <Select
             value={ctx.gender ?? ""}
@@ -342,9 +349,9 @@ export default function OutreachWizard({
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+              <SelectItem value="female">{pl.female}</SelectItem>
+              <SelectItem value="male">{pl.male}</SelectItem>
+              <SelectItem value="prefer_not_to_say">{pl.preferNotToSay}</SelectItem>
             </SelectContent>
           </Select>
         ),
@@ -352,7 +359,7 @@ export default function OutreachWizard({
       {
         key: "smoker",
         consentKey: "shareSmokerStatus",
-        label: "Smoker",
+        label: t.ctx.smoker,
         input: (
           <Select
             value={ctx.smoker === undefined ? "" : ctx.smoker ? "yes" : "no"}
@@ -362,8 +369,8 @@ export default function OutreachWizard({
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="no">Non-smoker</SelectItem>
-              <SelectItem value="yes">Smoker</SelectItem>
+              <SelectItem value="no">{pl.nonSmoker}</SelectItem>
+              <SelectItem value="yes">{pl.smoker}</SelectItem>
             </SelectContent>
           </Select>
         ),
@@ -371,7 +378,7 @@ export default function OutreachWizard({
       {
         key: "coverageNeeded",
         consentKey: "shareCoverageNeeds",
-        label: "Cover (SGD)",
+        label: t.ctx.cover,
         input: (
           <Input
             id="ctx-coverageNeeded"
@@ -384,7 +391,7 @@ export default function OutreachWizard({
       {
         key: "monthlyBudget",
         consentKey: "shareBudgetRange",
-        label: "Budget/mo (SGD)",
+        label: t.ctx.budget,
         input: (
           <Input
             id="ctx-monthlyBudget"
@@ -401,11 +408,11 @@ export default function OutreachWizard({
         {/* 1 — Insurers */}
         <Card>
           <CardHeader>
-            <StepTitle n={1}>Choose insurers</StepTitle>
-            <CardDescription>The AI writes one email per insurer.</CardDescription>
+            <StepTitle n={1}>{t.step1}</StepTitle>
+            <CardDescription>{t.step1Desc}</CardDescription>
             <CardAction>
               <Badge variant={selected.length ? "blue" : "secondary"}>
-                {selected.length}/{MAX_INSURERS_PER_OUTREACH} selected
+                {t.selectedCount(selected.length, MAX_INSURERS_PER_OUTREACH)}
               </Badge>
             </CardAction>
           </CardHeader>
@@ -440,7 +447,7 @@ export default function OutreachWizard({
                       <span className="block truncate text-sm font-medium">{ins.name}</span>
                       {ins.existingThread ? (
                         <span className="block truncate text-xs text-amber-700">
-                          Already contacted · {THREAD_STATUS_LABELS[ins.existingThread.status]}
+                          {t.alreadyContacted(tt.crm.status[ins.existingThread.status] ?? ins.existingThread.status)}
                         </span>
                       ) : (
                         <span className="block truncate text-xs text-muted-foreground">{ins.agentEmail}</span>
@@ -456,13 +463,13 @@ export default function OutreachWizard({
         {/* 2 — Template */}
         <Card>
           <CardHeader>
-            <StepTitle n={2}>What do you want to ask?</StepTitle>
+            <StepTitle n={2}>{t.step2}</StepTitle>
           </CardHeader>
           <CardContent className="space-y-5">
             <RadioGroup
               value={templateId}
               onValueChange={setTemplateId}
-              aria-label="Question template"
+              aria-label={t.templateGroup}
               className="sm:grid-cols-2 lg:grid-cols-3"
             >
               {OUTREACH_TEMPLATES.filter((t) => t.id !== "follow_up").map((t) => (
@@ -476,24 +483,24 @@ export default function OutreachWizard({
                 >
                   <RadioGroupItem id={`tpl-${t.id}`} value={t.id} className="mt-0.5" />
                   <span>
-                    <span className="block text-sm font-medium">{t.label}</span>
-                    <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{t.description}</span>
+                    <span className="block text-sm font-medium">{tplText(t.id, t).label}</span>
+                    <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{tplText(t.id, t).description}</span>
                   </span>
                 </Label>
               ))}
             </RadioGroup>
 
             <div className="grid gap-2">
-              <Label htmlFor="notes">Notes for insurers (optional)</Label>
+              <Label htmlFor="notes">{t.notesLabel}</Label>
               <Textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
                 maxLength={1000}
-                placeholder="e.g. I'd like to understand how payouts work for early-stage conditions."
+                placeholder={t.notesPlaceholder}
               />
-              <p className="text-xs text-muted-foreground">Added to every draft. You can still edit each email.</p>
+              <p className="text-xs text-muted-foreground">{t.notesHint}</p>
             </div>
           </CardContent>
         </Card>
@@ -501,13 +508,11 @@ export default function OutreachWizard({
         {/* 3 — Shared details */}
         <Card>
           <CardHeader>
-            <StepTitle n={3}>Details the AI may use</StepTitle>
-            <CardDescription>
-              Only fields you consented to share are editable here. Everything else stays private.
-            </CardDescription>
+            <StepTitle n={3}>{t.step3}</StepTitle>
+            <CardDescription>{t.step3Desc}</CardDescription>
             <CardAction>
               <Button asChild variant="link" size="sm" className="h-auto p-0">
-                <Link href="/onboarding">Change consent</Link>
+                <Link href="/onboarding">{t.changeConsent}</Link>
               </Button>
             </CardAction>
           </CardHeader>
@@ -523,7 +528,7 @@ export default function OutreachWizard({
                   ) : (
                     <div className="flex h-9 items-center gap-1.5 rounded-md border border-dashed px-3 text-xs text-muted-foreground">
                       <LockIcon className="size-3" />
-                      Not shared
+                      {t.notShared}
                     </div>
                   )}
                 </div>
@@ -535,9 +540,9 @@ export default function OutreachWizard({
         <div className="flex flex-wrap items-center gap-3">
           <Button size="lg" onClick={generateDrafts} disabled={selected.length === 0}>
             <SparklesIcon />
-            Draft {selected.length || ""} email{selected.length === 1 ? "" : "s"} with AI
+            {t.draftButton(selected.length)}
           </Button>
-          <p className="text-xs text-muted-foreground">Drafting has no side effects. Nothing is sent until you approve.</p>
+          <p className="text-xs text-muted-foreground">{t.draftHint}</p>
         </div>
       </div>
     );
@@ -555,10 +560,10 @@ export default function OutreachWizard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" onClick={() => setStep("compose")} disabled={anySending}>
           <ArrowLeftIcon />
-          Back
+          {t.back}
         </Button>
         <p className="text-sm text-muted-foreground">
-          From{" "}
+          {t.from}{" "}
           <span className="font-mono text-foreground">
             {maskedInbox}
           </span>
@@ -569,13 +574,13 @@ export default function OutreachWizard({
         <Alert variant="success">
           <CheckCircle2Icon />
           <AlertTitle>
-            {sentCount} email{sentCount === 1 ? "" : "s"} sent
+            {t.sentCount(sentCount)}
           </AlertTitle>
           <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-            <p>Replies will appear in your CRM.</p>
+            <p>{t.repliesInCrm}</p>
             <Button asChild size="sm" variant="outline" className="bg-card">
               <Link href="/crm">
-                Open CRM
+                {t.openCrm}
                 <ArrowRightIcon />
               </Link>
             </Button>
@@ -587,14 +592,14 @@ export default function OutreachWizard({
         const insurer = byId.get(d.insurerId)!;
         const hits = d.status === "drafting" ? [] : previewPII(`${d.subject}\n${d.body}`);
         const locked = d.status === "sending" || d.status === "sent";
-        const badge = STATUS_BADGE[d.status];
+        const badge = { label: t.draftStatus[d.status], variant: STATUS_VARIANT[d.status] };
         const approveId = `approve-${d.insurerId}`;
 
         return (
           <Card
             key={d.insurerId}
             role="article"
-            aria-label={`Email to ${insurer.name}`}
+            aria-label={t.emailTo(insurer.name)}
             className={cn(
               d.status === "blocked" && "border-red-300",
               d.status === "sent" && "border-green-300"
@@ -602,18 +607,18 @@ export default function OutreachWizard({
           >
             <CardHeader>
               <CardTitle>{insurer.name}</CardTitle>
-              <CardDescription>To {insurer.agentEmail}</CardDescription>
+              <CardDescription>{t.to(insurer.agentEmail)}</CardDescription>
               <CardAction className="flex items-center gap-2">
                 {d.status !== "drafting" &&
                   (d.source === "template" ? (
                     <Badge variant="gray">
                       <FileTextIcon />
-                      Template draft · AI unavailable
+                      {t.templateDraft}
                     </Badge>
                   ) : (
                     <Badge variant="purple">
                       <BotIcon />
-                      AI draft
+                      {t.aiDraft}
                     </Badge>
                   ))}
                 <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -631,12 +636,12 @@ export default function OutreachWizard({
               <>
                 <CardContent className="space-y-4">
                   <div className="rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Added automatically: </span>
+                    <span className="font-medium text-foreground">{t.addedAutomatically}</span>
                     {AI_DISCLOSURE_FOOTER}
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor={`subject-${d.insurerId}`}>Subject</Label>
+                    <Label htmlFor={`subject-${d.insurerId}`}>{t.subject}</Label>
                     <Input
                       id={`subject-${d.insurerId}`}
                       value={d.subject}
@@ -646,7 +651,12 @@ export default function OutreachWizard({
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor={`body-${d.insurerId}`}>Message</Label>
+                    <Label htmlFor={`body-${d.insurerId}`}>
+                      {t.message}
+                      {locale !== "en" && (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">{t.emailLanguageNote}</span>
+                      )}
+                    </Label>
                     <Textarea
                       id={`body-${d.insurerId}`}
                       value={d.body}
@@ -669,10 +679,10 @@ export default function OutreachWizard({
                   {d.status === "blocked" && (
                     <Alert variant="destructive">
                       <ShieldBanIcon />
-                      <AlertTitle>Blocked by the personal-data guard</AlertTitle>
+                      <AlertTitle>{t.blockedTitle}</AlertTitle>
                       <AlertDescription>
                         <p>{d.error}</p>
-                        <p className="text-xs">Nothing was sent. This attempt was recorded in your activity log.</p>
+                        <p className="text-xs">{t.blockedNote}</p>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -685,7 +695,7 @@ export default function OutreachWizard({
                   {hits.length > 0 && d.status !== "blocked" && !locked && (
                     <Alert variant="warning">
                       <TriangleAlertIcon />
-                      <AlertTitle>This email contains personal data and will be blocked</AlertTitle>
+                      <AlertTitle>{t.willBeBlocked}</AlertTitle>
                       <AlertDescription>
                         <div className="flex flex-wrap gap-1.5">
                           {hits.map((h, i) => (
@@ -694,7 +704,7 @@ export default function OutreachWizard({
                               variant="outline"
                               className="border-amber-300 bg-card font-mono font-normal"
                             >
-                              {h.type}: {h.value}
+                              {t.piiTypes[h.type] ?? h.type}: {h.value}
                             </Badge>
                           ))}
                         </div>
@@ -708,7 +718,7 @@ export default function OutreachWizard({
                     <Button asChild variant="link" className="h-auto p-0 text-green-700">
                       <Link href={d.threadId ? `/crm/${d.threadId}` : "/crm"}>
                         <CheckCircle2Icon />
-                        Sent — view thread
+                        {t.sentViewThread}
                         <ArrowRightIcon />
                       </Link>
                     </Button>
@@ -721,7 +731,7 @@ export default function OutreachWizard({
                         onCheckedChange={(c) => patchDraft(d.insurerId, { approved: c === true })}
                       />
                       <Label htmlFor={approveId} className="font-normal">
-                        I&apos;ve reviewed this email and approve sending it
+                        {t.approveCheckbox}
                       </Label>
                     </div>
                   )}
@@ -729,7 +739,7 @@ export default function OutreachWizard({
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => draftOne(d.insurerId)}>
                         <RefreshCwIcon />
-                        Redraft
+                        {t.redraft}
                       </Button>
                       <Button
                         variant="ghost"
@@ -744,7 +754,7 @@ export default function OutreachWizard({
                         }}
                       >
                         <Trash2Icon />
-                        Remove
+                        {t.remove}
                       </Button>
                     </div>
                   )}
@@ -757,7 +767,7 @@ export default function OutreachWizard({
 
       <div className="sticky bottom-0 -mx-6 flex flex-wrap items-center justify-between gap-3 border-t bg-card/95 px-6 py-3 backdrop-blur">
         <p className="text-sm text-muted-foreground">
-          {approvedDrafts.length} of {list.filter((d) => d.status !== "sent").length} approved
+          {t.approvedCount(approvedDrafts.length, list.filter((d) => d.status !== "sent").length)}
         </p>
         <Button
           onClick={() => setConfirmOpen(true)}
@@ -765,7 +775,7 @@ export default function OutreachWizard({
           loading={anySending}
         >
           <SendIcon />
-          Send {approvedDrafts.length || ""} approved
+          {t.sendApproved(approvedDrafts.length)}
         </Button>
       </div>
 

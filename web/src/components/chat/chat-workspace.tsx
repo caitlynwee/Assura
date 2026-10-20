@@ -12,6 +12,7 @@ import type { ChatConversation } from "@/lib/types";
 import ChatHistorySidebar from "./chat-history-sidebar";
 import ChatTrashDialog from "./chat-trash-dialog";
 import ChatWindow from "./chat-window";
+import { useT } from "@/lib/i18n/client";
 
 /**
  * Plan Q&A with saved history: a conversation list on the left (new chat,
@@ -23,6 +24,7 @@ export default function ChatWorkspace() {
   const [activeId, setActiveIdState] = useState<string | null>(searchParams.get("c"));
   const [showHistoryMobile, setShowHistoryMobile] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const t = useT().chat;
 
   const { conversations, loading: listLoading, error: listError, refresh, remove, restore } =
     useConversations();
@@ -58,17 +60,17 @@ export default function ChatWorkspace() {
   async function moveToTrash(c: ChatConversation) {
     const ok = await remove(c.id);
     if (!ok) {
-      toast.error("Couldn't delete this chat. Please try again.");
+      toast.error(t.deleteFailed);
       return;
     }
     if (c.id === activeId) setActiveId(null);
-    toast("Moved to Recently deleted", {
+    toast(t.movedToBin, {
       description: c.title,
       action: {
-        label: "Undo",
+        label: t.undo,
         onClick: async () => {
           if (await restore(c.id)) trash.forget(c.id);
-          else toast.error("Couldn't restore this chat.");
+          else toast.error(t.restoreFailed);
         },
       },
     });
@@ -78,7 +80,7 @@ export default function ChatWorkspace() {
     const ok = await restore(id);
     if (ok) {
       trash.forget(id);
-      toast.success("Chat restored");
+      toast.success(t.restored);
     }
     return ok;
   }
@@ -111,7 +113,7 @@ export default function ChatWorkspace() {
           <aside className="w-72 max-w-[85%] border-r bg-card shadow-lg">{sidebar}</aside>
           <button
             type="button"
-            aria-label="Close chat history"
+            aria-label={t.closeHistory}
             className="flex-1 bg-black/30"
             onClick={() => setShowHistoryMobile(false)}
           />
@@ -122,7 +124,7 @@ export default function ChatWorkspace() {
         <div className="flex items-center gap-2 border-b px-3 py-2 md:hidden">
           <Button variant="ghost" size="sm" onClick={() => setShowHistoryMobile(true)}>
             <HistoryIcon />
-            History
+            {t.history}
           </Button>
           <Button
             variant="ghost"
@@ -132,7 +134,7 @@ export default function ChatWorkspace() {
             disabled={streaming}
           >
             <PlusIcon />
-            New chat
+            {t.newChat}
           </Button>
         </div>
         <ChatWindow

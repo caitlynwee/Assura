@@ -709,6 +709,17 @@ Done: Confirmed empty insurer contact emails caused Mailpit's `invalid TO parame
 Files: `web/src/lib/insurer-recipient.ts`, `web/src/app/(app)/outreach/page.tsx`, `web/src/app/api/outreach/send/route.ts`, `mail-service/app/{relay,simulator}.py`
 Others need to know: Messages remain local to Mailpit; rebuild/restart mail and web services with `./dev.sh up-stripe --build` to load the changes.
 Blockers: None.
+
+
+## 2026-10-20 | Dominic | English ⇄ Simplified Chinese for the whole site
+Status: Completed
+Done:
+- Language toggle ("中文" / "English") in the app top bar and the public navbar. Choice is stored in the `assura-locale` cookie (1 year) so server pages, server actions, API routes and client components agree and it survives reloads; first visit follows the browser language (zh-* → Chinese). `<html lang>` and page titles follow it.
+- `web/src/lib/i18n/`: `config.ts`, `server.ts` (`getT()`/`getLocale()` for server components/actions/routes), `client.tsx` (`<I18nProvider>`, `useT()`, `useLocale()`), and `messages/sections/*.ts` with English and Chinese side by side via `section(en, zh)` — a missing/extra translation is a TypeScript error.
+- Every page/component translated: home, login/signup (incl. validation errors), layout, settings, onboarding, upgrade, delete account, toasts, compare (incl. match reasons), chat (history, bin, edit), outreach, CRM, activity, admin dashboard. Dates use zh-CN formatting.
+- Plan Q&A answers come back in Simplified Chinese when Chinese is selected (plan/insurer names and citations kept verbatim so sources stay checkable). Outreach emails stay English (they go to Singapore insurers); a note says so. Plan data, insurer names, emails and audit action IDs are data and stay as-is.
+- Tests: i18n.test.ts (same keys, same function signatures, nothing empty, Chinese entries really Chinese, browser-language default). Suite 126/126; build/tsc/lint clean; every page checked in a browser in both languages.
+Others need to know: New UI text → add it to the matching file in `web/src/lib/i18n/messages/sections/` (both languages) and use `useT()` (client) or `await getT()` (server). Terms: critical illness = 危疾, premium (price) = 保费, Free/Premium tier = 免费版/高级版.
 ---
 ## 2026-10-20 | Jeff | Realistic Mailpit reply listener
 Status: Completed

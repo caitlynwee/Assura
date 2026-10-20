@@ -4,12 +4,14 @@ import { useState } from "react";
 import { ShieldCheckIcon, ShieldXIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/client";
 
 type VerifyState = "idle" | "loading" | "valid" | "invalid";
 
 export default function VerifyChainButton() {
   const [state, setState] = useState<VerifyState>("idle");
   const [detail, setDetail] = useState<string>("");
+  const t = useT().activity;
 
   async function handleVerify() {
     setState("loading");
@@ -18,14 +20,14 @@ export default function VerifyChainButton() {
       const data = await res.json();
       if (data.valid) {
         setState("valid");
-        setDetail(`${data.entries} entries verified`);
+        setDetail(t.entriesVerified(data.entries));
       } else {
         setState("invalid");
-        setDetail(`chain broken at entry ${data.brokenAt}`);
+        setDetail(t.brokenAt(data.brokenAt));
       }
     } catch {
       setState("invalid");
-      setDetail("verification request failed");
+      setDetail(t.verifyFailed);
     }
   }
 
@@ -34,18 +36,18 @@ export default function VerifyChainButton() {
       {state === "valid" && (
         <Badge variant="green" className="h-7 px-2.5 text-sm">
           <ShieldCheckIcon className="!size-4" />
-          Chain intact — {detail}
+          {t.intact} — {detail}
         </Badge>
       )}
       {state === "invalid" && (
         <Badge variant="red" className="h-7 px-2.5 text-sm">
           <ShieldXIcon className="!size-4" />
-          Tampered — {detail}
+          {t.tampered} — {detail}
         </Badge>
       )}
       <Button onClick={handleVerify} loading={state === "loading"}>
         {state !== "loading" && <ShieldCheckIcon />}
-        Verify chain
+        {t.verify}
       </Button>
     </div>
   );

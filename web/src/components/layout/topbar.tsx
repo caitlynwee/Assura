@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PublicUser } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import LanguageSwitcher from "@/components/i18n/language-switcher";
 
 function initials(nameOrEmail: string) {
   const parts = nameOrEmail.split(/[\s@._-]+/).filter(Boolean);
@@ -28,8 +30,11 @@ export default function Topbar({ user }: { user: PublicUser }) {
   const admin = user.tier === "admin";
   const hasOutreachAccess = premium || admin;
   const logoutForm = useRef<HTMLFormElement>(null);
+  const tt = useT();
+  const t = tt.layout.topbar;
   return (
     <header className="flex h-14 items-center justify-end gap-3 border-b bg-card px-6">
+      <LanguageSwitcher />
       {hasOutreachAccess && user.maskedInbox && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -38,19 +43,19 @@ export default function Topbar({ user }: { user: PublicUser }) {
               {user.maskedInbox}
             </Badge>
           </TooltipTrigger>
-          <TooltipContent>Insurers only ever see this relay address</TooltipContent>
+          <TooltipContent>{t.relayTooltip}</TooltipContent>
         </Tooltip>
       )}
 
       {admin ? (
-        <Badge variant="blue">Admin</Badge>
+        <Badge variant="blue">{tt.common.admin}</Badge>
       ) : premium ? (
-        <Badge variant="blue">Premium</Badge>
+        <Badge variant="blue">{tt.common.premium}</Badge>
       ) : (
         <Button asChild size="sm" variant="outline">
           <Link href="/upgrade">
             <SparklesIcon />
-            Upgrade
+            {t.upgrade}
           </Link>
         </Button>
       )}
@@ -59,7 +64,7 @@ export default function Topbar({ user }: { user: PublicUser }) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-9 gap-2 px-2" aria-label="Account menu">
+          <Button variant="ghost" className="h-9 gap-2 px-2" aria-label={t.accountMenu}>
             <Avatar className="size-7">
               <AvatarFallback className="bg-accent text-accent-foreground">
                 {initials(user.name || user.email)}
@@ -79,27 +84,27 @@ export default function Topbar({ user }: { user: PublicUser }) {
           <DropdownMenuItem asChild>
             <Link href="/settings">
               <SettingsIcon />
-              Settings
+              {t.settings}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href={hasOutreachAccess ? "/onboarding" : "/upgrade"}>
               <ShieldCheckIcon />
-              Privacy &amp; consent
+              {t.privacy}
             </Link>
           </DropdownMenuItem>
           {!hasOutreachAccess && (
             <DropdownMenuItem asChild>
               <Link href="/upgrade">
                 <SparklesIcon />
-                Upgrade to Premium
+                {t.upgradeToPremium}
               </Link>
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => logoutForm.current?.requestSubmit()}>
             <LogOutIcon />
-            Sign out
+            {t.signOut}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

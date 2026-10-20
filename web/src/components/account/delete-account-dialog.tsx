@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useT } from "@/lib/i18n/client";
 
 export default function DeleteAccountDialog({
   open,
@@ -33,23 +34,21 @@ export default function DeleteAccountDialog({
 }) {
   const [confirm, setConfirm] = useState("");
   const armed = confirm.trim().toUpperCase() === "DELETE";
+  const tt = useT();
+  const t = tt.account.deleteDialog;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete your account</DialogTitle>
-          <DialogDescription>
-            This permanently deletes your account, your outreach threads, and all
-            extracted quotes. It cannot be undone. Your audit log entries are kept
-            (append-only) for integrity.
-          </DialogDescription>
+          <DialogTitle>{t.title}</DialogTitle>
+          <DialogDescription>{t.desc}</DialogDescription>
         </DialogHeader>
 
         <form action={deleteAccountAction} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="confirm-delete">
-              Type <span className="font-mono font-semibold">DELETE</span> to confirm
+              {t.typeBefore} <span className="font-mono font-semibold">{t.confirmWord}</span> {t.typeAfter}
             </Label>
             <Input
               id="confirm-delete"
@@ -62,11 +61,11 @@ export default function DeleteAccountDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tt.common.cancel}
             </Button>
             <Button type="submit" variant="destructive" disabled={!armed}>
               <Trash2Icon />
-              Delete account
+              {t.confirmButton}
             </Button>
           </DialogFooter>
         </form>

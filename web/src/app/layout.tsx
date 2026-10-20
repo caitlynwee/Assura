@@ -4,27 +4,32 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Toaster } from "sonner";
+import { HTML_LANG } from "@/lib/i18n/config";
+import { getLocale, getT } from "@/lib/i18n/server";
+import { I18nProvider } from "@/lib/i18n/client";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Assura — AI Insurance Assistant",
-  description:
-    "Compare critical illness insurance plans and let AI contact insurers on your behalf — with your approval at every step.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t.layout.metaTitle, description: t.layout.metaDescription };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
   return (
     <html
-      lang="en"
+      lang={HTML_LANG[locale]}
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        {children}
-        <Toaster richColors position="top-center" />
+        <I18nProvider initialLocale={locale}>
+          {children}
+          <Toaster richColors position="top-center" />
+        </I18nProvider>
       </body>
     </html>
   );
