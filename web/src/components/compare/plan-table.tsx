@@ -86,7 +86,7 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                   ))}
                 </TableRow>
               ))
-            ) : plans.filter((p) => p.coverageAmount > 0).length === 0 ? (
+            ) : plans.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={COLUMNS.length} className="py-12 text-center text-muted-foreground">
                   <SearchXIcon className="mx-auto mb-2 size-6" />
@@ -94,7 +94,7 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                 </TableCell>
               </TableRow>
             ) : (
-              plans.filter((p) => p.coverageAmount > 0).map((plan) => {
+              plans.map((plan) => {
                 const resolved = resolvePremium(profile ?? {}, plan.premiums);
                 const within = isWithinBudget(resolved.premium, monthlyBudget);
                 const meetsCoverage = meetsCoverageNeed(plan.coverageAmount, coverageNeeded);
@@ -113,7 +113,7 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       <div className="flex flex-col items-end gap-1">
-                        <span>{formatCurrency(plan.coverageAmount)}</span>
+                        <span>{plan.coverageAmount ? formatCurrency(plan.coverageAmount) : "—"}</span>
                         {meetsCoverage && (
                           <Badge variant="blue" className="font-normal">
                             meets coverage need
@@ -158,16 +158,31 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                       )}
                     </TableCell>
                     <TableCell className="pr-4 text-xs">
-                      <a
-                        href={plan.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                      >
-                        Brochure
-                        <ExternalLinkIcon className="size-3" />
-                      </a>
-                      <p className="text-muted-foreground">as of {plan.dataAsOf}</p>
+                      <div className="flex flex-col gap-0.5">
+                        {plan.sourceUrl && (
+                          <a
+                            href={plan.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                          >
+                            Brochure
+                            <ExternalLinkIcon className="size-3" />
+                          </a>
+                        )}
+                        {plan.productUrl && (
+                          <a
+                            href={plan.productUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            Product page
+                            <ExternalLinkIcon className="size-3" />
+                          </a>
+                        )}
+                        <p className="text-muted-foreground">as of {plan.dataAsOf}</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

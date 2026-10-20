@@ -14,7 +14,6 @@ at least one source changed and Phase 2 succeeds per plan (errors are non-fatal)
 
 import uuid
 
-from app.config import settings
 from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
 from app.scraper.discovery import discover_top_insurers
@@ -55,7 +54,15 @@ def _upsert_discovered(session, discovered: list[dict]) -> None:
         # PDF brochure source
         if co.get("brochure_url"):
             pdf_id = f"src_{co['insurer_id']}_ci_pdf"
-            if not session.query(Source).filter_by(id=pdf_id).first():
+            existing_pdf = session.query(Source).filter_by(id=pdf_id).first()
+            if existing_pdf:
+                if existing_pdf.url != co["brochure_url"]:
+                    existing_pdf.url = co["brochure_url"]
+                    existing_pdf.content_hash = None
+                    existing_pdf.etag = None
+                    existing_pdf.last_modified = None
+                    existing_pdf.status = "pending"
+            else:
                 session.add(
                     Source(
                         id=pdf_id,
@@ -77,7 +84,15 @@ def _upsert_discovered(session, discovered: list[dict]) -> None:
         # Product page source
         if co.get("product_url"):
             page_id = f"src_{co['insurer_id']}_ci_page"
-            if not session.query(Source).filter_by(id=page_id).first():
+            existing_page = session.query(Source).filter_by(id=page_id).first()
+            if existing_page:
+                if existing_page.url != co["product_url"]:
+                    existing_page.url = co["product_url"]
+                    existing_page.content_hash = None
+                    existing_page.etag = None
+                    existing_page.last_modified = None
+                    existing_page.status = "pending"
+            else:
                 session.add(
                     Source(
                         id=page_id,
@@ -104,25 +119,30 @@ async def run_scraper(
     source_id: str | None = None,
     country: str | None = None,
 ) -> dict:
-    country = country or settings.current_country
+    country = country or "Singapore"
     run_id = str(uuid.uuid4())
     started_at = now_utc_iso()
 
     session = get_session()
     try:
-        # ── Discovery ──────────────────────────────────────────────────────────
+        # ── Discovery — only when no sources exist for this country ───────────
+        # Skipping discovery on re-runs avoids burning Firecrawl credits and
+        # prevents UniqueViolation/PendingRollback errors when rows already exist.
         if not source_id:
-            try:
-                discovered = await discover_top_insurers(country)
-                _upsert_discovered(session, discovered)
-            except Exception:  # noqa: BLE001, S110
-                pass  # non-fatal — proceed with existing sources
+            existing_count = session.query(Source).filter_by(country=country).count()
+            if existing_count == 0:
+                try:
+                    discovered = await discover_top_insurers(country)
+                    _upsert_discovered(session, discovered)
+                except Exception:  # noqa: BLE001
+                    session.rollback()  # reset session so subsequent queries work
 
         # ── Load sources ───────────────────────────────────────────────────────
         if source_id:
             sources = session.query(Source).filter_by(id=source_id).all()
         else:
             sources = session.query(Source).filter_by(country=country).all()
+        print(f"[engine] loaded {len(sources)} sources: {[s.id for s in sources]}")
 
         insurers_by_id = {i.id: i for i in session.query(Insurer).all()}
         plans_by_id = {p.id: p for p in session.query(Plan).all()}
@@ -132,7 +152,8 @@ async def run_scraper(
         errors = []
 
         # ── Phase 1: Download per source, accumulate text by plan_id ──────────
-        # plan_texts: plan_id → {pdf: str, product_page: str, source_dict: dict}
+        # plan_texts: plan_id → {pdf: str, product_page: str, source_dict: dict,
+        #                         pdf_url: str, product_url: str}
         plan_texts: dict[str, dict] = {}
 
         for source in sources:
@@ -141,6 +162,7 @@ async def run_scraper(
             try:
                 changed_flag, response = await has_changed(source_dict)
                 if not changed_flag:
+                    print(f"[engine] {source_dict['id']} unchanged — skipping")
                     continue
 
                 source_type = source_dict.get("type", "product_page")
@@ -153,17 +175,22 @@ async def run_scraper(
                     f"snippet: {text[200:600]!r}"
                 )
 
-                # Accumulate text by plan_id — PDF source_dict takes priority
+                # Accumulate text + URLs by plan_id — PDF source_dict takes priority
                 for plan_id in (source_dict.get("planIds") or []):
                     if plan_id not in plan_texts:
                         plan_texts[plan_id] = {
                             "pdf": "",
                             "product_page": "",
                             "source_dict": source_dict,
+                            "pdf_url": "",
+                            "product_url": "",
                         }
                     plan_texts[plan_id][source_type] = text
                     if source_type == "pdf":
                         plan_texts[plan_id]["source_dict"] = source_dict
+                        plan_texts[plan_id]["pdf_url"] = source_dict["url"]
+                    elif source_type == "product_page":
+                        plan_texts[plan_id]["product_url"] = source_dict["url"]
 
                 # Update source metadata immediately (per-source, not per-plan)
                 updated_source_dict = update_source_metadata(
@@ -175,6 +202,7 @@ async def run_scraper(
 
             except Exception as exc:  # noqa: BLE001
                 msg = str(exc) or type(exc).__name__
+                print(f"[engine] ERROR {source_dict['id']}: {type(exc).__name__}: {msg}")
                 errors.append(
                     {"sourceId": source_dict["id"], "message": f"{type(exc).__name__}: {msg}"}
                 )
@@ -194,6 +222,10 @@ async def run_scraper(
                 combined = "\n\n".join(parts)
 
                 plan_data = await convert_to_plan(combined, source_dict)
+                # Attach both URLs — sourceUrl is PDF if found, else product page
+                plan_data["productUrl"] = info.get("product_url", "")
+                if info.get("pdf_url"):
+                    plan_data["sourceUrl"] = info["pdf_url"]
 
                 insurer = insurers_by_id.get(source_dict["insurerId"])
                 if insurer:
@@ -224,6 +256,7 @@ async def run_scraper(
                     existing_plan.key_benefits = validated.get("keyBenefits", existing_plan.key_benefits)
                     existing_plan.exclusions = validated.get("exclusions", existing_plan.exclusions)
                     existing_plan.source_url = validated.get("sourceUrl", existing_plan.source_url)
+                    existing_plan.product_url = validated.get("productUrl", existing_plan.product_url)
                     existing_plan.data_as_of = validated.get("dataAsOf", existing_plan.data_as_of)
                     existing_plan.updated_badge = True
                     existing_plan.change_notes = old_notes + [f"Updated {started_at[:10]}"]
@@ -246,6 +279,7 @@ async def run_scraper(
                         key_benefits=validated.get("keyBenefits", []),
                         exclusions=validated.get("exclusions", []),
                         source_url=validated.get("sourceUrl", ""),
+                        product_url=validated.get("productUrl", ""),
                         data_as_of=validated.get("dataAsOf", ""),
                         updated_badge=True,
                         change_notes=[f"Added {started_at[:10]}"],
