@@ -73,8 +73,14 @@ export async function* chatWithPlans(
 
 // ─── Outreach Email Drafting ──────────────────────────────────────────────────
 
+/**
+ * Placeholder the model writes in place of the insurer's name, so a single
+ * generated draft can be reused across multiple insurers by substituting the
+ * real name per recipient (one AI call instead of one per insurer).
+ */
+export const INSURER_PLACEHOLDER = "[INSURER]";
+
 export async function draftOutreachEmail(params: {
-  insurerName: string;
   templatePromptHint: string;
   consent: ConsentFlags;
   userName?: string;
@@ -86,7 +92,7 @@ export async function draftOutreachEmail(params: {
     monthlyBudget?: number;
   };
 }): Promise<string> {
-  const { insurerName, templatePromptHint, consent, userName, userContext } = params;
+  const { templatePromptHint, consent, userName, userContext } = params;
   const signOffName = (userName ?? "").trim() || "A prospective customer";
 
   // Only include what the user consented to share
@@ -106,11 +112,11 @@ export async function draftOutreachEmail(params: {
     messages: [
       {
         role: "system",
-        content: `You are writing an email IN THE FIRST PERSON AS the customer (named below) — as if the customer themselves is reaching out to the insurer to enquire about critical illness cover. Write it the way a real person would: first person ("I'm looking at...", "Could you tell me..."), warm but concise, no corporate boilerplate. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. Write in the first person as the customer. Sign off with the customer's name: "${signOffName}".\n2. Do NOT describe yourself as an AI or assistant in the body, and do NOT say "on behalf of" — the customer is speaking directly. (A short system disclosure footer is appended separately; you do not write it.)\n3. Only include the personal details explicitly provided below. NEVER invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases, sign-ups, or appointments.\n5. Keep it to a few short paragraphs.`,
+        content: `You are writing an email IN THE FIRST PERSON AS the customer (named below) — as if the customer themselves is reaching out to the insurer to enquire about critical illness cover. Write it the way a real person would: first person ("I'm looking at...", "Could you tell me..."), warm but concise, no corporate boilerplate. ${FACTUAL_GUARDRAIL}\n\nRULES:\n1. Write in the first person as the customer. Sign off with the customer's name: "${signOffName}".\n2. Do NOT describe yourself as an AI or assistant in the body, and do NOT say "on behalf of" — the customer is speaking directly. (A short system disclosure footer is appended separately; you do not write it.)\n3. Only include the personal details explicitly provided below. NEVER invent or request NRIC, health history, income, or phone number.\n4. Do not agree to any purchases, sign-ups, or appointments.\n5. Keep it to a few short paragraphs.\n6. Output the EMAIL BODY ONLY. Do NOT include a "Subject:" line or any email headers (To/From/Date) — the subject is handled separately.\n7. Address the insurer using the literal placeholder "${INSURER_PLACEHOLDER}" wherever you would name the company (e.g. "Dear ${INSURER_PLACEHOLDER} team,"). Use it verbatim; do not substitute a real company name.`,
       },
       {
         role: "user",
-        content: `Write my email to ${insurerName}.\n\nWhat I want to ask about: ${templatePromptHint}\n\nDetails about me I'm willing to share:\n${sharedDetails.length > 0 ? sharedDetails.join("\n") : "No personal details to share at this time."}\n\nSign off as: ${signOffName}`,
+        content: `Write my enquiry email to the insurer (refer to them as "${INSURER_PLACEHOLDER}").\n\nWhat I want to ask about: ${templatePromptHint}\n\nDetails about me I'm willing to share:\n${sharedDetails.length > 0 ? sharedDetails.join("\n") : "No personal details to share at this time."}\n\nSign off as: ${signOffName}\n\nRemember: body only (no Subject line), and use "${INSURER_PLACEHOLDER}" in place of the company name.`,
       },
     ],
   });
