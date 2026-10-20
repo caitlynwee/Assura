@@ -352,10 +352,12 @@ product price in the Stripe test dashboard, then set its `price_...` ID as
 `/api/stripe/webhook`. Configure the Stripe Customer Portal in the test
 dashboard so users can manage or cancel their subscription.
 Subscription changes are applied only from verified webhook events; returning
-from Checkout by itself does not grant Premium. The seeded shared demo account
-remains Premium without payment. New accounts start on Free and upgrade through
-Stripe. Live billing is intentionally unavailable until explicitly enabled in
-code and separately configured.
+from Checkout by itself does not grant Premium. After Checkout, Assura refreshes
+the Supabase session so edge route gating sees the webhook-synchronized tier;
+if the webhook is still processing, the upgrade page offers a safe retry.
+The seeded shared demo account remains Premium without payment. New accounts
+start on Free and upgrade through Stripe. Live billing is intentionally
+unavailable until explicitly enabled in code and separately configured.
 
 For a single-command local billing test, configure `STRIPE_SECRET_KEY` and
 `STRIPE_PRICE_ID` in the root `.env`, then run

@@ -40,6 +40,20 @@ export function getSiteUrl(): string {
   return parsed.origin;
 }
 
+export function safeBillingReturnTo(value: unknown): string {
+  if (typeof value !== "string") return "/onboarding";
+  const path = value.trim();
+  if (
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    path.startsWith("/api/") ||
+    path === "/upgrade"
+  ) {
+    return "/onboarding";
+  }
+  return path;
+}
+
 export async function syncSubscriptionEntitlement(
   subscription: StripeSubscriptionState
 ): Promise<void> {

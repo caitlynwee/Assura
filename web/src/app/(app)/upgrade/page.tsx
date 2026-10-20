@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { InboxIcon, LockKeyholeIcon, ScrollTextIcon, SendIcon, SparklesIcon, type LucideIcon } from "lucide-react";
 import { requireUser } from "@/lib/session";
+import { safeBillingReturnTo } from "@/lib/stripe";
 import { startPremiumCheckoutAction } from "@/app/_actions/billing";
 import SubmitButton from "@/components/auth/submit-button";
 import PageHeader from "@/components/layout/page-header";
@@ -27,7 +28,10 @@ export default async function UpgradePage({
 }) {
   const user = await requireUser();
   const { from, checkout, error } = await searchParams;
-  if (user.tier === "premium") redirect(from?.startsWith("/") && !from.startsWith("//") ? from : "/outreach");
+  const returnTo = safeBillingReturnTo(from ?? "/outreach");
+  if (user.tier === "premium" && checkout !== "success") {
+    redirect(`/auth/stripe-return?from=${encodeURIComponent(returnTo)}`);
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -40,7 +44,7 @@ export default async function UpgradePage({
       {checkout === "success" && (
         <Alert>
           <AlertDescription>
-            Checkout completed. Premium access will turn on after Stripe confirms your subscription. Refresh this page in a moment if needed.
+            Checkout completed. Select Continue to Assura to refresh your access. If Stripe is still confirming the subscription, you can retry from this page.
           </AlertDescription>
         </Alert>
       )}
@@ -80,20 +84,28 @@ export default async function UpgradePage({
         ))}
       </div>
 
-      <form action={startPremiumCheckoutAction} className="flex flex-wrap items-center gap-3">
-        <input
-          type="hidden"
-          name="returnTo"
-          value={from === "/onboarding" || !from ? "/onboarding" : from}
-        />
-        <SubmitButton pendingText="Upgrading…">
-          <SparklesIcon />
-          Continue to Stripe Checkout
-        </SubmitButton>
-        <Button asChild variant="ghost">
-          <Link href="/compare">Maybe later</Link>
+      {checkout === "success" ? (
+        <Button asChild>
+          <Link href={`/auth/stripe-return?from=${encodeURIComponent(returnTo)}`}>
+            Continue to Assura
+          </Link>
         </Button>
-      </form>
+      ) : (
+        <form action={startPremiumCheckoutAction} className="flex flex-wrap items-center gap-3">
+          <input
+            type="hidden"
+            name="returnTo"
+            value={from === "/onboarding" || !from ? "/onboarding" : from}
+          />
+          <SubmitButton pendingText="Upgrading…">
+            <SparklesIcon />
+            Continue to Stripe Checkout
+          </SubmitButton>
+          <Button asChild variant="ghost">
+            <Link href="/compare">Maybe later</Link>
+          </Button>
+        </form>
+      )}
     </div>
   );
 }
