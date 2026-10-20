@@ -158,16 +158,31 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                       )}
                     </TableCell>
                     <TableCell className="pr-4 text-xs">
-                      <a
-                        href={plan.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                      >
-                        Brochure
-                        <ExternalLinkIcon className="size-3" />
-                      </a>
-                      <p className="text-muted-foreground">as of {plan.dataAsOf}</p>
+                      <div className="flex flex-col gap-0.5">
+                        {plan.sourceUrl && (
+                          <a
+                            href={plan.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                          >
+                            Brochure
+                            <ExternalLinkIcon className="size-3" />
+                          </a>
+                        )}
+                        {plan.productUrl && (
+                          <a
+                            href={plan.productUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            Product page
+                            <ExternalLinkIcon className="size-3" />
+                          </a>
+                        )}
+                        <p className="text-muted-foreground">as of {plan.dataAsOf}</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
