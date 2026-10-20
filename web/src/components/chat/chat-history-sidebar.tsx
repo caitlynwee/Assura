@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { ChatConversation } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/messages";
 
 interface Props {
   conversations: ChatConversation[];
@@ -21,16 +23,16 @@ interface Props {
 const DAY = 24 * 60 * 60 * 1000;
 
 /** Bucket conversations by last activity, like most chat apps. */
-function groupByRecency(conversations: ChatConversation[]) {
+function groupByRecency(conversations: ChatConversation[], g: Messages["chat"]["groups"]) {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const today = startOfToday.getTime();
 
   const groups: { label: string; items: ChatConversation[] }[] = [
-    { label: "Today", items: [] },
-    { label: "Yesterday", items: [] },
-    { label: "Previous 7 days", items: [] },
-    { label: "Older", items: [] },
+    { label: g.today, items: [] },
+    { label: g.yesterday, items: [] },
+    { label: g.week, items: [] },
+    { label: g.older, items: [] },
   ];
   for (const c of conversations) {
     const t = new Date(c.updatedAt).getTime();
@@ -53,6 +55,7 @@ export default function ChatHistorySidebar({
   onDelete,
   onOpenTrash,
 }: Props) {
+  const t = useT().chat;
   return (
     <div className="flex h-full flex-col">
       <div className="p-3">
@@ -63,11 +66,11 @@ export default function ChatHistorySidebar({
           disabled={disabled}
         >
           <PlusIcon />
-          New chat
+          {t.newChat}
         </Button>
       </div>
 
-      <nav aria-label="Chat history" className="flex-1 overflow-y-auto px-2 pb-3">
+      <nav aria-label={t.historyNav} className="flex-1 overflow-y-auto px-2 pb-3">
         {loading && (
           <div className="space-y-2 px-1 pt-1">
             <Skeleton className="h-8 w-full" />
@@ -82,12 +85,12 @@ export default function ChatHistorySidebar({
 
         {!loading && !error && conversations.length === 0 && (
           <p className="px-2 pt-1 text-sm text-muted-foreground">
-            No saved chats yet. Your conversations will appear here.
+            {t.noChats}
           </p>
         )}
 
         {!loading &&
-          groupByRecency(conversations).map((group) => (
+          groupByRecency(conversations, t.groups).map((group) => (
             <div key={group.label} className="mb-3">
               <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">
                 {group.label}
@@ -115,8 +118,8 @@ export default function ChatHistorySidebar({
                       <Button
                         variant="ghost"
                         size="icon"
-                        aria-label={`Delete chat: ${c.title}`}
-                        title="Move to Recently deleted"
+                        aria-label={t.deleteChat(c.title)}
+                        title={t.moveToBin}
                         onClick={() => onDelete(c)}
                         disabled={disabled}
                         className={cn(
@@ -143,7 +146,7 @@ export default function ChatHistorySidebar({
           disabled={disabled}
         >
           <ArchiveRestoreIcon />
-          Recently deleted
+          {t.recentlyDeleted}
         </Button>
       </div>
     </div>

@@ -11,8 +11,8 @@ export function generateId(prefix?: string): string {
   return prefix ? `${prefix}_${ts}${rand}` : `${ts}${rand}`;
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-SG", {
+export function formatDate(iso: string, locale = "en-SG"): string {
+  return new Date(iso).toLocaleDateString(locale, {
     day: "numeric",
     month: "short",
     year: "numeric",

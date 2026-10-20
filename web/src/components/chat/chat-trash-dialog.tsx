@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TrashedConversation } from "@/hooks/use-conversations";
+import { useLocale, useT } from "@/lib/i18n/client";
 
 interface Props {
   open: boolean;
@@ -32,8 +33,8 @@ function daysLeft(purgeAt: string): number {
   return Math.max(0, Math.ceil((new Date(purgeAt).getTime() - Date.now()) / DAY_MS));
 }
 
-function deletedLabel(deletedAt: string): string {
-  return new Date(deletedAt).toLocaleDateString(undefined, {
+function deletedLabel(deletedAt: string, intlLocale: string): string {
+  return new Date(deletedAt).toLocaleDateString(intlLocale, {
     day: "numeric",
     month: "short",
   });
@@ -54,6 +55,9 @@ export default function ChatTrashDialog({
   const [confirming, setConfirming] = useState<string | "all" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const tt = useT();
+  const t = tt.chat.bin;
+  const { intlLocale } = useLocale();
 
   async function run(key: string, action: () => Promise<boolean>, failMsg: string) {
     setBusy(key);
@@ -76,11 +80,8 @@ export default function ChatTrashDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Recently deleted</DialogTitle>
-          <DialogDescription>
-            Deleted chats stay here for {retentionDays} days, then they&apos;re removed
-            permanently. Restore one to bring it back to your history.
-          </DialogDescription>
+          <DialogTitle>{tt.chat.recentlyDeleted}</DialogTitle>
+          <DialogDescription>{t.description(retentionDays)}</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[50vh] min-h-24 overflow-y-auto">
@@ -93,7 +94,7 @@ export default function ChatTrashDialog({
           {!loading && error && <p className="text-sm text-destructive">{error}</p>}
           {!loading && !error && items.length === 0 && (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Nothing here. Deleted chats will appear in this bin.
+              {t.empty}
             </p>
           )}
           {!loading && !error && items.length > 0 && (
@@ -110,9 +111,9 @@ export default function ChatTrashDialog({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {isConfirming
-                          ? "Delete forever? This can't be undone."
-                          : `Deleted ${deletedLabel(c.deletedAt!)} · ${
-                              left <= 1 ? "removed within a day" : `${left} days left`
+                          ? t.confirmForever
+                          : `${t.deletedOn(deletedLabel(c.deletedAt!, intlLocale))} · ${
+                              left <= 1 ? t.removedSoon : t.daysLeft(left)
                             }`}
                       </p>
                     </div>
@@ -124,17 +125,17 @@ export default function ChatTrashDialog({
                           onClick={() => setConfirming(null)}
                           disabled={busy !== null}
                         >
-                          Cancel
+                          {tt.common.cancel}
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
                           disabled={busy !== null}
                           onClick={() =>
-                            run(c.id, () => onDeleteForever(c.id), "Couldn't delete that chat.")
+                            run(c.id, () => onDeleteForever(c.id), t.deleteOneFailed)
                           }
                         >
-                          {busy === c.id ? "Deleting…" : "Delete"}
+                          {busy === c.id ? tt.common.deleting : tt.common.delete}
                         </Button>
                       </div>
                     ) : (
@@ -144,18 +145,18 @@ export default function ChatTrashDialog({
                           size="sm"
                           disabled={busy !== null}
                           onClick={() =>
-                            run(`restore-${c.id}`, () => onRestore(c.id), "Couldn't restore that chat.")
+                            run(`restore-${c.id}`, () => onRestore(c.id), t.restoreOneFailed)
                           }
                         >
                           <RotateCcwIcon />
-                          {busy === `restore-${c.id}` ? "Restoring…" : "Restore"}
+                          {busy === `restore-${c.id}` ? t.restoring : t.restore}
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="size-8 text-muted-foreground hover:text-destructive"
-                          aria-label={`Delete forever: ${c.title}`}
-                          title="Delete forever"
+                          aria-label={t.deleteForeverLabel(c.title)}
+                          title={t.deleteForever}
                           disabled={busy !== null}
                           onClick={() => setConfirming(c.id)}
                         >
@@ -176,18 +177,18 @@ export default function ChatTrashDialog({
           {confirming === "all" ? (
             <>
               <p className="self-center text-sm text-destructive">
-                Permanently delete all {items.length} chats?
+                {t.confirmEmpty(items.length)}
               </p>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setConfirming(null)} disabled={busy !== null}>
-                  Cancel
+                  {tt.common.cancel}
                 </Button>
                 <Button
                   variant="destructive"
                   disabled={busy !== null}
-                  onClick={() => run("all", onEmpty, "Couldn't empty the bin.")}
+                  onClick={() => run("all", onEmpty, t.emptyFailed)}
                 >
-                  {busy === "all" ? "Emptying…" : "Empty bin"}
+                  {busy === "all" ? t.emptying : t.emptyBin}
                 </Button>
               </div>
             </>
@@ -200,10 +201,10 @@ export default function ChatTrashDialog({
                 disabled={loading || items.length === 0 || busy !== null}
               >
                 <Trash2Icon />
-                Empty bin
+                {t.emptyBin}
               </Button>
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy !== null}>
-                Close
+                {tt.common.close}
               </Button>
             </>
           )}

@@ -23,25 +23,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Spinner from "@/components/ui/spinner";
 import ThreadTimeline from "@/components/crm/thread-timeline";
 import QuoteCard from "@/components/crm/quote-card";
-import { STATUS_LABELS, STATUS_VARIANTS } from "@/components/crm/thread-card";
+import { STATUS_VARIANTS } from "@/components/crm/thread-card";
+import { useLocale, useT } from "@/lib/i18n/client";
 import { useThread } from "@/hooks/use-thread";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ExtractedQuote } from "@/lib/types";
 
 function QuoteReviewRow({ label, value }: { label: string; value: string | null }) {
+  const notStated = useT().crm.notStated;
   return (
     <div>
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5">{value ?? <span className="text-muted-foreground">Not stated</span>}</dd>
+      <dd className="mt-0.5">{value ?? <span className="text-muted-foreground">{notStated}</span>}</dd>
     </div>
   );
 }
-
-const RISK_FLAG_LABELS: Record<string, string> = {
-  pushy: "Pushy sales tactics",
-  data_grabber: "Excessive personal-data requests",
-  injector: "Prompt-injection attempt in reply",
-};
 
 interface Props {
   threadId: string;
@@ -72,6 +68,13 @@ export default function ThreadDetail({ threadId }: Props) {
   const [addingToComparison, setAddingToComparison] = useState(false);
   const [statusAction, setStatusAction] = useState<"closed" | "flagged" | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const tt = useT();
+  const t = tt.crm.detail;
+  const q = tt.crm.quote;
+  const { locale, intlLocale } = useLocale();
+  // Server error text is English; in Chinese show our own translated message.
+  const serverText = (msg: unknown): string | undefined =>
+    locale === "en" && typeof msg === "string" ? msg : undefined;
 
   async function handleExtractQuote() {
     setExtracting(true);
@@ -82,7 +85,7 @@ export default function ThreadDetail({ threadId }: Props) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setExtractError(data.error ?? "Could not extract a quote. Please try again.");
+        setExtractError(serverText(data.error) ?? t.extractFailed);
         return;
       }
 
@@ -98,7 +101,7 @@ export default function ThreadDetail({ threadId }: Props) {
         });
       }
     } catch {
-      setExtractError("Could not extract a quote. Please try again.");
+      setExtractError(t.extractFailed);
     } finally {
       setExtracting(false);
     }
@@ -112,7 +115,7 @@ export default function ThreadDetail({ threadId }: Props) {
       const res = await fetch(`/api/crm/threads/${threadId}/reply`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setSimulateError(data.error ?? "Could not simulate an insurer reply.");
+        setSimulateError(serverText(data.error) ?? t.simulateFailed);
         return;
       }
       // The reply may land server-side asynchronously (and the 'slow' persona
@@ -120,12 +123,10 @@ export default function ThreadDetail({ threadId }: Props) {
       // once the thread's status or message count changes.
       const changed = await pollUntilChanged();
       if (!changed) {
-        setSimulateNotice(
-          "No reply has arrived yet. This insurer's persona may only respond to a follow-up — try again shortly."
-        );
+        setSimulateNotice(t.noReplyYet);
       }
     } catch {
-      setSimulateError("Could not simulate an insurer reply.");
+      setSimulateError(t.simulateFailed);
     } finally {
       setSimulating(false);
     }
@@ -143,10 +144,7 @@ export default function ThreadDetail({ threadId }: Props) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.thread) {
         setStatusError(
-          data.error ??
-            (status === "closed"
-              ? "Could not close the thread. Please try again."
-              : "Could not flag the thread for review. Please try again.")
+          serverText(data.error) ?? (status === "closed" ? t.closeFailed : t.flagFailed)
         );
         return;
       }
@@ -154,9 +152,7 @@ export default function ThreadDetail({ threadId }: Props) {
       setThread(data.thread);
     } catch {
       setStatusError(
-        status === "closed"
-          ? "Could not close the thread. Please try again."
-          : "Could not flag the thread for review. Please try again."
+        status === "closed" ? t.closeFailed : t.flagFailed
       );
     } finally {
       setStatusAction(null);
@@ -172,13 +168,13 @@ export default function ThreadDetail({ threadId }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setComparisonError(data.error ?? "Could not add quote to comparison.");
+        setComparisonError(serverText(data.error) ?? t.addFailed);
         return;
       }
       if (data.thread) setThread(data.thread);
       setConfirmingComparison(false);
     } catch {
-      setComparisonError("Could not add quote to comparison.");
+      setComparisonError(t.addFailed);
     } finally {
       setAddingToComparison(false);
     }
@@ -193,12 +189,12 @@ export default function ThreadDetail({ threadId }: Props) {
     );
   }
 
-  if (error) return <InlineError message={error} />;
+  if (error) return <InlineError message={tt.crm.loadThreadFailed} />;
 
   if (!thread) {
     return (
       <Card>
-        <CardContent className="text-sm text-muted-foreground">Thread not found.</CardContent>
+        <CardContent className="text-sm text-muted-foreground">{t.notFound}</CardContent>
       </Card>
     );
   }
@@ -211,7 +207,7 @@ export default function ThreadDetail({ threadId }: Props) {
       <Button asChild variant="ghost" size="sm" className="-ml-2">
         <Link href="/crm">
           <ArrowLeftIcon />
-          All threads
+          {t.allThreads}
         </Link>
       </Button>
 
@@ -223,7 +219,7 @@ export default function ThreadDetail({ threadId }: Props) {
               <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
                 {thread.insurerName}
                 <Badge variant={STATUS_VARIANTS[thread.status] ?? "gray"}>
-                  {STATUS_LABELS[thread.status] ?? thread.status}
+                  {tt.crm.status[thread.status] ?? thread.status}
                 </Badge>
               </CardTitle>
               <CardDescription>{thread.subject}</CardDescription>
@@ -233,11 +229,11 @@ export default function ThreadDetail({ threadId }: Props) {
           {thread.riskFlags.length > 0 && (
             <Alert variant="destructive">
               <ShieldAlertIcon />
-              <AlertTitle>This thread was flagged for review</AlertTitle>
+              <AlertTitle>{t.flaggedTitle}</AlertTitle>
               <AlertDescription>
                 <ul className="list-disc space-y-0.5 pl-5">
                   {thread.riskFlags.map((flag) => (
-                    <li key={flag}>{RISK_FLAG_LABELS[flag] ?? flag}</li>
+                    <li key={flag}>{tt.crm.riskFlags[flag] ?? flag}</li>
                   ))}
                 </ul>
               </AlertDescription>
@@ -245,7 +241,7 @@ export default function ThreadDetail({ threadId }: Props) {
           )}
 
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold">Messages</h2>
+            <h2 className="text-sm font-semibold">{t.messages}</h2>
             <ThreadTimeline messages={thread.messages} />
           </section>
         </div>
@@ -254,7 +250,7 @@ export default function ThreadDetail({ threadId }: Props) {
         <div className="space-y-6 lg:sticky lg:top-0">
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Actions</CardTitle>
+              <CardTitle className="text-sm">{t.actions}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -266,14 +262,14 @@ export default function ThreadDetail({ threadId }: Props) {
                   disabled={closed}
                 >
                   {!simulating && <BotIcon />}
-                  Simulate insurer reply
+                  {t.simulate}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Demo only: runs this insurer&apos;s configured persona through the outreach server.
+                  {t.simulateHint}
                 </p>
                 {polling && (
                   <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
-                    <Spinner className="size-3.5" /> Checking for a reply…
+                    <Spinner className="size-3.5" /> {t.checking}
                   </p>
                 )}
                 {simulateNotice && (
@@ -297,7 +293,7 @@ export default function ThreadDetail({ threadId }: Props) {
                     onClick={() => updateStatus("closed")}
                   >
                     {statusAction !== "closed" && <ArchiveIcon />}
-                    Close thread
+                    {t.closeThread}
                   </Button>
                 )}
                 {thread.status !== "flagged" && thread.riskFlags.length > 0 && (
@@ -309,7 +305,7 @@ export default function ThreadDetail({ threadId }: Props) {
                     onClick={() => updateStatus("flagged")}
                   >
                     {statusAction !== "flagged" && <FlagIcon />}
-                    Flag for review
+                    {t.flagForReview}
                   </Button>
                 )}
               </div>
@@ -319,15 +315,14 @@ export default function ThreadDetail({ threadId }: Props) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Quote</CardTitle>
+              <CardTitle className="text-sm">{t.quoteTitle}</CardTitle>
               <CardDescription className="text-xs">
-                Insurer replies are parsed by the quarantined reader, so injected &ldquo;ignore previous
-                instructions&rdquo; text is treated as data only.
+                {t.quoteDesc}
               </CardDescription>
               <CardAction>
                 <Button size="sm" loading={extracting} onClick={handleExtractQuote}>
                   {!extracting && <SparklesIcon />}
-                  Extract
+                  {t.extract}
                 </Button>
               </CardAction>
             </CardHeader>
@@ -348,7 +343,7 @@ export default function ThreadDetail({ threadId }: Props) {
                       disabled={thread.addedToComparison}
                     >
                       {thread.addedToComparison ? <CheckIcon /> : <ListPlusIcon />}
-                      {thread.addedToComparison ? "Added to comparison" : "Add to comparison"}
+                      {thread.addedToComparison ? t.addedToComparison : t.addToComparison}
                     </Button>
                     <InlineError message={comparisonError} />
                   </>
@@ -359,15 +354,14 @@ export default function ThreadDetail({ threadId }: Props) {
                 {displayedQuote && confirmingComparison && (
                   <div className="space-y-3 rounded-lg border bg-muted/50 p-3">
                     <div>
-                      <p className="text-sm font-semibold">Review before adding to your comparison</p>
+                      <p className="text-sm font-semibold">{t.reviewTitle}</p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
-                        These figures were extracted from the insurer&apos;s reply. Confirm they look right —
-                        this adds a factual row to your comparison table and is not a recommendation.
+                        {t.reviewBody}
                       </p>
                     </div>
                     <dl className="grid gap-x-4 gap-y-2 text-sm">
                       <QuoteReviewRow
-                        label="Coverage amount"
+                        label={q.coverageAmount}
                         value={
                           displayedQuote.coverageAmount !== undefined
                             ? formatCurrency(displayedQuote.coverageAmount)
@@ -375,20 +369,20 @@ export default function ThreadDetail({ threadId }: Props) {
                         }
                       />
                       <QuoteReviewRow
-                        label="Annual premium"
+                        label={q.annualPremium}
                         value={
                           displayedQuote.annualPremium !== undefined
                             ? formatCurrency(displayedQuote.annualPremium)
                             : null
                         }
                       />
-                      <QuoteReviewRow label="Waiting period" value={displayedQuote.waitingPeriod ?? null} />
+                      <QuoteReviewRow label={q.waitingPeriod} value={displayedQuote.waitingPeriod ?? null} />
                       <QuoteReviewRow
-                        label="Valid until"
-                        value={displayedQuote.validUntil ? formatDate(displayedQuote.validUntil) : null}
+                        label={q.validUntil}
+                        value={displayedQuote.validUntil ? formatDate(displayedQuote.validUntil, intlLocale) : null}
                       />
                       <QuoteReviewRow
-                        label="Exclusions noted"
+                        label={q.exclusions}
                         value={
                           displayedQuote.exclusionsNoted && displayedQuote.exclusionsNoted.length > 0
                             ? displayedQuote.exclusionsNoted.join("; ")
@@ -396,7 +390,7 @@ export default function ThreadDetail({ threadId }: Props) {
                         }
                       />
                       <QuoteReviewRow
-                        label="Rider options"
+                        label={q.riders}
                         value={
                           displayedQuote.riderOptions && displayedQuote.riderOptions.length > 0
                             ? displayedQuote.riderOptions.join("; ")
@@ -407,7 +401,7 @@ export default function ThreadDetail({ threadId }: Props) {
                     <div className="flex items-center gap-2 pt-1">
                       <Button size="sm" loading={addingToComparison} onClick={confirmAddToComparison}>
                         {!addingToComparison && <CheckIcon />}
-                        Confirm &amp; add
+                        {t.confirmAdd}
                       </Button>
                       <Button
                         variant="ghost"
@@ -418,7 +412,7 @@ export default function ThreadDetail({ threadId }: Props) {
                           setComparisonError(null);
                         }}
                       >
-                        Cancel
+                        {tt.common.cancel}
                       </Button>
                     </div>
                     <InlineError message={comparisonError} />

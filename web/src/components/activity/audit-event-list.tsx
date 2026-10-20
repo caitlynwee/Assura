@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useLocale, useT } from "@/lib/i18n/client";
 
 /** Colour-code actions so blocks, denials and escalations stand out in the demo. */
 function actionVariant(action: string): "red" | "yellow" | "green" | "blue" | "gray" {
@@ -17,8 +18,8 @@ function actionVariant(action: string): "red" | "yellow" | "green" | "blue" | "g
   return "gray";
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleString("en-SG", {
+function formatTime(iso: string, intlLocale: string) {
+  return new Date(iso).toLocaleString(intlLocale, {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -29,6 +30,8 @@ function formatTime(iso: string) {
 
 export default function AuditEventList() {
   const { entries, loading, error } = useAuditLog();
+  const t = useT().activity;
+  const { intlLocale } = useLocale();
 
   if (loading) {
     return <Skeleton className="h-64 w-full rounded-xl" aria-busy="true" />;
@@ -38,7 +41,7 @@ export default function AuditEventList() {
     return (
       <Alert variant="destructive">
         <TriangleAlertIcon />
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription>{t.loadFailed}</AlertDescription>
       </Alert>
     );
   }
@@ -48,7 +51,7 @@ export default function AuditEventList() {
       <Card>
         <CardContent className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
           <ScrollTextIcon className="size-8" />
-          No activity recorded yet.
+          {t.empty}
         </CardContent>
       </Card>
     );
@@ -59,7 +62,7 @@ export default function AuditEventList() {
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow className="hover:bg-transparent">
-            {["Time", "Actor", "Action", "Prev hash", "Hash"].map((h, i) => (
+            {t.columns.map((h, i) => (
               <TableHead
                 key={h}
                 className={`text-xs uppercase tracking-wide text-muted-foreground ${i === 0 ? "pl-4" : ""}`}
@@ -73,7 +76,7 @@ export default function AuditEventList() {
           {entries.map((entry, i) => (
             <TableRow key={i}>
               <TableCell className="pl-4 text-xs tabular-nums text-muted-foreground">
-                {formatTime(entry.timestamp)}
+                {formatTime(entry.timestamp, intlLocale)}
               </TableCell>
               <TableCell className="font-mono text-xs">{entry.actor.slice(0, 14)}</TableCell>
               <TableCell>

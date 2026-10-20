@@ -7,12 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ChatMessage as ChatMessageType } from "@/lib/types";
 import ChatMessage from "./chat-message";
 import ChatInput from "./chat-input";
-
-const SUGGESTIONS = [
-  "Which plans cover early-stage critical illness?",
-  "Compare the cheapest plans for a 30-year-old non-smoker",
-  "What are the common exclusions?",
-];
+import { useT } from "@/lib/i18n/client";
 
 interface Props {
   messages: ChatMessageType[];
@@ -25,6 +20,7 @@ interface Props {
 
 export default function ChatWindow({ messages, sendMessage, editMessage, streaming, loading }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const t = useT().chat;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,11 +42,11 @@ export default function ChatWindow({ messages, sendMessage, editMessage, streami
               <MessagesSquareIcon className="size-6" />
             </div>
             <div>
-              <p className="font-medium">Ask about critical illness plans</p>
-              <p className="text-sm text-muted-foreground">Answers cite the brochure each fact comes from.</p>
+              <p className="font-medium">{t.emptyTitle}</p>
+              <p className="text-sm text-muted-foreground">{t.emptyBody}</p>
             </div>
             <div className="flex max-w-xl flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
+              {t.suggestions.map((s) => (
                 <Button key={s} variant="outline" size="sm" onClick={() => sendMessage(s)} disabled={streaming}>
                   {s}
                 </Button>

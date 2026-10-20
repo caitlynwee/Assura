@@ -3,26 +3,28 @@ export const dynamic = "force-dynamic";
 import PageHeader from "@/components/layout/page-header";
 import ScraperControls from "@/components/admin/scraper-controls";
 import { requireAdmin } from "@/lib/session";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Admin dashboard — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).admin.meta };
+}
 
 export default async function AdminPage() {
   const user = await requireAdmin();
+  const t = (await getT()).admin;
 
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader
-        eyebrow="Operations"
-        title="Admin dashboard"
-        description={`Signed in as ${user.email}. Manage data refreshes and monitor scraper health.`}
+        eyebrow={t.eyebrow}
+        title={t.title}
+        description={t.description(user.email)}
       />
       <ScraperControls />
       <section className="rounded-lg border bg-card p-5">
-        <h2 className="font-medium">Admin safeguards</h2>
+        <h2 className="font-medium">{t.safeguardsTitle}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manual refreshes are audit-logged, protected by the internal scraper key, and restricted
-          to accounts with the admin tier. Scraped data is only published when the scraper
-          validation succeeds.
+          {t.safeguardsBody}
         </p>
       </section>
     </div>

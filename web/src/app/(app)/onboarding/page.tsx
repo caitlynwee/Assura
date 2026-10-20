@@ -6,18 +6,22 @@ import { generateMaskedAddress } from "@/lib/mail";
 import { maskEmail } from "@/lib/utils";
 import OnboardingForm from "@/components/onboarding/onboarding-form";
 import PageHeader from "@/components/layout/page-header";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Privacy & consent — Assura" };
+export async function generateMetadata() {
+  return { title: (await getT()).account.onboarding.meta };
+}
 
 export default async function OnboardingPage() {
   const user = await requireUser();
   if (user.tier !== "premium" && user.tier !== "admin") redirect("/upgrade?from=/onboarding");
+  const t = (await getT()).account.onboarding;
 
   return (
     <div className="max-w-4xl space-y-6">
       <PageHeader
-        title={user.onboarded ? "Privacy & consent" : "Set up outreach"}
-        description="Choose what Assura may share with insurers on your behalf. You can change this any time."
+        title={user.onboarded ? t.titleDone : t.titleSetup}
+        description={t.description}
       />
       <OnboardingForm
         realEmailMasked={maskEmail(user.email)}

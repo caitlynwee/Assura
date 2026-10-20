@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n/client";
 
 type State = "idle" | "running" | "done" | "error";
 
 export default function RunScraperButton() {
   const [state, setState] = useState<State>("idle");
   const [message, setMessage] = useState<string>("");
+  const t = useT().compare.scraper;
 
   async function handleRun() {
     setState("running");
@@ -16,16 +18,16 @@ export default function RunScraperButton() {
       const data = await res.json();
       if (!res.ok) {
         setState("error");
-        setMessage(data.error ?? "Scraper failed");
+        setMessage(
+          data.error === "Scraper server unavailable" ? t.unavailable : (data.error ?? t.failed)
+        );
       } else {
         setState("done");
-        setMessage(
-          `Done — ${data.sourcesChanged ?? 0} source(s) updated. Refresh to see new plans.`
-        );
+        setMessage(t.done(data.sourcesChanged ?? 0));
       }
     } catch {
       setState("error");
-      setMessage("Could not reach scraper server.");
+      setMessage(t.unreachable);
     }
   }
 
@@ -39,12 +41,12 @@ export default function RunScraperButton() {
         {state === "running" ? (
           <>
             <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Scraping…
+            {t.scraping}
           </>
         ) : (
           <>
             <span>⟳</span>
-            Refresh data
+            {t.refresh}
           </>
         )}
       </button>
