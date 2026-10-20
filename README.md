@@ -219,9 +219,12 @@ pre-commit run --all-files    # run them once across the repo
 
 | Field | Value |
 |---|---|
-| Email | `demo@fineprint.local` |
+| Email | `demo@assura.local` |
 | Password | `demo1234` |
 | Tier | Premium |
+
+The demo email uses the non-deliverable `.local` domain and is only a sign-in
+identifier; Supabase marks this seeded demo identity as confirmed.
 
 ---
 

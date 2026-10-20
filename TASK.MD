@@ -483,3 +483,15 @@ Files: dev.sh, docker-compose.yml, README.md, TASK.MD
 Others need to know: In this implementation Premium outreach needs web + scraper relay + Mailpit; basic/free web use needs only web and DB setup.
 Blockers: None.
 ---
+
+## 2026-10-20 | Copilot | Brand demo sign-in email
+Status: Completed
+Done:
+- Changed the shared demo login from `demo@fineprint.local` to `demo@assura.local`, updating seeded identity and docs/tests consistently.
+- Preserve the linked Supabase identity by upgrading the legacy email in place during seed-auth.
+- Added a Drizzle data migration for the app row and a regression test for rebranding the existing Supabase Auth identity.
+- Verified 22 focused tests, ESLint, and production build; Docker migration 8 updated the database and seed-auth re-synced the same Supabase UID.
+Files: web/src/lib/demo.ts, web/src/lib/supabase/ensure-demo-user.ts, web/drizzle/0004_demo_assura_email.sql, seed/users.json
+Others need to know: The `.local` email is a confirmed demo-only sign-in identifier and cannot receive external email.
+Blockers: None.
+---

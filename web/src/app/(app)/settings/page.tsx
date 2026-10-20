@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import PageHeader from "@/components/layout/page-header";
 import SettingsForm from "@/components/settings/settings-form";
 import { requireUser } from "@/lib/session";
+import { DEMO_EMAIL } from "@/lib/demo";
 
 export const metadata = { title: "Settings — Assura" };
 
@@ -26,7 +27,7 @@ export default async function SettingsPage({
         email={user.email}
         tier={user.tier}
         initialProfile={user.profile ?? {}}
-        isDemoAccount={user.email.toLowerCase() === "demo@fineprint.local"}
+        isDemoAccount={user.email.toLowerCase() === DEMO_EMAIL}
       />
     </div>
   );

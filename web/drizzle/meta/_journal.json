@@ -29,6 +29,13 @@
       "when": 1792598400002,
       "tag": "0003_assura_relay_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792610000001,
+      "tag": "0004_demo_assura_email",
+      "breakpoints": true
     }
   ]
 }

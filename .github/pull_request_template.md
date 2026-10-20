@@ -4,7 +4,7 @@
 
 ## How to test
 
-<!-- Exact steps / commands to verify. e.g. ./dev.sh up, then log in as demo@fineprint.local -->
+<!-- Exact steps / commands to verify. e.g. ./dev.sh up, then log in as demo@assura.local -->
 
 ## Checklist
 

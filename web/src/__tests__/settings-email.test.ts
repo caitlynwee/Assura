@@ -53,7 +53,7 @@ describe("requestEmailChangeAction", () => {
 
   it("does not allow changing the shared demo account email", async () => {
     mockAuth.mockResolvedValue({
-      user: { id: "user_demo", email: "demo@fineprint.local" },
+      user: { id: "user_demo", email: "demo@assura.local" },
     });
 
     expect(await requestEmailChangeAction({ email: "new@example.com" })).toEqual({

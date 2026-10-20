@@ -5,7 +5,7 @@ jest.mock("@/lib/auth", () => ({
     user: {
       id: "user_demo",
       name: "Demo User",
-      email: "demo@fineprint.local",
+      email: "demo@assura.local",
       tier: "premium",
       maskedInbox: "",
       onboarded: true,
@@ -40,7 +40,7 @@ describe("saveSettingsAction", () => {
       user: {
         id: "user_demo",
         name: "Demo User",
-        email: "demo@fineprint.local",
+        email: "demo@assura.local",
         tier: "premium",
         maskedInbox: "",
         onboarded: true,
@@ -120,7 +120,7 @@ describe("saveSettingsAction", () => {
       user: {
         id: "user_demo",
         name: "Demo User",
-        email: "demo@fineprint.local",
+        email: "demo@assura.local",
         tier: "premium",
         maskedInbox: "",
         onboarded: true,
