@@ -1,14 +1,15 @@
 """engine.py — Core scraper pipeline orchestrator.
 
-Pipeline per source: detect change → download → extract → convert → validate → persist.
-Invariant: a failed scrape NEVER deletes last good data — we only commit to the DB
-when changed > 0 and all per-source processing succeeded (errors are non-fatal per
-source but the overall commit is skipped unless at least one source changed).
+Pipeline:
+  Phase 1 (per source): detect change → download → extract → accumulate text by plan_id
+  Phase 2 (per plan):   combine PDF + product-page text → LLM → validate → persist
 
-Country flow:
-  1. discover_top_insurers(country) → upsert insurer + source rows
-  2. Load all sources tagged with that country
-  3. Run change-detection → download → extract → LLM → validate → persist for each
+Two sources per insurer (created by discovery):
+  src_{insurer_id}_ci_pdf   → type="pdf",          PDF brochure URL
+  src_{insurer_id}_ci_page  → type="product_page",  product page URL
+
+Invariant: a failed scrape NEVER deletes last good data — we only commit when
+at least one source changed and Phase 2 succeeds per plan (errors are non-fatal).
 """
 
 import uuid
@@ -33,16 +34,15 @@ from app.utils.time import now_utc_iso
 
 
 def _upsert_discovered(session, discovered: list[dict]) -> None:
-    """Upsert insurer + source rows returned by discover_top_insurers()."""
+    """Upsert insurer + two source rows (pdf + product_page) per insurer."""
     for co in discovered:
         # Insurer — insert if new, skip if exists
-        existing_insurer = session.query(Insurer).filter_by(id=co["insurer_id"]).first()
-        if not existing_insurer:
+        if not session.query(Insurer).filter_by(id=co["insurer_id"]).first():
             session.add(
                 Insurer(
                     id=co["insurer_id"],
                     name=co["insurer_name"],
-                    agent_email="",      # no outreach configured for discovered insurers
+                    agent_email="",
                     logo="",
                     persona="helpful",
                     website=co["website"],
@@ -50,30 +50,53 @@ def _upsert_discovered(session, discovered: list[dict]) -> None:
                 )
             )
 
-        # Source — insert if new, skip if exists (preserve existing metadata)
-        existing_source = session.query(Source).filter_by(id=co["source_id"]).first()
-        if not existing_source:
-            url = co["product_url"]
-            source_type = "pdf" if url.lower().endswith(".pdf") else "product_page"
-            session.add(
-                Source(
-                    id=co["source_id"],
-                    insurer_id=co["insurer_id"],
-                    label=f"{co['insurer_name']} {co['plan_name']}",
-                    url=url,
-                    type=source_type,
-                    plan_ids=[co["plan_id"]],
-                    etag=None,
-                    last_modified=None,
-                    content_hash=None,
-                    last_checked=None,
-                    last_changed=None,
-                    status="pending",
-                    country=co["country"],
-                )
-            )
+        label_base = f"{co['insurer_name']} {co['plan_name']}"
 
-    session.flush()  # make new rows visible within this transaction
+        # PDF brochure source
+        if co.get("brochure_url"):
+            pdf_id = f"src_{co['insurer_id']}_ci_pdf"
+            if not session.query(Source).filter_by(id=pdf_id).first():
+                session.add(
+                    Source(
+                        id=pdf_id,
+                        insurer_id=co["insurer_id"],
+                        label=f"{label_base} Brochure",
+                        url=co["brochure_url"],
+                        type="pdf",
+                        plan_ids=[co["plan_id"]],
+                        etag=None,
+                        last_modified=None,
+                        content_hash=None,
+                        last_checked=None,
+                        last_changed=None,
+                        status="pending",
+                        country=co["country"],
+                    )
+                )
+
+        # Product page source
+        if co.get("product_url"):
+            page_id = f"src_{co['insurer_id']}_ci_page"
+            if not session.query(Source).filter_by(id=page_id).first():
+                session.add(
+                    Source(
+                        id=page_id,
+                        insurer_id=co["insurer_id"],
+                        label=label_base,
+                        url=co["product_url"],
+                        type="product_page",
+                        plan_ids=[co["plan_id"]],
+                        etag=None,
+                        last_modified=None,
+                        content_hash=None,
+                        last_checked=None,
+                        last_changed=None,
+                        status="pending",
+                        country=co["country"],
+                    )
+                )
+
+    session.flush()
 
 
 async def run_scraper(
@@ -87,16 +110,13 @@ async def run_scraper(
 
     session = get_session()
     try:
-        # ── Discovery: find top 5 CI sources for this country ──────────────────
-        # Only runs on full (non-targeted) scrape runs so we always have fresh
-        # source rows even when the country is changed in config.
+        # ── Discovery ──────────────────────────────────────────────────────────
         if not source_id:
             try:
                 discovered = await discover_top_insurers(country)
                 _upsert_discovered(session, discovered)
             except Exception:  # noqa: BLE001, S110
-                # Discovery failure is non-fatal — proceed with whatever sources exist
-                pass
+                pass  # non-fatal — proceed with existing sources
 
         # ── Load sources ───────────────────────────────────────────────────────
         if source_id:
@@ -104,14 +124,16 @@ async def run_scraper(
         else:
             sources = session.query(Source).filter_by(country=country).all()
 
-        # Index insurers + plans for fast lookup
         insurers_by_id = {i.id: i for i in session.query(Insurer).all()}
-        all_plans = session.query(Plan).all()
-        plans_by_id = {p.id: p for p in all_plans}
+        plans_by_id = {p.id: p for p in session.query(Plan).all()}
 
         checked = 0
         changed = 0
         errors = []
+
+        # ── Phase 1: Download per source, accumulate text by plan_id ──────────
+        # plan_texts: plan_id → {pdf: str, product_page: str, source_dict: dict}
+        plan_texts: dict[str, dict] = {}
 
         for source in sources:
             checked += 1
@@ -121,50 +143,64 @@ async def run_scraper(
                 if not changed_flag:
                     continue
 
+                source_type = source_dict.get("type", "product_page")
                 content = await download_page(
-                    source_dict["url"], response,
-                    source_type=source_dict.get("type", "product_page"),
+                    source_dict["url"], response, source_type=source_type,
+                )
+                text = extract_text(content, source_type=source_type)
+                print(
+                    f"[engine] {source_dict['id']} ({source_type}) "
+                    f"snippet: {text[200:600]!r}"
                 )
 
-                source_type = source_dict.get("type", "product_page")
-                text = extract_text(content, source_type=source_type)
+                # Accumulate text by plan_id — PDF source_dict takes priority
+                for plan_id in (source_dict.get("planIds") or []):
+                    if plan_id not in plan_texts:
+                        plan_texts[plan_id] = {
+                            "pdf": "",
+                            "product_page": "",
+                            "source_dict": source_dict,
+                        }
+                    plan_texts[plan_id][source_type] = text
+                    if source_type == "pdf":
+                        plan_texts[plan_id]["source_dict"] = source_dict
 
-                # For product pages: look for PDF brochure links in the Jina
-                # markdown output and register them as sources for next run.
-                if source_type == "product_page":
-                    import re as _re
-                    pdf_links = list(dict.fromkeys(
-                        m.group(1) for m in _re.finditer(r'\(([^)]+\.pdf[^)]*)\)', text, _re.IGNORECASE)
-                    ))
-                    print(f"[engine] {source_dict['id']}: found {len(pdf_links)} PDF link(s) in Jina markdown: {pdf_links[:3]}")
-                    for i, pdf_url in enumerate(pdf_links[:3]):
-                        pdf_source_id = f"{source_dict['id']}_pdf_{i}"
-                        existing = session.query(Source).filter_by(id=pdf_source_id).first()
-                        if not existing:
-                            session.add(Source(
-                                id=pdf_source_id,
-                                insurer_id=source_dict["insurerId"],
-                                label=f"{source_dict.get('label', '')} Brochure",
-                                url=pdf_url,
-                                type="pdf",
-                                plan_ids=source_dict.get("planIds") or [],
-                                etag=None, last_modified=None, content_hash=None,
-                                last_checked=None, last_changed=None,
-                                status="pending",
-                                country=country,
-                            ))
-                            print(f"[engine] Registered PDF source: {pdf_source_id} → {pdf_url}")
-                    session.flush()
+                # Update source metadata immediately (per-source, not per-plan)
+                updated_source_dict = update_source_metadata(
+                    source_dict, response, response.content
+                )
+                apply_source_update(source, updated_source_dict)
 
-                # Print a content snippet for debugging
-                print(f"[engine] {source_dict['id']} content snippet: {text[200:600]!r}")
+                changed += 1
 
-                plan_data = await convert_to_plan(text, source_dict)
+            except Exception as exc:  # noqa: BLE001
+                msg = str(exc) or type(exc).__name__
+                errors.append(
+                    {"sourceId": source_dict["id"], "message": f"{type(exc).__name__}: {msg}"}
+                )
 
-                # Fill insurerName from DB (converter always leaves it blank)
+        # ── Phase 2: Combine texts per plan, one LLM call each ────────────────
+        for plan_id, info in plan_texts.items():
+            try:
+                pdf_text = info.get("pdf", "")
+                page_text = info.get("product_page", "")
+                source_dict = info["source_dict"]
+
+                parts = []
+                if pdf_text:
+                    parts.append(f"--- PDF BROCHURE ---\n{pdf_text}")
+                if page_text:
+                    parts.append(f"--- PRODUCT PAGE ---\n{page_text}")
+                combined = "\n\n".join(parts)
+
+                plan_data = await convert_to_plan(combined, source_dict)
+
                 insurer = insurers_by_id.get(source_dict["insurerId"])
                 if insurer:
                     plan_data["insurerName"] = insurer.name
+                    contact_email = plan_data.get("contactEmail", "")
+                    if contact_email and not insurer.agent_email:
+                        insurer.agent_email = contact_email
 
                 validated = validate_plan(plan_data)
 
@@ -220,16 +256,11 @@ async def run_scraper(
                     session.merge(new_plan)
                     plans_by_id[new_plan.id] = new_plan
 
-                # Hash the httpx response body (what has_changed compares against),
-                # not the Playwright-rendered HTML, so the hash stays consistent.
-                updated_source_dict = update_source_metadata(source_dict, response, response.content)
-                apply_source_update(source, updated_source_dict)
-
-                changed += 1
-
             except Exception as exc:  # noqa: BLE001
                 msg = str(exc) or type(exc).__name__
-                errors.append({"sourceId": source_dict["id"], "message": f"{type(exc).__name__}: {msg}"})
+                errors.append(
+                    {"planId": plan_id, "message": f"{type(exc).__name__}: {msg}"}
+                )
 
         if changed == 0:
             session.expunge_all()
