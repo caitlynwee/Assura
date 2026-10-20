@@ -36,6 +36,54 @@ export const signupSchema = z
 
 // ─── Plans ────────────────────────────────────────────────────────────────────
 
+const COVERAGE_TERMS = [
+  "whole_life",
+  "to_age_65",
+  "to_age_70",
+  "to_age_75",
+  "5_years",
+  "10_years",
+  "20_years",
+  "25_years",
+] as const;
+
+/**
+ * Admin "manually add a plan" payload. Mirrors the required columns of the
+ * `plans` table (see schema.ts). A trimmed, validated shape the admin route
+ * turns into a Drizzle insert — the writer fills version/updatedBadge/
+ * changeNotes/dataAsOf/scrapedAt, so they are not accepted from the client.
+ *
+ * `premiums` is a free-form bucket map of indicative ANNUAL SGD premiums. Use
+ * canonical keys (male_30_nonsmoker, female_40_nonsmoker, …) so the
+ * profile-matched premium resolver can personalise; other keys still display
+ * via the resolver's "first available bucket" fallback.
+ */
+export const planCreateSchema = z.object({
+  insurerId: z.string().trim().min(1, "Choose an insurer."),
+  planName: z.string().trim().min(1, "Enter a plan name.").max(160),
+  coverageAmount: z.coerce.number().int().min(0).max(100_000_000),
+  premiumFrequency: z.enum(["annual", "monthly"]),
+  premiums: z
+    .record(z.string().regex(/^[a-z0-9_]+$/i), z.coerce.number().positive().max(10_000_000))
+    .default({}),
+  coverageTerms: z.array(z.enum(COVERAGE_TERMS)).default([]),
+  illnessesCovered: z.coerce.number().int().min(0).max(1000),
+  earlyStageConditions: z.boolean().default(false),
+  payoutType: z.enum(["lump_sum", "monthly_income", "hybrid"]),
+  keyBenefits: z.array(z.string().trim().min(1).max(300)).max(30).default([]),
+  exclusions: z.array(z.string().trim().min(1).max(300)).max(30).default([]),
+  sourceUrl: z.string().trim().max(500).default(""),
+  productUrl: z.string().trim().max(500).default(""),
+  dataAsOf: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+    .optional(),
+  country: z.enum(COUNTRY_OF_ORIGIN_OPTIONS).default("Singapore"),
+});
+
+export type PlanCreateInput = z.infer<typeof planCreateSchema>;
+
 export const planFilterSchema = z.object({
   insurerId: z.string().optional(),
   minCoverage: z.coerce.number().optional(),

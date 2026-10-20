@@ -27,6 +27,7 @@ export type PolicyAction =
   | "update_thread_status"
   | "extract_quote"
   | "trigger_scraper"
+  | "create_plan"
   | "share_nric"
   | "share_health"
   | "share_income"
@@ -53,9 +54,10 @@ const ACTION_TIERS: Record<PolicyAction, PolicyTier> = {
   extract_quote: PolicyTier.ADVISE,
   update_thread_status: PolicyTier.ADVISE,
 
-  // Tier 2 — send (requires explicit user approval)
+  // Tier 2 — send / privileged write (requires approval; admins may operate)
   send_email: PolicyTier.SEND,
   trigger_scraper: PolicyTier.SEND,
+  create_plan: PolicyTier.SEND,
 
   // Tier 3 — blocked (AI must escalate to user)
   share_nric: PolicyTier.BLOCKED,

@@ -20,8 +20,17 @@ import {
   integer,
   jsonb,
   bigserial,
+  customType,
 } from "drizzle-orm/pg-core";
 import type { UserProfile } from "./types";
+
+// PostgreSQL bytea ↔ Node Buffer. postgres.js returns bytea as a Buffer and
+// accepts a Buffer on insert, so the driver mapping is an identity cast.
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return "bytea";
+  },
+});
 
 // ─── users ──────────────────────────────────────────────────────────────────
 // ConsentFlags is flattened to 8 boolean columns (queryable, matches flat seed).
@@ -90,6 +99,21 @@ export const plans = pgTable("plans", {
   version: integer("version").notNull(),
   scrapedAt: text("scraped_at").notNull(), // ISO 8601
   country: text("country").notNull(),
+});
+
+// ─── plan_brochures ───────────────────────────────────────────────────────────
+// Brochure files an admin uploads when manually adding a plan (a fallback for
+// failed scraping). Stored IN the database (bytea) rather than an external
+// bucket so it needs no extra infra and works in the Docker image; served back
+// through GET /api/plans/brochure/[id]. Size-capped in the upload route.
+export const planBrochures = pgTable("plan_brochures", {
+  id: text("id").primaryKey(),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  size: integer("size").notNull(), // bytes
+  data: bytea("data").notNull(),
+  uploadedBy: text("uploaded_by").notNull(), // app user id of the admin
+  uploadedAt: text("uploaded_at").notNull(), // ISO 8601
 });
 
 // ─── sources ────────────────────────────────────────────────────────────────
