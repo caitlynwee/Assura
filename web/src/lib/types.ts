@@ -230,6 +230,14 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+/** A saved Plan Q&A conversation (one entry in the chat-history sidebar). */
+export interface ChatConversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Citation {
   planId: string;
   planName: string;

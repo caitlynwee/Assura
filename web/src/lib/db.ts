@@ -26,6 +26,9 @@ import type {
   ThreadMessage,
   ScraperRun,
   ConsentFlags,
+  ChatConversation,
+  ChatMessage,
+  Citation,
 } from "./types";
 
 // The Drizzle instance type is intentionally loose so a pglite-backed instance
@@ -339,6 +342,129 @@ export async function updateThread(
     .update(schema.threads)
     .set(updates)
     .where(eq(schema.threads.id, threadId));
+}
+
+// ─── chat conversations (Plan Q&A history) ───────────────────────────────────
+// Every query is scoped by userId so one user can never read or delete another
+// user's conversations.
+
+type ConversationRow = typeof schema.chatConversations.$inferSelect;
+type ChatMessageRow = typeof schema.chatMessages.$inferSelect;
+
+function rowToConversation(row: ConversationRow): ChatConversation {
+  return {
+    id: row.id,
+    title: row.title,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function rowToChatMessage(row: ChatMessageRow): ChatMessage {
+  const citations = row.citations as Citation[] | null;
+  return {
+    role: row.role as ChatMessage["role"],
+    content: row.content,
+    timestamp: row.timestamp,
+    ...(citations && citations.length > 0 ? { citations } : {}),
+  };
+}
+
+/** A user's conversations, most recently active first. */
+export async function getConversationsByUser(
+  userId: string
+): Promise<ChatConversation[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.chatConversations)
+    .where(eq(schema.chatConversations.userId, userId))
+    .orderBy(desc(schema.chatConversations.updatedAt))) as ConversationRow[];
+  return rows.map(rowToConversation);
+}
+
+/** One conversation, only if it belongs to `userId`. */
+export async function getConversationById(
+  conversationId: string,
+  userId: string
+): Promise<ChatConversation | null> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.chatConversations)
+    .where(
+      and(
+        eq(schema.chatConversations.id, conversationId),
+        eq(schema.chatConversations.userId, userId)
+      )
+    )
+    .limit(1)) as ConversationRow[];
+  return rows[0] ? rowToConversation(rows[0]) : null;
+}
+
+/** Messages of a conversation in order. Caller must check ownership first. */
+export async function getConversationMessages(
+  conversationId: string
+): Promise<ChatMessage[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.chatMessages)
+    .where(eq(schema.chatMessages.conversationId, conversationId))
+    .orderBy(schema.chatMessages.ordering)) as ChatMessageRow[];
+  return rows.map(rowToChatMessage);
+}
+
+export async function insertConversation(
+  conversation: ChatConversation & { userId: string }
+): Promise<void> {
+  await getDb().insert(schema.chatConversations).values({
+    id: conversation.id,
+    userId: conversation.userId,
+    title: conversation.title,
+    createdAt: conversation.createdAt,
+    updatedAt: conversation.updatedAt,
+  });
+}
+
+/** Append a message and bump the conversation's updatedAt. */
+export async function appendConversationMessage(
+  conversationId: string,
+  messageId: string,
+  message: ChatMessage
+): Promise<void> {
+  const db = getDb();
+  const existing = await db
+    .select({ id: schema.chatMessages.id })
+    .from(schema.chatMessages)
+    .where(eq(schema.chatMessages.conversationId, conversationId));
+  await db.insert(schema.chatMessages).values({
+    id: messageId,
+    conversationId,
+    ordering: existing.length,
+    role: message.role,
+    content: message.content,
+    citations: message.citations ?? null,
+    timestamp: message.timestamp,
+  });
+  await db
+    .update(schema.chatConversations)
+    .set({ updatedAt: message.timestamp })
+    .where(eq(schema.chatConversations.id, conversationId));
+}
+
+/** Delete a conversation (messages cascade). Returns false if not owned/found. */
+export async function deleteConversation(
+  conversationId: string,
+  userId: string
+): Promise<boolean> {
+  const deleted = await getDb()
+    .delete(schema.chatConversations)
+    .where(
+      and(
+        eq(schema.chatConversations.id, conversationId),
+        eq(schema.chatConversations.userId, userId)
+      )
+    )
+    .returning({ id: schema.chatConversations.id });
+  return deleted.length > 0;
 }
 
 // ─── scraper_runs ─────────────────────────────────────────────────────────────

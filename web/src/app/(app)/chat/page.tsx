@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import ChatWindow from "@/components/chat/chat-window";
+import { Suspense } from "react";
+import ChatWorkspace from "@/components/chat/chat-workspace";
 import PageHeader from "@/components/layout/page-header";
 
 export const metadata = { title: "Plan Q&A — Assura" };
@@ -13,7 +14,10 @@ export default function ChatPage() {
         description="Ask anything about critical illness plans. Answers are cited from brochure data — factual comparison, not financial advice."
       />
       <div className="flex-1 min-h-0">
-        <ChatWindow />
+        {/* useSearchParams (active chat id) needs a Suspense boundary. */}
+        <Suspense fallback={null}>
+          <ChatWorkspace />
+        </Suspense>
       </div>
     </div>
   );

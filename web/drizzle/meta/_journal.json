@@ -15,6 +15,13 @@
       "when": 1792438447026,
       "tag": "0001_curly_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792477374512,
+      "tag": "0002_chat_history",
+      "breakpoints": true
     }
   ]
 }
