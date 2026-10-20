@@ -184,11 +184,11 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
             <UserRoundCheckIcon />
             <AlertDescription>
               <span>
-                Add your age, budget and the coverage you need to see only the plans that fit you, with
-                premiums for your profile.{" "}
+                Showing all plans. Optionally{" "}
                 <Link href="/settings" className="font-medium text-primary hover:underline">
-                  Add your details
-                </Link>
+                  add your details
+                </Link>{" "}
+                (age, budget, coverage) to see premiums tailored to you and highlight the plans that fit.
               </span>
             </AlertDescription>
           </Alert>
