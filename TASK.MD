@@ -613,6 +613,27 @@ Done:
 Files: web/src/lib/seed.ts, web/src/lib/seed-data.ts, web/src/__tests__/setup.ts, web/drizzle/meta/_journal.json, scraper/tests/test_engine.py, TASK.MD
 Others need to know: Full web ESLint and scraper Ruff still report unrelated pre-existing errors in `web/src/hooks/use-plans.ts` and other scraper files.
 Blockers: None.
+## 2026-10-20 | Copilot | Fix scraper CI lint failure
+Status: Completed
+Done:
+- Corrected SQLAlchemy import ordering in the scraper database mapping.
+- Replaced deprecated `timezone.utc` usage with Python 3.11's `datetime.UTC` alias.
+- Verified Ruff with no errors and all 19 scraper tests passing.
+Files: scraper/app/storage/database.py, scraper/app/utils/debug_dump.py
+Others need to know: The repeated CI notifications were caused by these two Ruff errors in the scraper job; pushing this fix will allow the workflow to pass.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Add admin operations tier
+Status: Completed
+Done:
+- Added the `admin` tier with edge/server authorization and an admin-only dashboard.
+- Added protected manual rescraping, latest-run status/error reporting, and audit logging.
+- Added the `db:grant-admin` CLI to update PostgreSQL and Supabase app metadata together.
+- Protected scraper run/status endpoints with `INTERNAL_API_SECRET`.
+Files: web/src/app/(app)/admin/, web/src/components/admin/, web/src/lib/{types,auth-routing,session,grant-admin,policy}.ts, web/src/app/api/scraper/, scraper/app/routers/scraper.py
+Others need to know: Admins retain Premium workspace access; only the server-side grant command can assign the tier.
+Blockers: None.
 ---
 ## 2026-10-20 | Copilot | Isolating Mail and Scraper Services
 Status: Completed
@@ -654,5 +675,12 @@ Done:
 - Protected scraper run/status endpoints with `INTERNAL_API_SECRET`.
 Files: web/src/app/(app)/admin/, web/src/components/admin/, web/src/lib/{types,auth-routing,session,grant-admin,policy}.ts, web/src/app/api/scraper/, scraper/app/routers/scraper.py
 Others need to know: Admins retain Premium workspace access; only the server-side grant command can assign the tier.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | One-Command Stripe Billing Test
+Status: Completed
+Done: Added `./dev.sh up-stripe [--build]` to start the web container and Stripe CLI event forwarding together; the command obtains a local webhook signing secret and injects it into the container without writing it to `.env`.
+Files: `dev.sh`, `README.md`, `.env.example`
+Others need to know: Requires Stripe CLI and `STRIPE_SECRET_KEY` plus recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
 Blockers: None.
 ---

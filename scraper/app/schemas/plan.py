@@ -25,6 +25,7 @@ class Plan(BaseModel):
     key_benefits: list[str] = []
     exclusions: list[str] = []
     source_url: str
+    product_url: str = ""
     data_as_of: str
     updated_badge: bool = False
     change_notes: list[str] = []
