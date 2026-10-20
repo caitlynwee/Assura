@@ -46,6 +46,9 @@ Thumbs.db
 .vscode/
 *.log
 
+# ─── Scraper debug dumps (local only, never commit) ─────────────────────────
+scraper/app/debug/
+
 # ─── Misc ────────────────────────────────────────────────────────────────────
 *.tsbuildinfo
 .turbo/
