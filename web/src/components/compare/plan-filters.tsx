@@ -1,13 +1,12 @@
 "use client";
 
 import { RotateCcwIcon, SearchIcon } from "lucide-react";
-import { usePlanFilters } from "@/hooks/use-plans";
+import { usePlanFilters, type PlanSortBy } from "@/hooks/use-plans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 
 // Radix Select items can't use "" as a value, so "all" stands for "no filter".
 const ALL = "all";
@@ -18,12 +17,35 @@ const INSURERS = [
   ["greateastern", "Great Eastern"],
   ["income", "NTUC Income"],
   ["manulife", "Manulife"],
+  ["singlife", "Singlife"],
 ] as const;
 
-type SortBy = "coverageAmount" | "premiums" | "illnessesCovered" | "planName";
+/** Coverage (sum assured) bands → [minCoverage, maxCoverage] for /api/plans. */
+export const COVERAGE_RANGES: Record<string, { label: string; min?: number; max?: number }> = {
+  "0-50000": { label: "Up to S$50k", max: 50_000 },
+  "50001-100000": { label: "S$50k – S$100k", min: 50_001, max: 100_000 },
+  "100001-200000": { label: "S$100k – S$200k", min: 100_001, max: 200_000 },
+  "200001-": { label: "Above S$200k", min: 200_001 },
+};
 
-export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean }) {
-  const { filters, setFilter, reset } = usePlanFilters();
+/** Sort choices as "<field>:<direction>" so one dropdown sets both. */
+const SORTS: Array<[string, string]> = [
+  ["coverageAmount:desc", "Coverage: high to low"],
+  ["coverageAmount:asc", "Coverage: low to high"],
+  ["premium:asc", "Premium: low to high"],
+  ["premium:desc", "Premium: high to low"],
+  ["illnessesCovered:desc", "Most illnesses covered"],
+  ["planName:asc", "Plan name (A–Z)"],
+];
+
+function coverageKey(min?: number, max?: number): string {
+  const hit = Object.entries(COVERAGE_RANGES).find(([, r]) => r.min === min && r.max === max);
+  return hit ? hit[0] : ALL;
+}
+
+export default function PlanFilters() {
+  const { filters, setFilter, update, reset } = usePlanFilters();
+  const sortValue = filters.sortBy ? `${filters.sortBy}:${filters.sortDir ?? "asc"}` : ALL;
 
   return (
     <Card className="py-4">
@@ -44,7 +66,7 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
           </div>
         </div>
 
-        <div className="grid min-w-[180px] gap-1.5">
+        <div className="grid min-w-[170px] gap-1.5">
           <Label htmlFor="f-insurer" className="text-xs text-muted-foreground">
             Insurer
           </Label>
@@ -66,7 +88,32 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
           </Select>
         </div>
 
-        <div className="grid min-w-[150px] gap-1.5">
+        <div className="grid min-w-[170px] gap-1.5">
+          <Label htmlFor="f-coverage" className="text-xs text-muted-foreground">
+            Coverage amount
+          </Label>
+          <Select
+            value={coverageKey(filters.minCoverage, filters.maxCoverage)}
+            onValueChange={(v) => {
+              const r = v === ALL ? undefined : COVERAGE_RANGES[v];
+              update({ minCoverage: r?.min, maxCoverage: r?.max });
+            }}
+          >
+            <SelectTrigger id="f-coverage">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Any amount</SelectItem>
+              {Object.entries(COVERAGE_RANGES).map(([key, r]) => (
+                <SelectItem key={key} value={key}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid min-w-[140px] gap-1.5">
           <Label htmlFor="f-early" className="text-xs text-muted-foreground">
             Early stage CI
           </Label>
@@ -85,42 +132,31 @@ export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean
           </Select>
         </div>
 
-        <div className="grid min-w-[170px] gap-1.5">
+        <div className="grid min-w-[190px] gap-1.5">
           <Label htmlFor="f-sort" className="text-xs text-muted-foreground">
             Sort by
           </Label>
           <Select
-            value={filters.sortBy ?? ALL}
-            onValueChange={(v) => setFilter("sortBy", v === ALL ? undefined : (v as SortBy))}
+            value={sortValue}
+            onValueChange={(v) => {
+              if (v === ALL) return update({ sortBy: undefined, sortDir: undefined });
+              const [by, dir] = v.split(":") as [PlanSortBy, "asc" | "desc"];
+              update({ sortBy: by, sortDir: dir });
+            }}
           >
             <SelectTrigger id="f-sort">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Default</SelectItem>
-              <SelectItem value="coverageAmount">Coverage amount</SelectItem>
-              <SelectItem value="premiums">Premium (M/30)</SelectItem>
-              <SelectItem value="illnessesCovered">Illnesses covered</SelectItem>
-              <SelectItem value="planName">Plan name</SelectItem>
+              {SORTS.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-
-        {hasBudget && (
-          <div className="grid gap-1.5">
-            <Label htmlFor="f-within-budget" className="text-xs text-muted-foreground">
-              Within my budget
-            </Label>
-            <div className="flex h-9 items-center gap-2">
-              <Switch
-                id="f-within-budget"
-                checked={filters.withinBudgetOnly ?? false}
-                onCheckedChange={(v) => setFilter("withinBudgetOnly", v || undefined)}
-              />
-              <span className="text-sm text-muted-foreground">Emphasize</span>
-            </div>
-          </div>
-        )}
 
         <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
           <RotateCcwIcon />
