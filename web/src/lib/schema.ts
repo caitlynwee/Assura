@@ -81,6 +81,7 @@ export const plans = pgTable("plans", {
   keyBenefits: jsonb("key_benefits").notNull(), // string[]
   exclusions: jsonb("exclusions").notNull(), // string[]
   sourceUrl: text("source_url").notNull(),
+  productUrl: text("product_url").notNull().default(""),
   dataAsOf: text("data_as_of").notNull(), // YYYY-MM-DD
   updatedBadge: boolean("updated_badge").notNull(),
   changeNotes: jsonb("change_notes").notNull(), // string[]
