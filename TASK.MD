@@ -607,3 +607,10 @@ Files: web/src/lib/seed.ts, web/src/lib/seed-data.ts, web/src/__tests__/setup.ts
 Others need to know: Full web ESLint and scraper Ruff still report unrelated pre-existing errors in `web/src/hooks/use-plans.ts` and other scraper files.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Isolating Mail and Scraper Services
+Status: Completed
+Done: Extracted Premium email delivery/personas into `mail-service`; web email calls now target it, and scraper no longer owns email/persona modules. Added independent Docker profiles, CI coverage, and updated operator/product docs.
+Files: `mail-service/`, `web/src/lib/mail.ts`, `web/src/app/api/crm/threads/[threadId]/reply/route.ts`, `docker-compose.yml`, `dev.sh`, `README.md`, `docs/PROJECT.MD`
+Others need to know: Basic starts web + DB migration; Premium starts web + mail + Mailpit; scraper starts independently. All use PostgreSQL; SMTP is restricted to local Mailpit on port 1025.
+Blockers: None.
+---

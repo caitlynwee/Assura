@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getThreadById } from "@/lib/db";
 
-const SCRAPER_URL = process.env.SCRAPER_URL ?? "http://localhost:8100";
+const MAIL_SERVICE_URL = process.env.MAIL_SERVICE_URL ?? "http://localhost:8200";
 const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key";
 
 export async function POST(
@@ -21,7 +21,7 @@ export async function POST(
   }
 
   try {
-    const response = await fetch(`${SCRAPER_URL}/email/reply`, {
+    const response = await fetch(`${MAIL_SERVICE_URL}/email/reply`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -32,14 +32,14 @@ export async function POST(
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       return NextResponse.json(
-        { error: data.detail ?? "Outreach server could not simulate a reply." },
+        { error: data.detail ?? "Mail service could not simulate a reply." },
         { status: response.status === 403 ? 502 : response.status }
       );
     }
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
-      { error: `Outreach server unavailable: ${String(error)}` },
+      { error: `Mail service unavailable: ${String(error)}` },
       { status: 503 }
     );
   }

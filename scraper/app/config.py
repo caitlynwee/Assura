@@ -8,12 +8,6 @@ class Settings(BaseSettings):
 
     # Servers
     scraper_port: int = 8100
-    web_base_url: str = "http://localhost:3000"
-    internal_api_secret: str = "dev-internal-key"
-
-    # Mailpit SMTP sandbox (default: nothing leaves the machine)
-    mailpit_smtp_host: str = "localhost"
-    mailpit_smtp_port: int = 1025
 
     # Database
     database_url: str = ""

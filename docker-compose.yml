@@ -22,13 +22,37 @@ services:
     restart: "no"
 
   mailpit:
+    profiles: ["premium"]
     image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"
 
+  mail:
+    profiles: ["premium"]
+    build:
+      context: ./mail-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
+      WEB_BASE_URL: ${WEB_BASE_URL:-http://web:3000}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: 1025
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+
   scraper:
+    profiles: ["scraper"]
     build:
       context: ./scraper
       dockerfile: Dockerfile
@@ -39,10 +63,6 @@ services:
       - ./scraper/app:/app/app   # hot reload
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
-      WEB_BASE_URL: http://web:3000
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
-      MAILPIT_SMTP_HOST: mailpit
-      MAILPIT_SMTP_PORT: 1025
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       JINA_API_KEY: ${JINA_API_KEY:-}
       FIRE_CRAWL_API_KEY: ${FIRE_CRAWL_API_KEY:-}
@@ -52,8 +72,6 @@ services:
     depends_on:
       db-migrate:
         condition: service_completed_successfully
-      mailpit:
-        condition: service_started
 
   web:
     build:
@@ -77,10 +95,9 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
-      SCRAPER_URL: http://scraper:8100
+      SCRAPER_URL: ${SCRAPER_URL:-http://scraper:8100}
+      MAIL_SERVICE_URL: http://mail:8200
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-dev-internal-key}
-      MAILPIT_SMTP_HOST: mailpit
-      MAILPIT_SMTP_PORT: 1025
     depends_on:
       db-migrate:
         condition: service_completed_successfully
