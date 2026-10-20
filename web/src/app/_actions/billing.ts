@@ -8,7 +8,8 @@ import { getSiteUrl, getStripeClient, getStripePriceId, safeBillingReturnTo } fr
 export async function startPremiumCheckoutAction(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  if (session.user.tier === "premium") redirect("/onboarding");
+  // Admin is premium-or-better: already entitled, so skip Stripe payment.
+  if (session.user.tier === "premium" || session.user.tier === "admin") redirect("/onboarding");
 
   try {
     const user = await findUserById(session.user.id);

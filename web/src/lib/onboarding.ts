@@ -35,7 +35,8 @@ export async function completeOnboarding(
 
   let notPremium = false;
   const updated = await updateUser(userId, (u) => {
-    if (u.tier !== "premium") {
+    // Admin is premium-or-better: both may complete onboarding; only free is denied.
+    if (u.tier !== "premium" && u.tier !== "admin") {
       notPremium = true;
       return;
     }

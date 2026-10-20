@@ -87,6 +87,9 @@ export async function syncSubscriptionEntitlement(
   const user = users[0];
   if (!user) throw new Error(`Assura account ${appUserId} was not found.`);
   if (user.email.toLowerCase() === DEMO_EMAIL) return;
+  // Admin is sticky: a Stripe entitlement event must never downgrade an admin's
+  // DB tier (which would then propagate to app_metadata via syncAuthMetadata).
+  if (user.tier === "admin") return;
 
   const isEntitled = subscription.status === "active" || subscription.status === "trialing";
   if (
