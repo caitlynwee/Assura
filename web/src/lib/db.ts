@@ -34,6 +34,8 @@ import type {
   ChatConversation,
   ChatMessage,
   Citation,
+  PolicyDocument,
+  PolicyConversation,
 } from "./types";
 
 // The Drizzle instance type is intentionally loose so a pglite-backed instance
@@ -781,4 +783,401 @@ export async function deleteUserCascade(userId: string): Promise<boolean> {
 
     return deleted.length > 0;
   });
+}
+
+// ─── policy_documents ─────────────────────────────────────────────────────────
+
+type PolicyDocumentRow = typeof schema.policyDocuments.$inferSelect;
+
+function rowToPolicyDocument(row: PolicyDocumentRow): PolicyDocument {
+  return {
+    id: row.id,
+    filename: row.filename,
+    contentType: row.contentType,
+    size: row.size,
+    title: row.title,
+    extractedText: row.extractedText ?? null,
+    pageCount: row.pageCount ?? null,
+    uploadedAt: row.uploadedAt,
+  };
+}
+
+/** Insert a new policy document (raw bytes + metadata). */
+export async function insertPolicyDocument(doc: {
+  id: string;
+  userId: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  data: Buffer;
+  title: string;
+  uploadedAt: string;
+}): Promise<void> {
+  await getDb().insert(schema.policyDocuments).values({
+    id: doc.id,
+    userId: doc.userId,
+    filename: doc.filename,
+    contentType: doc.contentType,
+    size: doc.size,
+    data: doc.data,
+    title: doc.title,
+    extractedText: null,
+    pageCount: null,
+    uploadedAt: doc.uploadedAt,
+  });
+}
+
+/** All documents belonging to a user, newest first. */
+export async function getPolicyDocumentsByUser(
+  userId: string
+): Promise<PolicyDocument[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.policyDocuments)
+    .where(eq(schema.policyDocuments.userId, userId))
+    .orderBy(desc(schema.policyDocuments.uploadedAt))) as PolicyDocumentRow[];
+  return rows.map(rowToPolicyDocument);
+}
+
+/** Document metadata only (no raw bytes). Ownership enforced. */
+export async function getPolicyDocumentById(
+  id: string,
+  userId: string
+): Promise<PolicyDocument | null> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.policyDocuments)
+    .where(
+      and(
+        eq(schema.policyDocuments.id, id),
+        eq(schema.policyDocuments.userId, userId)
+      )
+    )
+    .limit(1)) as PolicyDocumentRow[];
+  return rows[0] ? rowToPolicyDocument(rows[0]) : null;
+}
+
+/** Return the raw file bytes + content-type. Ownership enforced. */
+export async function getPolicyDocumentFile(
+  id: string,
+  userId: string
+): Promise<{ data: Buffer; contentType: string; filename: string } | null> {
+  const rows = await getDb()
+    .select({
+      data: schema.policyDocuments.data,
+      contentType: schema.policyDocuments.contentType,
+      filename: schema.policyDocuments.filename,
+    })
+    .from(schema.policyDocuments)
+    .where(
+      and(
+        eq(schema.policyDocuments.id, id),
+        eq(schema.policyDocuments.userId, userId)
+      )
+    )
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return { data: row.data as Buffer, contentType: row.contentType, filename: row.filename };
+}
+
+/** Store extracted text + page count after async extraction. */
+export async function updatePolicyDocumentText(
+  id: string,
+  text: string,
+  pageCount: number
+): Promise<void> {
+  await getDb()
+    .update(schema.policyDocuments)
+    .set({ extractedText: text, pageCount })
+    .where(eq(schema.policyDocuments.id, id));
+}
+
+/** Rename a document title. Ownership enforced. Returns false if not found. */
+export async function updatePolicyDocumentTitle(
+  id: string,
+  userId: string,
+  title: string
+): Promise<boolean> {
+  const updated = await getDb()
+    .update(schema.policyDocuments)
+    .set({ title })
+    .where(
+      and(
+        eq(schema.policyDocuments.id, id),
+        eq(schema.policyDocuments.userId, userId)
+      )
+    )
+    .returning({ id: schema.policyDocuments.id });
+  return updated.length > 0;
+}
+
+/** Delete a document and cascade its conversations + messages. */
+export async function deletePolicyDocument(
+  id: string,
+  userId: string
+): Promise<boolean> {
+  const deleted = await getDb()
+    .delete(schema.policyDocuments)
+    .where(
+      and(
+        eq(schema.policyDocuments.id, id),
+        eq(schema.policyDocuments.userId, userId)
+      )
+    )
+    .returning({ id: schema.policyDocuments.id });
+  return deleted.length > 0;
+}
+
+// ─── policy_conversations ─────────────────────────────────────────────────────
+
+type PolicyConversationRow = typeof schema.policyConversations.$inferSelect;
+type PolicyMessageRow = typeof schema.policyMessages.$inferSelect;
+
+function rowToPolicyConversation(row: PolicyConversationRow): PolicyConversation {
+  return {
+    id: row.id,
+    documentId: row.documentId,
+    title: row.title,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    deletedAt: row.deletedAt ?? null,
+  };
+}
+
+function rowToPolicyMessage(row: PolicyMessageRow): ChatMessage {
+  const citations = row.citations as Citation[] | null;
+  return {
+    id: row.id,
+    role: row.role as ChatMessage["role"],
+    content: row.content,
+    timestamp: row.timestamp,
+    ...(citations && citations.length > 0 ? { citations } : {}),
+  };
+}
+
+const policyConvOwnedBy = (convId: string, userId: string) =>
+  and(
+    eq(schema.policyConversations.id, convId),
+    eq(schema.policyConversations.userId, userId)
+  );
+
+/** Active conversations for a document, most recently updated first. */
+export async function getPolicyConversationsByDocument(
+  documentId: string,
+  userId: string
+): Promise<PolicyConversation[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.policyConversations)
+    .where(
+      and(
+        eq(schema.policyConversations.documentId, documentId),
+        eq(schema.policyConversations.userId, userId),
+        isNull(schema.policyConversations.deletedAt)
+      )
+    )
+    .orderBy(desc(schema.policyConversations.updatedAt))) as PolicyConversationRow[];
+  return rows.map(rowToPolicyConversation);
+}
+
+/** A user's "Recently deleted" policy conversations, most recently deleted first. */
+export async function getDeletedPolicyConversationsByUser(
+  userId: string
+): Promise<PolicyConversation[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.policyConversations)
+    .where(
+      and(
+        eq(schema.policyConversations.userId, userId),
+        isNotNull(schema.policyConversations.deletedAt)
+      )
+    )
+    .orderBy(desc(schema.policyConversations.deletedAt))) as PolicyConversationRow[];
+  return rows.map(rowToPolicyConversation);
+}
+
+/** One ACTIVE policy conversation, only if owned by `userId`. */
+export async function getPolicyConversationById(
+  conversationId: string,
+  userId: string
+): Promise<PolicyConversation | null> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.policyConversations)
+    .where(
+      and(
+        policyConvOwnedBy(conversationId, userId),
+        isNull(schema.policyConversations.deletedAt)
+      )
+    )
+    .limit(1)) as PolicyConversationRow[];
+  return rows[0] ? rowToPolicyConversation(rows[0]) : null;
+}
+
+/** Messages of a policy conversation in order. Caller checks ownership. */
+export async function getPolicyConversationMessages(
+  conversationId: string
+): Promise<ChatMessage[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.policyMessages)
+    .where(eq(schema.policyMessages.conversationId, conversationId))
+    .orderBy(schema.policyMessages.ordering)) as PolicyMessageRow[];
+  return rows.map(rowToPolicyMessage);
+}
+
+export async function insertPolicyConversation(conv: {
+  id: string;
+  userId: string;
+  documentId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}): Promise<void> {
+  await getDb().insert(schema.policyConversations).values({
+    id: conv.id,
+    userId: conv.userId,
+    documentId: conv.documentId,
+    title: conv.title,
+    createdAt: conv.createdAt,
+    updatedAt: conv.updatedAt,
+    deletedAt: null,
+  });
+}
+
+/** Append a message and bump the conversation's updatedAt. */
+export async function appendPolicyMessage(
+  conversationId: string,
+  messageId: string,
+  message: ChatMessage
+): Promise<void> {
+  const db = getDb();
+  const existing = await db
+    .select({ id: schema.policyMessages.id })
+    .from(schema.policyMessages)
+    .where(eq(schema.policyMessages.conversationId, conversationId));
+  await db.insert(schema.policyMessages).values({
+    id: messageId,
+    conversationId,
+    ordering: existing.length,
+    role: message.role,
+    content: message.content,
+    citations: message.citations ?? null,
+    timestamp: message.timestamp,
+  });
+  await db
+    .update(schema.policyConversations)
+    .set({ updatedAt: message.timestamp })
+    .where(eq(schema.policyConversations.id, conversationId));
+}
+
+/** Edit: remove a user message and everything after it. Returns false if invalid. */
+export async function truncatePolicyConversationFrom(
+  conversationId: string,
+  messageId: string
+): Promise<boolean> {
+  const db = getDb();
+  const rows = (await db
+    .select()
+    .from(schema.policyMessages)
+    .where(
+      and(
+        eq(schema.policyMessages.id, messageId),
+        eq(schema.policyMessages.conversationId, conversationId)
+      )
+    )
+    .limit(1)) as PolicyMessageRow[];
+  const target = rows[0];
+  if (!target || target.role !== "user") return false;
+
+  await db
+    .delete(schema.policyMessages)
+    .where(
+      and(
+        eq(schema.policyMessages.conversationId, conversationId),
+        gte(schema.policyMessages.ordering, target.ordering)
+      )
+    );
+  return true;
+}
+
+/** Soft-delete a policy conversation. Returns false if not owned/active. */
+export async function softDeletePolicyConversation(
+  conversationId: string,
+  userId: string,
+  deletedAt: string
+): Promise<boolean> {
+  const updated = await getDb()
+    .update(schema.policyConversations)
+    .set({ deletedAt })
+    .where(
+      and(
+        policyConvOwnedBy(conversationId, userId),
+        isNull(schema.policyConversations.deletedAt)
+      )
+    )
+    .returning({ id: schema.policyConversations.id });
+  return updated.length > 0;
+}
+
+/** Restore a policy conversation from the bin. */
+export async function restorePolicyConversation(
+  conversationId: string,
+  userId: string
+): Promise<boolean> {
+  const updated = await getDb()
+    .update(schema.policyConversations)
+    .set({ deletedAt: null })
+    .where(
+      and(
+        policyConvOwnedBy(conversationId, userId),
+        isNotNull(schema.policyConversations.deletedAt)
+      )
+    )
+    .returning({ id: schema.policyConversations.id });
+  return updated.length > 0;
+}
+
+/** Permanently delete a policy conversation. */
+export async function deletePolicyConversation(
+  conversationId: string,
+  userId: string
+): Promise<boolean> {
+  const deleted = await getDb()
+    .delete(schema.policyConversations)
+    .where(policyConvOwnedBy(conversationId, userId))
+    .returning({ id: schema.policyConversations.id });
+  return deleted.length > 0;
+}
+
+/** Empty the policy-chat bin for a user. Returns count deleted. */
+export async function emptyPolicyTrash(userId: string): Promise<number> {
+  const deleted = await getDb()
+    .delete(schema.policyConversations)
+    .where(
+      and(
+        eq(schema.policyConversations.userId, userId),
+        isNotNull(schema.policyConversations.deletedAt)
+      )
+    )
+    .returning({ id: schema.policyConversations.id });
+  return deleted.length;
+}
+
+/** Purge expired policy-chat bin entries older than cutoffIso. */
+export async function purgeExpiredPolicyConversations(
+  cutoffIso: string
+): Promise<number> {
+  const deleted = await getDb()
+    .delete(schema.policyConversations)
+    .where(
+      and(
+        isNotNull(schema.policyConversations.deletedAt),
+        lt(schema.policyConversations.deletedAt, cutoffIso)
+      )
+    )
+    .returning({ id: schema.policyConversations.id });
+  return deleted.length;
 }

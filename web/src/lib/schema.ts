@@ -243,3 +243,53 @@ export const chatMessages = pgTable("chat_messages", {
   citations: jsonb("citations"), // Citation[] | null
   timestamp: text("timestamp").notNull(), // ISO 8601
 });
+
+// ─── policy_documents ─────────────────────────────────────────────────────────
+// User-uploaded insurance policy PDFs. Raw bytes stored in the DB (same pattern
+// as plan_brochures) so no extra infra is needed. Text is extracted server-side
+// immediately after upload and stored alongside the bytes for LLM context.
+export const policyDocuments = pgTable("policy_documents", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  size: integer("size").notNull(), // bytes
+  data: bytea("data").notNull(),
+  extractedText: text("extracted_text"), // null until extraction completes or if it failed
+  pageCount: integer("page_count"),
+  title: text("title").notNull(), // defaults to filename; user-editable
+  uploadedAt: text("uploaded_at").notNull(), // ISO 8601
+});
+
+// ─── policy_conversations ─────────────────────────────────────────────────────
+// One row per conversation on the Policy Chat tab. Mirrors chat_conversations
+// exactly but adds a document_id FK so history is scoped to a document.
+export const policyConversations = pgTable("policy_conversations", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  documentId: text("document_id")
+    .notNull()
+    .references(() => policyDocuments.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  createdAt: text("created_at").notNull(), // ISO 8601
+  updatedAt: text("updated_at").notNull(), // ISO 8601 — bumped on every message
+  deletedAt: text("deleted_at"), // ISO 8601 when binned; null = active
+});
+
+// ─── policy_messages ─────────────────────────────────────────────────────────
+// Child of policy_conversations. Identical shape to chat_messages.
+export const policyMessages = pgTable("policy_messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => policyConversations.id, { onDelete: "cascade" }),
+  ordering: integer("ordering").notNull(),
+  role: text("role").notNull(), // 'user' | 'assistant'
+  content: text("content").notNull(),
+  citations: jsonb("citations"), // Citation[] | null (unused for policy chat but kept for shape parity)
+  timestamp: text("timestamp").notNull(), // ISO 8601
+});

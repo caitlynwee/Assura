@@ -188,6 +188,17 @@ export const onboardingSchema = z.object({
   }),
 });
 
+// ─── Policy Chat ──────────────────────────────────────────────────────────────
+
+export const policyChatRequestSchema = z.object({
+  message: z.string().min(1).max(2000),
+  documentId: z.string().min(1).max(64),
+  conversationId: z.string().min(1).max(64).optional(),
+  editMessageId: z.string().min(1).max(64).optional(),
+}).refine((d) => !d.editMessageId || d.conversationId, {
+  message: "editMessageId requires conversationId",
+});
+
 // ─── Scraper ──────────────────────────────────────────────────────────────────
 
 export const scraperTriggerSchema = z.object({

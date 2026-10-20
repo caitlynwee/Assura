@@ -21,6 +21,7 @@ export type PolicyAction =
   | "read_threads"
   | "read_audit"
   | "chat_qa"
+  | "policy_chat"
   | "draft_email"
   | "advise_plan"
   | "send_email"
@@ -47,6 +48,7 @@ const ACTION_TIERS: Record<PolicyAction, PolicyTier> = {
   read_threads: PolicyTier.READ,
   read_audit: PolicyTier.READ,
   chat_qa: PolicyTier.READ,
+  policy_chat: PolicyTier.READ,
 
   // Tier 1 — advise/draft (premium, no side effects)
   draft_email: PolicyTier.ADVISE,

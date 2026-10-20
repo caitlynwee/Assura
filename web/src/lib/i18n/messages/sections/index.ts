@@ -11,6 +11,7 @@ import { activity } from "./activity";
 import { crm } from "./crm";
 import { outreach } from "./outreach";
 import { admin } from "./admin";
+import { policyChat } from "./policyChat";
 
 /** Every dictionary section. Add new sections here. */
-export const SECTIONS = { common, layout, home, auth, toast, profile, account, compare, chat, activity, crm, outreach, admin };
+export const SECTIONS = { common, layout, home, auth, toast, profile, account, compare, chat, activity, crm, outreach, admin, policyChat };
