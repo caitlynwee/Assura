@@ -200,6 +200,30 @@ def _pick_best_page(results: list[dict], parts: list[str], country_tld: str) -> 
     return non_pdfs[0] if non_pdfs else ""
 
 
+# Per-domain query overrides — used when the generic CI query finds the wrong plan type.
+# income.com.sg: generic query finds Employees FlexCare (corporate group plan) → exclude it.
+# manulife.com.sg: generic query finds ManuProtect Term (term life) → exclude term plans.
+_DOMAIN_OVERRIDES: dict[str, dict[str, str]] = {
+    "income.com.sg": {
+        "pdf": (
+            "site:income.com.sg individual critical illness plan brochure filetype:pdf"
+            " -flexcare -employees -group"
+        ),
+        "page": (
+            "site:income.com.sg individual critical illness insurance plan"
+            " -flexcare -employees -group"
+        ),
+    },
+    "manulife.com.sg": {
+        "pdf": (
+            "site:manulife.com.sg critical illness insurance plan brochure filetype:pdf"
+            " -term"
+        ),
+        "page": "site:manulife.com.sg critical illness plan insurance -term",
+    },
+}
+
+
 async def _search_urls(
     insurer_name: str, domain: str, country: str
 ) -> tuple[str, str]:
@@ -208,20 +232,23 @@ async def _search_urls(
     country_tld = _country_code(country).lower()
 
     site = f"site:{domain}" if domain else insurer_name
+    overrides = _DOMAIN_OVERRIDES.get(domain, {})
 
-    # Search 1: PDF brochure — try standalone CI first, fall back to general CI
-    pdf_results = await _firecrawl_search(
-        f"{site} standalone critical illness plan brochure filetype:pdf"
-    )
-    if not any(".pdf" in r.get("url", "").lower() for r in pdf_results):
+    # Search 1: PDF brochure — use domain override if available, else generic CI query
+    if overrides.get("pdf"):
+        pdf_results = await _firecrawl_search(overrides["pdf"])
+    else:
         pdf_results = await _firecrawl_search(
-            f"{site} critical illness brochure filetype:pdf"
+            f"{site} standalone critical illness plan brochure filetype:pdf"
         )
+        if not any(".pdf" in r.get("url", "").lower() for r in pdf_results):
+            pdf_results = await _firecrawl_search(
+                f"{site} critical illness brochure filetype:pdf"
+            )
 
     # Search 2: Product page locked to insurer's own domain
-    page_results = await _firecrawl_search(
-        f"{site} critical illness plan"
-    )
+    page_query = overrides.get("page") or f"{site} critical illness plan"
+    page_results = await _firecrawl_search(page_query)
 
     # Collect PDFs from both searches — filter out other-country paths
     brochure_url = _pick_best_pdf(pdf_results + page_results, parts, country_tld)
