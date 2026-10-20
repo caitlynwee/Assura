@@ -2,13 +2,16 @@ import { NextResponse } from "next/server";
 import { getServerClient } from "@/lib/supabase/server";
 import { resolveOrCreateAuthUser } from "@/lib/users";
 import { getUserByAuthUid } from "@/lib/db";
+import { getSiteUrl } from "@/lib/stripe";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const confirmationType = url.searchParams.get("type");
-  const destination = new URL("/settings", url.origin);
+  // Read query params from the incoming request, but base the redirect on the
+  // configured site origin so it never leaks the container's HOSTNAME=0.0.0.0.
+  const destination = new URL("/settings", getSiteUrl());
 
   if (!code && !tokenHash) {
     destination.searchParams.set("emailError", "invalid-link");

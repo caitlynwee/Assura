@@ -14,6 +14,8 @@ at least one source changed and Phase 2 succeeds per plan (errors are non-fatal)
 
 import uuid
 
+import httpx
+
 from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
 from app.scraper.discovery import discover_top_insurers
@@ -30,6 +32,7 @@ from app.storage.database import (
     get_session,
     source_to_camel,
 )
+from app.utils.hashing import sha256_bytes
 from app.utils.time import now_utc_iso
 
 
@@ -170,7 +173,17 @@ async def run_scraper(
             checked += 1
             source_dict = source_to_camel(source)
             try:
-                changed_flag, response = await has_changed(source_dict)
+                # Direct HTTP change detection — falls back to Jina for blocked hosts
+                # (e.g. AIA blocks scraper IPs at the Akamai edge; Jina's IPs are clean)
+                try:
+                    changed_flag, response = await has_changed(source_dict)
+                except (httpx.TimeoutException, httpx.ConnectError):
+                    print(
+                        f"[engine] {source_dict['id']} direct fetch blocked "
+                        f"— assuming changed, will use Jina"
+                    )
+                    changed_flag, response = True, None
+
                 if not changed_flag:
                     print(f"[engine] {source_dict['id']} unchanged — skipping")
                     continue
@@ -202,10 +215,26 @@ async def run_scraper(
                     elif source_type == "product_page":
                         plan_texts[plan_id]["product_url"] = source_dict["url"]
 
+                # Upload raw PDF to Supabase Storage when available
+                # (skipped for blocked hosts where response is None — Jina returns markdown only)
+                if source_type == "pdf" and response is not None and response.content[:4] == b"%PDF":
+                    from app.utils.storage import upload_pdf
+                    storage_url = await upload_pdf(source_dict["id"], response.content)
+                    if storage_url:
+                        source.storage_url = storage_url
+
                 # Update source metadata immediately (per-source, not per-plan)
-                updated_source_dict = update_source_metadata(
-                    source_dict, response, response.content
-                )
+                if response is not None:
+                    updated_source_dict = update_source_metadata(
+                        source_dict, response, response.content
+                    )
+                else:
+                    # Blocked host — hash Jina content as a change-detection proxy
+                    updated_source_dict = dict(source_dict)
+                    updated_source_dict["contentHash"] = sha256_bytes(content)
+                    updated_source_dict["lastChecked"] = now_utc_iso()
+                    updated_source_dict["lastChanged"] = now_utc_iso()
+                    updated_source_dict["status"] = "ok"
                 apply_source_update(source, updated_source_dict)
 
                 changed += 1

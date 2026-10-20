@@ -305,3 +305,69 @@ describe("Stripe Checkout return", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3000/login");
   });
 });
+
+describe("Stripe Checkout return — redirect origin", () => {
+  const previousSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // The container binds on HOSTNAME=0.0.0.0, so a request host of
+    // 0.0.0.0:3000 reproduces the leak the fix must prevent.
+    process.env.NEXT_PUBLIC_SITE_URL = "https://app.example.com";
+  });
+
+  afterAll(() => {
+    if (previousSiteUrl === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = previousSiteUrl;
+  });
+
+  it("uses the configured site origin for the entitled returnTo redirect", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_billing_test",
+        tier: "premium",
+        maskedInbox: "billing-test@relay.assura.local",
+        onboarded: true,
+        email: "billing-test@example.com",
+        name: "Billing Test",
+      },
+    } satisfies AppSession);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://0.0.0.0:3000/auth/stripe-return?from=%2Foutreach")
+    );
+
+    expect(response.headers.get("location")).toBe("https://app.example.com/outreach");
+  });
+
+  it("uses the configured site origin for the pending /upgrade redirect", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue({
+      user: {
+        id: "user_billing_test",
+        tier: "free",
+        maskedInbox: "billing-test@relay.assura.local",
+        onboarded: false,
+        email: "billing-test@example.com",
+        name: "Billing Test",
+      },
+    } satisfies AppSession);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://0.0.0.0:3000/auth/stripe-return?from=%2Foutreach")
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "https://app.example.com/upgrade?checkout=success&from=%2Foutreach"
+    );
+  });
+
+  it("uses the configured site origin for the signed-out login redirect", async () => {
+    (refreshSessionCookie as jest.Mock).mockResolvedValue(null);
+
+    const response = await stripeReturnGET(
+      new NextRequest("http://0.0.0.0:3000/auth/stripe-return?from=%2Foutreach")
+    );
+
+    expect(response.headers.get("location")).toBe("https://app.example.com/login");
+  });
+});

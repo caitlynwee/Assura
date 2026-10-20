@@ -12,6 +12,7 @@ router = APIRouter()
 
 class TriggerRequest(BaseModel):
     source_id: str | None = None
+    country: str | None = None
 
 
 def require_internal_api_key(api_key: str | None) -> None:
@@ -27,7 +28,8 @@ async def run_now(
     """Trigger a scrape immediately (manual 'Run now' button)."""
     require_internal_api_key(x_internal_api_key)
     source_id = body.source_id if body else None
-    result = await run_scraper(trigger="manual", source_id=source_id)
+    country = body.country if body else None
+    result = await run_scraper(trigger="manual", source_id=source_id, country=country)
     return result
 
 

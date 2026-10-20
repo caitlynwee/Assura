@@ -755,3 +755,21 @@ Files: web/src/lib/supabase/ensure-demo-user.ts, web/src/lib/stripe.ts, web/src/
 Others need to know: Teammates must re-login to pick up a corrected JWT (app_metadata.tier). No schema or edge-guard changes.
 Blockers: None
 ---
+## 2026-10-20 | Dominic | Fix redirect-origin 0.0.0.0 leak
+Status: Completed
+Done: Auth/billing redirects no longer leak http://0.0.0.0:3000 (the container binds HOSTNAME=0.0.0.0, which Next.js also used as the request origin). User-facing redirects now derive their origin from NEXT_PUBLIC_SITE_URL: stripe-return, reset, and callback routes reuse getSiteUrl() from @/lib/stripe (Node runtime); the edge proxy reads process.env.NEXT_PUBLIC_SITE_URL inline (trim + fallback to req.nextUrl when unset) to stay edge-safe (no new import). Found and fixed the callback route too — its destination was built from url.origin (request host). Added tests using a 0.0.0.0 request host so they fail on the old behavior. HOSTNAME=0.0.0.0, Stripe tier logic, auth verification, DB schema, and the proxy matcher are untouched.
+Files: web/src/app/auth/stripe-return/route.ts, web/src/app/auth/reset/route.ts, web/src/app/auth/callback/route.ts, web/src/proxy.ts, web/src/__tests__/billing.test.ts, web/src/__tests__/redirect-origin.test.ts
+Others need to know: Redirect origin now comes from NEXT_PUBLIC_SITE_URL — ensure it is set in every environment (it is in .env + docker-compose). When unset, Node routes fall back to http://localhost:3000 (getSiteUrl default) and the edge proxy falls back to the request host. Verification: npm install exit 0, npm run build exit 0, npm run lint 0 errors, npm test 153 passed.
+Blockers: none
+---
+## 2026-10-20 | Jeff | Fix redirect origin (0.0.0.0 leak)
+Status: Completed
+Done:
+- Auth and billing redirects no longer send the browser to http://0.0.0.0:3000 when the user arrived on localhost. Root cause: the web container binds HOSTNAME=0.0.0.0, which Next.js also used as the request origin, so request-relative redirects (new URL(path, request.url) / req.nextUrl) leaked the bind host.
+- User-facing redirects now derive their origin from NEXT_PUBLIC_SITE_URL: stripe-return, reset, and callback routes reuse getSiteUrl() from @/lib/stripe (Node runtime); the callback route's destination was also fixed (previously built from url.origin / request host).
+- Edge proxy.ts reads process.env.NEXT_PUBLIC_SITE_URL inline (trim + fallback to req.nextUrl when unset) to stay edge-safe — no new import.
+- HOSTNAME=0.0.0.0 bind, Stripe tier logic, auth verification, DB schema, and the proxy matcher are unchanged.
+Files: web/src/app/auth/stripe-return/route.ts, web/src/app/auth/reset/route.ts, web/src/app/auth/callback/route.ts, web/src/proxy.ts, web/src/__tests__/billing.test.ts, web/src/__tests__/redirect-origin.test.ts, TASK.MD
+Others need to know: NEXT_PUBLIC_SITE_URL must be set in every environment (it is in .env + docker-compose). When unset, Node routes fall back to http://localhost:3000 and the edge proxy falls back to the request host. Verification: npm install exit 0, npm run build exit 0, npm run lint 0 errors, npm test 153 passed.
+Blockers: none
+---

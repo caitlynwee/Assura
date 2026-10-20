@@ -200,6 +200,41 @@ def _pick_best_page(results: list[dict], parts: list[str], country_tld: str) -> 
     return non_pdfs[0] if non_pdfs else ""
 
 
+# Per-domain query overrides — pins Firecrawl to the exact individual CI plan name
+# so it reliably finds the right brochure instead of group/term/wrong-country plans.
+_DOMAIN_OVERRIDES: dict[str, dict[str, str]] = {
+    "aia.com.sg": {
+        # AIA Absolute Critical Cover — 187 conditions, main standalone individual CI plan
+        "pdf": 'site:aia.com.sg "Absolute Critical Cover" brochure filetype:pdf',
+        "page": 'site:aia.com.sg "Absolute Critical Cover" critical illness plan',
+    },
+    "prudential.com.sg": {
+        # PRUActive Protect — 37 conditions, Prudential's main standalone individual CI plan
+        # No standalone PDF brochure exists on prudential.com.sg; search broadly to find
+        # the MAS comparefirst.sg product summary which has structured plan data
+        "pdf": '"PRUActive Protect" "product summary" Singapore critical illness filetype:pdf',
+        "page": 'site:prudential.com.sg "PRUActive Protect" critical illness plan',
+    },
+    "greateasternlife.com": {
+        # GREAT Critical Cover Series — Great Eastern's standalone individual CI plan
+        "pdf": 'site:greateasternlife.com "Great Critical Cover" brochure filetype:pdf',
+        "page": 'site:greateasternlife.com "Great Critical Cover" critical illness plan',
+    },
+    "income.com.sg": {
+        # Complete Critical Protect — Income's standalone individual CI plan
+        # (FlexCare is corporate group insurance — excluded by pinning the plan name)
+        "pdf": 'site:income.com.sg "Complete Critical Protect" brochure filetype:pdf',
+        "page": 'site:income.com.sg "Complete Critical Protect" critical illness',
+    },
+    "manulife.com.sg": {
+        # Ready CompleteCare — Manulife's standalone CI plan (126 conditions)
+        # (ManuProtect Term is term life — excluded by pinning the plan name)
+        "pdf": 'site:manulife.com.sg "Ready CompleteCare" brochure filetype:pdf',
+        "page": 'site:manulife.com.sg "Ready CompleteCare" critical illness',
+    },
+}
+
+
 async def _search_urls(
     insurer_name: str, domain: str, country: str
 ) -> tuple[str, str]:
@@ -208,20 +243,23 @@ async def _search_urls(
     country_tld = _country_code(country).lower()
 
     site = f"site:{domain}" if domain else insurer_name
+    overrides = _DOMAIN_OVERRIDES.get(domain, {})
 
-    # Search 1: PDF brochure — try standalone CI first, fall back to general CI
-    pdf_results = await _firecrawl_search(
-        f"{site} standalone critical illness plan brochure filetype:pdf"
-    )
-    if not any(".pdf" in r.get("url", "").lower() for r in pdf_results):
+    # Search 1: PDF brochure — use domain override if available, else generic CI query
+    if overrides.get("pdf"):
+        pdf_results = await _firecrawl_search(overrides["pdf"])
+    else:
         pdf_results = await _firecrawl_search(
-            f"{site} critical illness brochure filetype:pdf"
+            f"{site} standalone critical illness plan brochure filetype:pdf"
         )
+        if not any(".pdf" in r.get("url", "").lower() for r in pdf_results):
+            pdf_results = await _firecrawl_search(
+                f"{site} critical illness brochure filetype:pdf"
+            )
 
     # Search 2: Product page locked to insurer's own domain
-    page_results = await _firecrawl_search(
-        f"{site} critical illness plan"
-    )
+    page_query = overrides.get("page") or f"{site} critical illness plan"
+    page_results = await _firecrawl_search(page_query)
 
     # Collect PDFs from both searches — filter out other-country paths
     brochure_url = _pick_best_pdf(pdf_results + page_results, parts, country_tld)
