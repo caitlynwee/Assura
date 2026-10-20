@@ -20,7 +20,9 @@ export default function PlanTable() {
     return <p className="text-red-600 text-sm">{error}</p>;
   }
 
-  if (!plans.length) {
+  const visiblePlans = plans.filter((p) => p.coverageAmount > 0);
+
+  if (!visiblePlans.length) {
     return <p className="text-gray-400 text-sm">No plans match your filters.</p>;
   }
 
@@ -38,14 +40,11 @@ export default function PlanTable() {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {plans.map((plan) => (
+          {visiblePlans.map((plan) => (
             <tr key={plan.id} className="hover:bg-gray-50 transition">
               <td className="px-4 py-3">
                 <p className="font-medium text-gray-900">{plan.planName}</p>
                 <p className="text-gray-400 text-xs">{plan.insurerName}</p>
-                {plan.updatedBadge && (
-                  <Badge variant="orange" className="mt-1">Updated</Badge>
-                )}
               </td>
               <td className="px-4 py-3 text-right font-medium">
                 {formatCurrency(plan.coverageAmount)}
