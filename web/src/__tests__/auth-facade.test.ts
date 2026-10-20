@@ -1,4 +1,4 @@
-import "./setup"; // spins up PGlite + seeds user_demo (email demo@fineprint.local)
+import "./setup"; // spins up PGlite + seeds user_demo (email demo@assura.local)
 import { evaluateRoute } from "@/lib/auth-routing";
 
 // ─── Control the Supabase server client the facade reads ──────────────────────
@@ -28,7 +28,7 @@ jest.mock("@/lib/supabase/ensure-demo-user", () => ({
 import { auth } from "@/lib/auth";
 import { getUserByAuthUid, getUserByEmail, linkAuthUid, syncUserEmailByAuthUid } from "@/lib/db";
 
-const DEMO_EMAIL = "demo@fineprint.local";
+const DEMO_EMAIL = "demo@assura.local";
 const DEMO_UID = "00000000-0000-4000-8000-000000000001";
 
 describe("auth() facade — Supabase session → app user mapping", () => {
