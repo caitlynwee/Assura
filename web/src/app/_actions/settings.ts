@@ -5,11 +5,12 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth, refreshSessionCookie } from "@/lib/auth";
 import { logEvent } from "@/lib/audit";
-import { updateUser } from "@/lib/users";
+import { findUserById, updateUser } from "@/lib/users";
 import { profileSchema } from "@/lib/validators";
 import { getServerClient } from "@/lib/supabase/server";
 import { DEMO_EMAIL } from "@/lib/demo";
 import { maskEmail } from "@/lib/utils";
+import { openBillingPortalAction } from "@/app/_actions/billing";
 
 const settingsSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -98,6 +99,12 @@ export async function downgradeToFreeAction(): Promise<void> {
   }
   if (session.user.tier === "free") {
     return redirect("/settings?toast=already-free");
+  }
+
+  const currentUser = await findUserById(session.user.id);
+  if (!currentUser) return redirect("/settings?toast=downgrade-failed");
+  if (currentUser.stripeCustomerId || currentUser.stripeSubscriptionId) {
+    return openBillingPortalAction();
   }
 
   const updated = await updateUser(session.user.id, (user) => {

@@ -328,18 +328,44 @@ Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `NEXT_PUBLIC_SUPABASE_URL` | Bare Supabase project URL (`https://<project-ref>.supabase.co`) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-safe Supabase publishable/anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase secret key used for demo identity seeding |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase secret key used for demo identity seeding and syncing paid tier claims |
 | `DEEPSEEK_API_KEY` | DeepSeek API key from platform.deepseek.com (the AI layer uses the OpenAI-compatible DeepSeek API) |
+| `STRIPE_SECRET_KEY` | Stripe test-mode secret key (`sk_test_...`); live keys are rejected |
+| `STRIPE_PRICE_ID` | Recurring Stripe test Price ID for the Premium subscription |
+| `STRIPE_WEBHOOK_SECRET` | Stripe CLI or test endpoint webhook signing secret |
 
 `INTERNAL_API_SECRET` is shared by the web app and mail service for their
 internal API calls; change it from the demo default for non-demo environments.
 Mail service delivery is restricted in code to Mailpit hostnames on SMTP port
 1025. It does not accept external SMTP credentials.
 
+### Stripe test billing
+
+Premium upgrades use Stripe Checkout in test mode. Create a recurring SGD
+product price in the Stripe test dashboard, then set its `price_...` ID as
+`STRIPE_PRICE_ID`. Set `STRIPE_SECRET_KEY` to an `sk_test_...` key and keep
+`STRIPE_WEBHOOK_SECRET` server-side. The webhook endpoint is
+`/api/stripe/webhook`; for local development, run Stripe CLI:
+
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+
+Copy the CLI's `whsec_...` value into `.env` / `web/.env.local`. Subscribe the
+endpoint to `customer.subscription.created`, `customer.subscription.updated`,
+and `customer.subscription.deleted`. Configure the Stripe Customer Portal in
+the test dashboard so users can manage or cancel their subscription.
+Subscription changes are applied only from verified webhook events; returning
+from Checkout by itself does not grant Premium. The seeded shared demo account
+remains Premium without payment. New accounts start on Free and upgrade through
+Stripe. Live billing is intentionally unavailable until explicitly enabled in
+code and separately configured.
+
 ### `web/.env.local` — used when running web locally
 
-Set the Supabase URL/keys, `DATABASE_URL`, and `DEEPSEEK_API_KEY`. The example
-file is `web/.env.local.example`.
+Set the Supabase URL/keys (including the server-only service-role key),
+`DATABASE_URL`, `DEEPSEEK_API_KEY`, and Stripe test values. The example file
+is `web/.env.local.example`.
 
 ### `scraper/.env` — used when running scraper locally
 
