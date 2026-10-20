@@ -49,7 +49,9 @@ import ApprovalDialog from "./approval-dialog";
 import { previewPII } from "./pii-preview";
 import {
   appendNotes,
+  applyInsurerName,
   defaultSubject,
+  INSURER_PLACEHOLDER,
   stripDisclosure,
   templateDraft,
   type OutreachContext,
@@ -183,45 +185,81 @@ export default function OutreachWizard({
 
   // ─── Drafting ──────────────────────────────────────────────────────────────
 
-  async function draftOne(insurerId: string) {
-    const insurer = byId.get(insurerId)!;
-    setDrafts((d) => ({
-      ...d,
-      [insurerId]: {
-        insurerId,
-        subject: d[insurerId]?.subject ?? defaultSubject(template),
-        body: "",
-        source: "ai",
-        status: "drafting",
-        approved: false,
-      },
-    }));
-
-    let body: string;
-    let source: Draft["source"] = "ai";
+  /** Request ONE name-agnostic draft (insurer name left as a placeholder). */
+  async function generateSharedBody(insurerIdForContext: string): Promise<{
+    body: string;
+    source: Draft["source"];
+  }> {
     try {
       const res = await fetch("/api/outreach/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ insurerId, templateId, userContext: apiContext(shared) }),
+        body: JSON.stringify({
+          insurerId: insurerIdForContext,
+          templateId,
+          userContext: apiContext(shared),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || typeof data.draft !== "string" || !data.draft.trim()) {
         throw new Error(data.error ?? "AI drafting unavailable");
       }
-      body = stripDisclosure(data.draft);
+      return { body: stripDisclosure(data.draft), source: "ai" };
     } catch {
-      body = templateDraft(insurer.name, template, shared);
-      source = "template";
+      // Fallback template still uses the placeholder so substitution works.
+      return { body: templateDraft(INSURER_PLACEHOLDER, template, shared), source: "template" };
     }
-
-    patchDraft(insurerId, { body: appendNotes(body, notes), source, status: "ready" });
   }
 
+  /** Redraft a SINGLE insurer (user-triggered per-card). Generates afresh and
+   *  substitutes this insurer's name — lets the user tailor one email later. */
+  async function draftOne(insurerId: string) {
+    const insurer = byId.get(insurerId)!;
+    patchDraft(insurerId, { status: "drafting" });
+    const { body, source } = await generateSharedBody(insurerId);
+    patchDraft(insurerId, {
+      body: appendNotes(applyInsurerName(body, insurer.name), notes),
+      source,
+      status: "ready",
+    });
+  }
+
+  /** Generate ONCE, then fan the same draft out to every selected insurer by
+   *  substituting each insurer's name. One AI call regardless of count. */
   async function generateDrafts() {
     setStep("review");
-    setDrafts({});
-    await Promise.all(selected.map((id) => draftOne(id)));
+    // Seed every selected insurer as "drafting" with a default subject.
+    setDrafts(
+      Object.fromEntries(
+        selected.map((id) => [
+          id,
+          {
+            insurerId: id,
+            subject: defaultSubject(template),
+            body: "",
+            source: "ai" as Draft["source"],
+            status: "drafting" as DraftStatus,
+            approved: false,
+          },
+        ])
+      )
+    );
+
+    const { body, source } = await generateSharedBody(selected[0]);
+
+    setDrafts((d) => {
+      const next = { ...d };
+      for (const id of selected) {
+        const insurer = byId.get(id)!;
+        next[id] = {
+          ...next[id],
+          body: appendNotes(applyInsurerName(body, insurer.name), notes),
+          source,
+          status: "ready",
+        };
+      }
+      return next;
+    });
   }
 
   // ─── Sending ───────────────────────────────────────────────────────────────

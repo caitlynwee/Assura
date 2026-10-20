@@ -9,13 +9,25 @@ export interface OutreachContext {
   monthlyBudget?: number;
 }
 
+/** Placeholder the AI writes in place of the insurer name (see lib/ai.ts). */
+export const INSURER_PLACEHOLDER = "[INSURER]";
+
 /** The relay appends the AI disclosure footer on send, so drop it from the editable body. */
 export function stripDisclosure(body: string): string {
-  const trimmed = body.trimStart();
-  if (trimmed.startsWith(AI_DISCLOSURE_FOOTER)) {
-    return trimmed.slice(AI_DISCLOSURE_FOOTER.length).replace(/^[\s─-]+/, "");
+  let out = body.trimStart();
+  // Safety net: strip a stray "Subject:" line if the model emitted one despite
+  // being told not to (the subject is a separate field).
+  out = out.replace(/^subject:.*(\r?\n)+/i, "").trimStart();
+  if (out.startsWith(AI_DISCLOSURE_FOOTER)) {
+    out = out.slice(AI_DISCLOSURE_FOOTER.length).replace(/^[\s─-]+/, "");
   }
-  return body.trim();
+  return out.trim();
+}
+
+/** Substitute the insurer-name placeholder with a real insurer name, so one
+ *  generated draft can be reused across all selected insurers. */
+export function applyInsurerName(body: string, insurerName: string): string {
+  return body.split(INSURER_PLACEHOLDER).join(insurerName);
 }
 
 export function defaultSubject(template: OutreachTemplate): string {

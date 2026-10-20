@@ -44,8 +44,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // The draft is insurer-name-agnostic (uses a placeholder); the client
+  // substitutes each insurer's name, so one generation serves all selected
+  // insurers. insurerId is still validated for auth/consent context + response.
   const draft = await draftOutreachEmail({
-    insurerName: insurer.name,
     templatePromptHint: template.promptHint,
     consent: user.consent,
     userName: user.name,
