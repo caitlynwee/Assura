@@ -7,7 +7,7 @@
  * Tiers:
  *   0 READ     — always allowed for authenticated users
  *   1 ADVISE   — allowed for premium users, no side effects
- *   2 SEND     — allowed only when userApproved === true
+ *   2 SEND     — allowed only when userApproved === true (admins may run operations)
  *   3 BLOCKED  — never allowed; returns ESCALATE so the UI can inform the user
  *
  * Every decision is logged to the audit trail.
@@ -82,7 +82,14 @@ export function evaluateAction(
       reason: `Action "${action}" is blocked for AI. The user must be informed and must take this action themselves.`,
     };
   } else if (tier === PolicyTier.SEND) {
-    if (context.userApproved !== true) {
+    if (context.userTier === "admin") {
+      decision = {
+        outcome: "allow",
+        tier,
+        action,
+        reason: "Admin operations action permitted.",
+      };
+    } else if (context.userApproved !== true) {
       decision = {
         outcome: "deny",
         tier,

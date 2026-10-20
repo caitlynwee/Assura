@@ -2,7 +2,7 @@
 
 import type { CountryOfOrigin } from "./countries";
 
-export type UserTier = "free" | "premium";
+export type UserTier = "free" | "premium" | "admin";
 
 export interface ConsentFlags {
   shareAge: boolean;

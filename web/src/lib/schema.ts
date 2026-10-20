@@ -30,7 +30,7 @@ export const users = pgTable("users", {
   email: text("email").notNull(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
-  tier: text("tier").notNull(), // 'free' | 'premium'
+  tier: text("tier").notNull(), // 'free' | 'premium' | 'admin'
   maskedInbox: text("masked_inbox").notNull(),
   onboarded: boolean("onboarded").notNull(),
   // ConsentFlags (8 booleans)

@@ -26,7 +26,9 @@ export default async function UpgradePage({
 }) {
   const user = await requireUser();
   const { from } = await searchParams;
-  if (user.tier === "premium") redirect(from?.startsWith("/") && !from.startsWith("//") ? from : "/outreach");
+  if (user.tier === "premium" || user.tier === "admin") {
+    redirect(from?.startsWith("/") && !from.startsWith("//") ? from : "/outreach");
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

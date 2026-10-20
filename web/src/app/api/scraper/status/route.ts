@@ -9,9 +9,15 @@ export async function GET() {
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (session.user.tier !== "admin") {
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+  }
 
   try {
     const res = await fetch(`${SCRAPER_URL}/scraper/status`, {
+      headers: {
+        "x-internal-api-key": process.env.INTERNAL_API_SECRET ?? "dev-internal-key",
+      },
       next: { revalidate: 0 },
     });
     if (!res.ok) throw new Error("Scraper server returned " + res.status);

@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { UserProfile } from "@/lib/types";
+import type { UserProfile, UserTier } from "@/lib/types";
 import { dateOfBirthInputBounds } from "@/lib/profile";
 import { COUNTRY_OF_ORIGIN_OPTIONS } from "@/lib/countries";
 import { Trash2Icon } from "lucide-react";
@@ -28,7 +28,7 @@ export default function SettingsForm({
 }: {
   initialName: string;
   email: string;
-  tier: "free" | "premium";
+  tier: UserTier;
   initialProfile: UserProfile;
   isDemoAccount: boolean;
 }) {
@@ -278,7 +278,7 @@ export default function SettingsForm({
         <CardHeader>
           <CardTitle>Plan</CardTitle>
           <CardDescription>
-            Current plan: <strong>{tier === "premium" ? "Premium" : "Free"}</strong>.
+            Current plan: <strong>{tier === "admin" ? "Admin" : tier === "premium" ? "Premium" : "Free"}</strong>.
             {tier === "premium"
               ? " Downgrading removes access to outreach and CRM features; your account and saved data remain."
               : " Free includes plan comparison and cited Q&A."}

@@ -13,10 +13,12 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = session.user.id!;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userTier = (session.user as any).tier;
+  const userTier = session.user.tier;
 
   try {
+    if (userTier !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
     assertAllowed("trigger_scraper", { userId, userTier, userApproved: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 403 });
@@ -35,7 +37,10 @@ export async function POST(req: NextRequest) {
   try {
     const res = await fetch(`${SCRAPER_URL}/scraper/run`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-api-key": process.env.INTERNAL_API_SECRET ?? "dev-internal-key",
+      },
       body: JSON.stringify({ source_id: parsed.data.sourceId }),
     });
     if (!res.ok) throw new Error("Scraper returned " + res.status);
