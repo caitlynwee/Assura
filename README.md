@@ -107,19 +107,24 @@ not real or externally deliverable email addresses.
 
 ## Running the project
 
-### All services together (Docker)
+### Docker
 
 ```bash
-./dev.sh up-prod         # recommended for the full demo; built web app in Docker
-./dev.sh up              # development mode; web runs with hot reload in Docker
-./dev.sh up --build      # development mode, rebuild images first
-./dev.sh down            # stop everything
-./dev.sh restart         # stop then start
+./dev.sh up              # web only; development mode with hot reload (Free/basic use)
+./dev.sh up --build      # web only, rebuilding its image first
+./dev.sh up-premium      # web + scraper email relay + Mailpit for Premium outreach demo
+./dev.sh up-scraper      # scraper + Mailpit without starting the web app
+./dev.sh up-prod         # full production-built Premium demo
+./dev.sh down            # stop all Assura services
 ```
 
-Both commands run the whole stack, including Mailpit. `up-prod` is the
-recommended presentation/test flow; `up` is for active development. The first
-start builds images and runs database migrations/seeding.
+The basic web app does not need the scraper or Mailpit. `up` starts only the
+web service and its required one-shot migration/seeding job. The scraper can
+run independently with `up-scraper`. In the current architecture, Premium
+outreach needs both Mailpit and the scraper service because the scraper hosts
+the local email relay and simulated insurer replies; `up-premium` starts those
+dependencies alongside the web app. `up-prod` is the recommended full demo
+flow. First startup builds images and runs database migrations/seeding.
 
 ### Single service — local (no Docker)
 
@@ -140,8 +145,9 @@ Run the services you're **not** working on in Docker, run your own service local
 ./dev.sh infra           # starts mailpit + scraper in Docker (background)
 ./dev.sh web             # run web locally in this terminal
 
-# Working on the scraper? Run everything else in Docker:
-docker compose up -d mailpit web
+# Working on the scraper? Run Mailpit in Docker, web and scraper locally:
+docker compose up -d mailpit
+./dev.sh web
 ./dev.sh scraper
 ```
 
@@ -153,9 +159,11 @@ docker compose up -d mailpit web
 ./dev.sh setup           Prepare root .env for Docker
 ./dev.sh setup --local   Also install local development dependencies
 
-./dev.sh up              Start all services in Docker (development/hot reload)
-./dev.sh up --build      Rebuild images then start in development mode
-./dev.sh up-prod         Start all services with production-built web (recommended demo)
+./dev.sh up              Start web only (development/hot reload)
+./dev.sh up --build      Rebuild web image then start development mode
+./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
+./dev.sh up-scraper      Start scraper + Mailpit separately from web
+./dev.sh up-prod         Start full production-built Premium demo (recommended)
 ./dev.sh down            Stop all services
 ./dev.sh restart         Stop + start
 ./dev.sh build web       Rebuild one image (web or scraper)

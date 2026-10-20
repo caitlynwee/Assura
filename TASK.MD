@@ -470,3 +470,16 @@ Files: web/src/app/_actions/settings.ts, web/src/app/(app)/settings/page.tsx, we
 Others need to know: Demo account remains Premium for the judging flow; regular users can downgrade and later use the existing Upgrade page to regain Premium.
 Blockers: None.
 ---
+
+## 2026-10-20 | Copilot | Split basic and Premium Docker startup
+Status: Completed
+Done:
+- Changed `./dev.sh up` to start only the web service and its required migration/seed job; removed unnecessary web dependencies on scraper and Mailpit.
+- Added explicit `up-premium` and `up-scraper` commands; the Premium demo includes scraper because it currently hosts email relay/persona handling, plus Mailpit.
+- Updated `infra-web` to start the scraper relay as well as Mailpit, so local web development can exercise Premium email flows.
+- Updated README startup guidance and mixed local/Docker workflow.
+- Verified `bash -n dev.sh`, both development and production Compose configurations, the resolved service dependencies, and `git diff --check`.
+Files: dev.sh, docker-compose.yml, README.md, TASK.MD
+Others need to know: In this implementation Premium outreach needs web + scraper relay + Mailpit; basic/free web use needs only web and DB setup.
+Blockers: None.
+---
