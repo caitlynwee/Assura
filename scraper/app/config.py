@@ -17,10 +17,6 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     llm_model: str = "deepseek-chat"
 
-    # Supabase Storage — for uploading PDF brochures
-    supabase_url: str = ""
-    supabase_service_role_key: str = ""
-
     # Firecrawl — web search for PDF brochure + product page URLs
     fire_crawl_api_key: str = ""
 
