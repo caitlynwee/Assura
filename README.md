@@ -93,7 +93,9 @@ that requires the Supabase URL, anon key, and service-role key.
 Other Supabase users can sign in with their own credentials; Assura creates a
 free app profile on first successful sign-in. Personal information is editable
 from **Settings** and stored in the PostgreSQL `users` table. The sign-in email
-is managed by Supabase and is read-only in Settings.
+is managed by Supabase and is read-only in Settings. Masked relay addresses use
+the `@relay.assura.local` domain and are routed only to local Mailpit; they are
+not real or externally deliverable email addresses.
 
 ---
 
