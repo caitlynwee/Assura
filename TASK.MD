@@ -370,9 +370,10 @@ Blockers: None.
 ---
 
 ## 2026-10-20 | Copilot | Merge Supabase Auth PR and clarify Docker run commands
-Status: In Progress
+Status: Completed
 Done:
 - Merged the latest main into the Supabase Auth branch; resolved the env-template conflict to retain Supabase/JWKS guidance and omit external SMTP, and kept the feature branch's complete task history.
+- Marked PR #7 ready and merged it into main after both GitHub CI jobs passed.
 - Updated `dev.sh`/README to recommend `./dev.sh up-prod` for the full production-built Docker demo and distinguish it from hot-reload `./dev.sh up`.
 - Made script invocation independent of the caller's current directory and routed destructive seed reset through Compose's configured DB environment.
 - Made default `./dev.sh setup` Docker-only; `./dev.sh setup --local` opts into installing host development dependencies.
@@ -383,7 +384,9 @@ Validation:
 - Web: 55 tests passed; production build passed.
 - Scraper: 15 tests passed; Ruff passed.
 - Dev and production Docker Compose config validation: passed.
+- Docker-first setup via `./dev.sh setup` from outside the repository: passed.
+- GitHub CI: web and scraper jobs passed.
 Files: .env.example, README.md, dev.sh, web/.env.local.example, TASK.MD
 Others need to know: Use `./dev.sh up-prod` from any working directory for the Docker demo; it uses the root `.env`. Use `./dev.sh up` for Docker hot reload.
-Blockers: Push the resolved branch and complete GitHub PR merge.
+Blockers: None.
 ---
