@@ -5,7 +5,8 @@
     "agentEmail": "advisor@aia-demo.fineprint.local",
     "logo": "/logos/aia.svg",
     "persona": "helpful",
-    "website": "https://www.aia.com.sg"
+    "website": "https://www.aia.com.sg",
+    "country": "Singapore"
   },
   {
     "id": "prudential",
@@ -13,7 +14,8 @@
     "agentEmail": "advisor@prudential-demo.fineprint.local",
     "logo": "/logos/prudential.svg",
     "persona": "slow",
-    "website": "https://www.prudential.com.sg"
+    "website": "https://www.prudential.com.sg",
+    "country": "Singapore"
   },
   {
     "id": "greateastern",
@@ -21,7 +23,8 @@
     "agentEmail": "advisor@greateastern-demo.fineprint.local",
     "logo": "/logos/greateastern.svg",
     "persona": "pushy",
-    "website": "https://www.greateasternlife.com"
+    "website": "https://www.greateasternlife.com",
+    "country": "Singapore"
   },
   {
     "id": "income",
@@ -29,7 +32,8 @@
     "agentEmail": "advisor@income-demo.fineprint.local",
     "logo": "/logos/income.svg",
     "persona": "data_grabber",
-    "website": "https://www.income.com.sg"
+    "website": "https://www.income.com.sg",
+    "country": "Singapore"
   },
   {
     "id": "manulife",
@@ -37,6 +41,16 @@
     "agentEmail": "advisor@manulife-demo.fineprint.local",
     "logo": "/logos/manulife.svg",
     "persona": "injector",
-    "website": "https://www.manulife.com.sg"
+    "website": "https://www.manulife.com.sg",
+    "country": "Singapore"
+  },
+  {
+    "id": "singlife",
+    "name": "Singlife",
+    "agentEmail": "advisor@singlife-demo.fineprint.local",
+    "logo": "/logos/singlife.svg",
+    "persona": "slow",
+    "website": "https://singlife.com",
+    "country": "Singapore"
   }
 ]

@@ -273,6 +273,8 @@ cmd_setup() {
   fi
   info "Installing scraper dependencies (uv)..."
   VIRTUAL_ENV="$VENV" uv pip install -e "$ROOT/scraper/.[dev]" -q
+  info "Installing Playwright browser..."
+  "$VENV/bin/playwright" install chromium
 
   # ── Node deps ────────────────────────────────────────────────
   info "Installing web dependencies..."

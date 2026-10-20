@@ -7,6 +7,8 @@ from app.schemas.plan import Plan
 
 def validate_plan(data: dict) -> dict:
     """Validate and normalize plan data. Raises ValueError if invalid."""
+    # insurerName is filled by engine.py from the DB before calling this function
+
     # Normalize camelCase keys to snake_case for Pydantic
     normalized = {
         "id": data.get("id", ""),
@@ -14,12 +16,12 @@ def validate_plan(data: dict) -> dict:
         "insurer_name": data.get("insurerName", ""),
         "plan_name": data.get("planName", ""),
         "category": data.get("category", "critical_illness"),
-        "coverage_amount": data.get("coverageAmount", 0),
-        "premiums": data.get("premiums", {}),
-        "premium_frequency": data.get("premiumFrequency", "annual"),
-        "coverage_terms": data.get("coverageTerms", []),
-        "illnesses_covered": data.get("illnessesCovered", 0),
-        "early_stage_conditions": data.get("earlyStageConditions", False),
+        "coverage_amount": data.get("coverageAmount") or 0,
+        "premiums": data.get("premiums") or {},
+        "premium_frequency": data.get("premiumFrequency") or "annual",
+        "coverage_terms": data.get("coverageTerms") or [],
+        "illnesses_covered": data.get("illnessesCovered") or 0,
+        "early_stage_conditions": data.get("earlyStageConditions") or False,
         "payout_type": data.get("payoutType", "lump_sum"),
         "key_benefits": data.get("keyBenefits", []),
         "exclusions": data.get("exclusions", []),

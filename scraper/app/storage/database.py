@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
+from sqlalchemy.pool import NullPool
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -38,6 +39,7 @@ class Insurer(Base):
     logo = Column(Text, nullable=False)
     persona = Column(Text, nullable=False)
     website = Column(Text, nullable=False)
+    country = Column(Text, nullable=False)
 
 
 # ── Plan ───────────────────────────────────────────────────────────────────────
@@ -64,6 +66,7 @@ class Plan(Base):
     change_notes = Column(JSONB, nullable=False)
     version = Column(Integer, nullable=False)
     scraped_at = Column(Text, nullable=False)
+    country = Column(Text, nullable=False)
 
 
 # ── Source ─────────────────────────────────────────────────────────────────────
@@ -82,6 +85,7 @@ class Source(Base):
     last_checked = Column(Text)
     last_changed = Column(Text)
     status = Column(Text, nullable=False)
+    country = Column(Text, nullable=False)
 
 
 # ── Thread ─────────────────────────────────────────────────────────────────────
@@ -144,12 +148,15 @@ def get_engine():
         url = settings.database_url
         if not url:
             raise RuntimeError("DATABASE_URL is not set in environment")
+        # Force psycopg (v3) driver — replace postgresql:// and postgres:// schemes
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
+        is_local = "localhost" in url or "127.0.0.1" in url
+        connect_args = {} if is_local else {"sslmode": "require"}
         _engine = create_engine(
             url,
-            pool_pre_ping=True,
-            pool_size=2,
-            max_overflow=0,
-            pool_timeout=30,
+            poolclass=NullPool,  # release connections immediately — scraper is a batch job
+            connect_args=connect_args,
         )
     return _engine
 

@@ -30,6 +30,32 @@ Others need to know:
 Blockers: None
 ---
 
+## 2026-10-20 | Marcus | Scraper — DeepSeek + Playwright Implementation
+Status: Completed
+Done:
+- Swapped Anthropic SDK → openai>=1.0 (DeepSeek uses OpenAI-compatible API at api.deepseek.com)
+- Rewrote converter.py: AsyncOpenAI client, chat.completions.create, raised truncation 8k → 24k chars
+- Rewrote downloader.py: headless Chromium singleton via Playwright for product_page sources; plain httpx for mock sources
+- Fixed insurerName bug: validator.py now looks up display name from insurers.json when converter leaves it blank
+- Added Singlife as 6th insurer (seed: insurers.json, sources.json, plans.json)
+- Updated Dockerfile: Chromium system libs + playwright install chromium
+- docker-compose.yml: DEEPSEEK_API_KEY + LLM_MODEL env vars for scraper service
+- Added test_converter.py (4 tests); updated test_engine.py mock to accept source_type kwarg
+- All 20 tests pass, ruff lint clean
+Files:
+- scraper/app/scraper/{converter,downloader,engine,validator}.py
+- scraper/app/config.py, scraper/requirements.txt, scraper/pyproject.toml
+- scraper/Dockerfile, docker-compose.yml, scraper/.env.example
+- scraper/tests/{test_converter,test_engine}.py
+- seed/{insurers,sources,plans}.json
+- dev.sh, AGENTS.md (added playwright install chromium to setup steps)
+Others need to know:
+- Env var for scraper AI is DEEPSEEK_API_KEY (not HERMES_API_KEY — that's for web/email)
+- sources.json uses type="mock" for the local brochure and type="product_page" for real insurer URLs
+- To run scraper locally: `uv pip install -e ".[dev]"` (uv is now required)
+- `./dev.sh setup` handles everything (venv + deps + seed)
+---
+
 ## 2026-10-19 | Jeff | Storage migration (JSON → PostgreSQL) — handed off to Marcus
 Status: In Progress (handed off)
 Done:

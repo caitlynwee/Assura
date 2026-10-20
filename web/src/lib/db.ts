@@ -13,9 +13,13 @@
  * src/__tests__/setup.ts.
  */
 
+import { setDefaultResultOrder } from "node:dns";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
 import { eq, and, desc, inArray, isNull, isNotNull, gte, lt } from "drizzle-orm";
 import postgres from "postgres";
+
+// Force IPv4 DNS — Docker on macOS resolves Supabase to IPv6 which is unreachable.
+setDefaultResultOrder("ipv4first");
 import * as schema from "./schema";
 import type {
   User,
@@ -57,7 +61,8 @@ export function getDb(): Database {
   }
   // Keep total session-pool usage small: the scraper and migration job share
   // Supabase's limited session-mode connection pool with this web process.
-  sqlClient = postgres(url, { max: 3 });
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
+  sqlClient = postgres(url, { max: 3, ssl: isLocal ? false : "require" });
   dbInstance = drizzlePostgres(sqlClient, { schema });
   return dbInstance;
 }
@@ -239,8 +244,11 @@ export async function getInsurerById(id: string): Promise<Insurer | null> {
 
 // ─── plans ────────────────────────────────────────────────────────────────────
 
-export async function getPlans(): Promise<Plan[]> {
-  const rows = await getDb().select().from(schema.plans);
+export async function getPlans(country?: string): Promise<Plan[]> {
+  const db = getDb();
+  const rows = country
+    ? await db.select().from(schema.plans).where(eq(schema.plans.country, country))
+    : await db.select().from(schema.plans);
   return rows as Plan[];
 }
 
