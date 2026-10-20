@@ -6,17 +6,34 @@ import { getUserByAuthUid } from "@/lib/db";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const confirmationType = url.searchParams.get("type");
   const destination = new URL("/settings", url.origin);
 
-  if (!code) {
+  if (!code && !tokenHash) {
     destination.searchParams.set("emailError", "invalid-link");
     return NextResponse.redirect(destination);
   }
 
   const supabase = await getServerClient();
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-  if (exchangeError) {
-    console.error("[auth] Email confirmation callback failed:", exchangeError.message);
+  const confirmationResult = tokenHash
+    ? confirmationType === "email_change"
+      ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email_change" })
+      : {
+          error: {
+            message: "Unsupported email confirmation type",
+          },
+        }
+    : code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : {
+          error: {
+            message: "Missing email confirmation code",
+          },
+        };
+
+  if (confirmationResult.error) {
+    console.error("[auth] Email confirmation callback failed:", confirmationResult.error.message);
     destination.searchParams.set("emailError", "confirmation-failed");
     return NextResponse.redirect(destination);
   }

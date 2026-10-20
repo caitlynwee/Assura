@@ -25,10 +25,12 @@ function initials(nameOrEmail: string) {
 
 export default function Topbar({ user }: { user: PublicUser }) {
   const premium = user.tier === "premium";
+  const admin = user.tier === "admin";
+  const hasOutreachAccess = premium || admin;
   const logoutForm = useRef<HTMLFormElement>(null);
   return (
     <header className="flex h-14 items-center justify-end gap-3 border-b bg-card px-6">
-      {premium && user.maskedInbox && (
+      {hasOutreachAccess && user.maskedInbox && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Badge variant="outline" className="hidden gap-1.5 font-mono font-normal md:inline-flex">
@@ -40,7 +42,9 @@ export default function Topbar({ user }: { user: PublicUser }) {
         </Tooltip>
       )}
 
-      {premium ? (
+      {admin ? (
+        <Badge variant="blue">Admin</Badge>
+      ) : premium ? (
         <Badge variant="blue">Premium</Badge>
       ) : (
         <Button asChild size="sm" variant="outline">
@@ -79,12 +83,12 @@ export default function Topbar({ user }: { user: PublicUser }) {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href={premium ? "/onboarding" : "/upgrade"}>
+            <Link href={hasOutreachAccess ? "/onboarding" : "/upgrade"}>
               <ShieldCheckIcon />
               Privacy &amp; consent
             </Link>
           </DropdownMenuItem>
-          {!premium && (
+          {!hasOutreachAccess && (
             <DropdownMenuItem asChild>
               <Link href="/upgrade">
                 <SparklesIcon />

@@ -395,6 +395,27 @@ from a locally running web app.
 
 ---
 
+## Admin operations
+
+Users with the `admin` tier can open `/admin` to monitor scraper availability,
+review the latest run summary and errors, and manually rescrape all configured
+insurer websites. Manual runs are recorded in the audit chain and the web-to-
+scraper requests use `INTERNAL_API_SECRET`; keep that value identical in the
+web and scraper environments and never expose it to the browser.
+
+The admin tier is intentionally not selectable during signup. Grant it only
+through the server-side CLI after the account has signed in once and has a
+linked Supabase identity:
+
+```bash
+cd web
+npm run db:grant-admin -- operator@example.com
+```
+
+The command updates both PostgreSQL and Supabase `app_metadata`. The operator
+must then sign out and back in so the new role is copied into the access token
+used by middleware.
+
 ## Resetting demo data
 
 To restore the configured PostgreSQL database to the clean demo state:

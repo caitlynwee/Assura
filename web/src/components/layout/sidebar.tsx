@@ -11,6 +11,7 @@ import {
   ScrollTextIcon,
   SendIcon,
   ShieldCheckIcon,
+  WrenchIcon,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,8 @@ function NavLink({
 export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded: boolean }) {
   const pathname = usePathname();
   const isPremium = tier === "premium";
+  const isAdmin = tier === "admin";
+  const hasOutreachAccess = isPremium || isAdmin;
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-card">
@@ -72,7 +75,7 @@ export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded
           Workspace
         </p>
         {NAV_ITEMS.map((item) => {
-          const locked = item.premium && !isPremium;
+          const locked = item.premium && !hasOutreachAccess;
           return (
             <NavLink
               key={item.href}
@@ -91,6 +94,14 @@ export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded
             />
           );
         })}
+        {isAdmin && (
+          <NavLink
+            href="/admin"
+            label="Admin dashboard"
+            icon={WrenchIcon}
+            active={pathname.startsWith("/admin")}
+          />
+        )}
       </nav>
 
       <div className="border-t p-3">
@@ -101,12 +112,12 @@ export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded
           active={pathname.startsWith("/settings")}
         />
         <NavLink
-          href={isPremium ? "/onboarding" : "/upgrade"}
+          href={hasOutreachAccess ? "/onboarding" : "/upgrade"}
           label="Privacy & consent"
           icon={ShieldCheckIcon}
           active={pathname.startsWith("/onboarding")}
           trailing={
-            isPremium && !onboarded ? (
+            hasOutreachAccess && !onboarded ? (
               <span className="size-2 rounded-full bg-amber-500" title="Setup needed" />
             ) : undefined
           }

@@ -31,3 +31,10 @@ export async function requireUser(): Promise<PublicUser> {
     .some((c) => /^(__Secure-)?sb-[a-z0-9]+-auth-token(\.\d+)?$/.test(c.name));
   redirect(hasSessionCookie ? "/auth/reset" : "/login");
 }
+
+/** Like requireUser, but redirects non-admin users away from operations pages. */
+export async function requireAdmin(): Promise<PublicUser> {
+  const user = await requireUser();
+  if (user.tier !== "admin") redirect("/compare");
+  return user;
+}

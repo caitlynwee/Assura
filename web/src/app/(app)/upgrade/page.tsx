@@ -29,6 +29,9 @@ export default async function UpgradePage({
   const user = await requireUser();
   const { from, checkout, error } = await searchParams;
   const returnTo = safeBillingReturnTo(from ?? "/outreach");
+  if (user.tier === "admin") {
+    redirect(returnTo);
+  }
   if (user.tier === "premium" && checkout !== "success") {
     redirect(`/auth/stripe-return?from=${encodeURIComponent(returnTo)}`);
   }
