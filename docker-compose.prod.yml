@@ -2,7 +2,7 @@
 # the Next.js app built + served (no on-demand recompiling).
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build web mail mailpit
-#   (or: ./dev.sh up-prod)
+#   (or: ./scripts/run.sh up-prod)
 #
 # Only the `web` service is overridden; db-migrate and premium mail services
 # are reused from docker-compose.yml. NEXT_PUBLIC_* are passed as BUILD ARGS

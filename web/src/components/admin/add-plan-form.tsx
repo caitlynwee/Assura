@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useT } from "@/lib/i18n/client";
 
 type InsurerOption = { id: string; name: string };
 
@@ -51,6 +52,8 @@ function toLines(value: string): string[] {
 }
 
 export default function AddPlanForm() {
+  const t = useT().admin.addPlan;
+
   const [insurers, setInsurers] = useState<InsurerOption[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -80,19 +83,19 @@ export default function AddPlanForm() {
         try {
           const res = await fetch("/api/insurers", { cache: "no-store" });
           const data = (await res.json()) as { insurers?: InsurerOption[]; error?: string };
-          if (!res.ok) throw new Error(data.error ?? "Unable to load insurers.");
+          if (!res.ok) throw new Error(data.error);
           setInsurers(data.insurers ?? []);
-        } catch (err: unknown) {
-          setLoadError(err instanceof Error ? err.message : "Unable to load insurers.");
+        } catch {
+          setLoadError(t.loadInsurersFailed);
         }
       })();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [t.loadInsurersFailed]);
 
   function toggleTerm(term: string) {
     setCoverageTerms((prev) =>
-      prev.includes(term) ? prev.filter((t) => t !== term) : [...prev, term]
+      prev.includes(term) ? prev.filter((x) => x !== term) : [...prev, term]
     );
   }
 
@@ -116,7 +119,7 @@ export default function AddPlanForm() {
     body.append("file", file);
     const res = await fetch("/api/admin/plans/brochure", { method: "POST", body });
     const data = (await res.json()) as { url?: string; error?: string };
-    if (!res.ok || !data.url) throw new Error(data.error ?? "Unable to upload the brochure.");
+    if (!res.ok || !data.url) throw new Error(data.error ?? t.uploadFailed);
     return data.url;
   }
 
@@ -126,7 +129,7 @@ export default function AddPlanForm() {
     setSuccess(null);
 
     if (!insurerId) {
-      setError("Choose an insurer.");
+      setError(t.chooseInsurer);
       return;
     }
 
@@ -138,6 +141,7 @@ export default function AddPlanForm() {
     }
 
     const planNameTrimmed = planName.trim();
+    const withBrochure = brochureFile !== null;
 
     startTransition(async () => {
       try {
@@ -171,15 +175,11 @@ export default function AddPlanForm() {
           body: JSON.stringify(payload),
         });
         const data = (await res.json()) as { error?: string; planId?: string };
-        if (!res.ok) throw new Error(data.error ?? "Unable to add the plan.");
-        setSuccess(
-          `Added "${planNameTrimmed}"${
-            brochureFile ? " with the uploaded brochure" : ""
-          }. It now appears in ${country} comparisons.`
-        );
+        if (!res.ok) throw new Error(data.error ?? t.addFailed);
+        setSuccess(t.success(planNameTrimmed, country, withBrochure));
         resetForm();
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Unable to add the plan.");
+        setError(err instanceof Error ? err.message : t.addFailed);
       }
     });
   }
@@ -189,12 +189,8 @@ export default function AddPlanForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add a plan manually</CardTitle>
-        <CardDescription>
-          Enter plan details by hand when the scraper can&apos;t publish them. The plan appears in
-          the comparison table immediately for users in the selected country. This only adds a
-          plan; it never changes or removes scraped data.
-        </CardDescription>
+        <CardTitle>{t.title}</CardTitle>
+        <CardDescription>{t.desc}</CardDescription>
       </CardHeader>
       <CardContent>
         {loadError && (
@@ -202,16 +198,11 @@ export default function AddPlanForm() {
             {loadError}
           </p>
         )}
-        {noInsurers && (
-          <p className="mb-4 text-sm text-muted-foreground">
-            No insurers are configured yet. Run the scraper (or seed) to populate insurers before
-            adding a plan — a plan must belong to an existing insurer.
-          </p>
-        )}
+        {noInsurers && <p className="mb-4 text-sm text-muted-foreground">{t.noInsurers}</p>}
 
         <form onSubmit={submit} className="grid gap-5">
           <div className="grid gap-2">
-            <Label htmlFor="insurerId">Insurer</Label>
+            <Label htmlFor="insurerId">{t.insurer}</Label>
             <select
               id="insurerId"
               className={selectClass}
@@ -221,7 +212,7 @@ export default function AddPlanForm() {
               required
             >
               <option value="" disabled>
-                {insurers ? "Select an insurer…" : "Loading insurers…"}
+                {insurers ? t.selectInsurer : t.loadingInsurers}
               </option>
               {insurers?.map((ins) => (
                 <option key={ins.id} value={ins.id}>
@@ -232,12 +223,12 @@ export default function AddPlanForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="planName">Plan name</Label>
+            <Label htmlFor="planName">{t.planName}</Label>
             <Input
               id="planName"
               value={planName}
               onChange={(e) => setPlanName(e.target.value)}
-              placeholder="e.g. Early Critical Protect"
+              placeholder={t.planNamePlaceholder}
               maxLength={160}
               required
             />
@@ -245,7 +236,7 @@ export default function AddPlanForm() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="coverageAmount">Coverage amount (SGD)</Label>
+              <Label htmlFor="coverageAmount">{t.coverageAmount}</Label>
               <Input
                 id="coverageAmount"
                 type="number"
@@ -257,7 +248,7 @@ export default function AddPlanForm() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="illnessesCovered">Illnesses covered</Label>
+              <Label htmlFor="illnessesCovered">{t.illnessesCovered}</Label>
               <Input
                 id="illnessesCovered"
                 type="number"
@@ -272,19 +263,19 @@ export default function AddPlanForm() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-2">
-              <Label htmlFor="premiumFrequency">Premium frequency</Label>
+              <Label htmlFor="premiumFrequency">{t.premiumFrequency}</Label>
               <select
                 id="premiumFrequency"
                 className={selectClass}
                 value={premiumFrequency}
                 onChange={(e) => setPremiumFrequency(e.target.value as "annual" | "monthly")}
               >
-                <option value="annual">Annual</option>
-                <option value="monthly">Monthly</option>
+                <option value="annual">{t.annual}</option>
+                <option value="monthly">{t.monthly}</option>
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="payoutType">Payout type</Label>
+              <Label htmlFor="payoutType">{t.payoutType}</Label>
               <select
                 id="payoutType"
                 className={selectClass}
@@ -293,13 +284,13 @@ export default function AddPlanForm() {
                   setPayoutType(e.target.value as "lump_sum" | "monthly_income" | "hybrid")
                 }
               >
-                <option value="lump_sum">Lump sum</option>
-                <option value="monthly_income">Monthly income</option>
-                <option value="hybrid">Hybrid</option>
+                <option value="lump_sum">{t.lumpSum}</option>
+                <option value="monthly_income">{t.monthlyIncome}</option>
+                <option value="hybrid">{t.hybrid}</option>
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="country">Country</Label>
+              <Label htmlFor="country">{t.country}</Label>
               <select
                 id="country"
                 className={selectClass}
@@ -313,11 +304,8 @@ export default function AddPlanForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label>Indicative annual premiums (SGD)</Label>
-            <p className="text-xs text-muted-foreground">
-              Fill in the profiles you have. Used to show each user a premium matched to their
-              profile; leave blank if unknown.
-            </p>
+            <Label>{t.premiumsLabel}</Label>
+            <p className="text-xs text-muted-foreground">{t.premiumsHint}</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {PREMIUM_BUCKETS.map((bucket) => (
                 <div key={bucket.key} className="grid gap-1.5">
@@ -340,7 +328,7 @@ export default function AddPlanForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label>Coverage terms</Label>
+            <Label>{t.coverageTerms}</Label>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {COVERAGE_TERMS.map((term) => (
                 <label key={term} className="flex items-center gap-2 text-sm">
@@ -355,16 +343,13 @@ export default function AddPlanForm() {
           </div>
 
           <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={earlyStage}
-              onCheckedChange={(v) => setEarlyStage(v === true)}
-            />
-            Covers early-stage conditions
+            <Checkbox checked={earlyStage} onCheckedChange={(v) => setEarlyStage(v === true)} />
+            {t.earlyStage}
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="keyBenefits">Key benefits (one per line)</Label>
+              <Label htmlFor="keyBenefits">{t.keyBenefits}</Label>
               <textarea
                 id="keyBenefits"
                 className={`${selectClass} h-24 py-2`}
@@ -374,7 +359,7 @@ export default function AddPlanForm() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="exclusions">Exclusions (one per line)</Label>
+              <Label htmlFor="exclusions">{t.exclusions}</Label>
               <textarea
                 id="exclusions"
                 className={`${selectClass} h-24 py-2`}
@@ -386,7 +371,7 @@ export default function AddPlanForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="brochureFile">Brochure file</Label>
+            <Label htmlFor="brochureFile">{t.brochureFile}</Label>
             <Input
               id="brochureFile"
               type="file"
@@ -394,21 +379,17 @@ export default function AddPlanForm() {
               className="cursor-pointer file:mr-3 file:cursor-pointer file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
               onChange={(e) => setBrochureFile(e.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-muted-foreground">
-              Optional. Upload the plan brochure (PDF, PNG, JPG, or WebP, up to 10 MB). It&apos;s
-              stored with the plan and used as the &quot;Brochure&quot; link in the comparison
-              table — overriding the source URL below.
-            </p>
+            <p className="text-xs text-muted-foreground">{t.brochureHint}</p>
             {brochureFile && (
               <p className="text-xs text-foreground">
-                Selected: {brochureFile.name} ({Math.ceil(brochureFile.size / 1024)} KB)
+                {t.brochureSelected(brochureFile.name, Math.ceil(brochureFile.size / 1024))}
               </p>
             )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="sourceUrl">Source / brochure URL</Label>
+              <Label htmlFor="sourceUrl">{t.sourceUrl}</Label>
               <Input
                 id="sourceUrl"
                 type="url"
@@ -417,12 +398,10 @@ export default function AddPlanForm() {
                 placeholder="https://insurer.example/brochure.pdf"
                 disabled={brochureFile !== null}
               />
-              <p className="text-xs text-muted-foreground">
-                Used when no brochure file is uploaded.
-              </p>
+              <p className="text-xs text-muted-foreground">{t.sourceUrlHint}</p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="productUrl">Product page URL</Label>
+              <Label htmlFor="productUrl">{t.productUrl}</Label>
               <Input
                 id="productUrl"
                 type="url"
@@ -446,7 +425,7 @@ export default function AddPlanForm() {
 
           <div>
             <Button type="submit" loading={pending} disabled={noInsurers}>
-              {pending ? "Adding…" : "Add plan"}
+              {pending ? t.adding : t.add}
             </Button>
           </div>
         </form>

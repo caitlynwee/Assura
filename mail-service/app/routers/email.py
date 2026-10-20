@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.relay import check_smtp_connection, send_email
-from app.simulator import simulate_reply
 
 router = APIRouter()
 
@@ -13,11 +12,6 @@ class SendRequest(BaseModel):
     to_address: str
     subject: str
     body: str
-
-
-class ReplyRequest(BaseModel):
-    thread_id: str
-    insurer_id: str
 
 
 def require_internal_key(api_key: str | None) -> None:
@@ -43,20 +37,6 @@ async def send_outreach_email(
         "to_address": to_address,
         "status": "sent",
     }
-
-
-@router.post("/reply")
-async def trigger_reply(
-    body: ReplyRequest,
-    x_internal_api_key: str | None = Header(default=None),
-):
-    require_internal_key(x_internal_api_key)
-    try:
-        return await simulate_reply(body.thread_id, body.insurer_id)
-    except LookupError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @router.get("/health")

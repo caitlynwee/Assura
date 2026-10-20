@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AI_DISCLOSURE_FOOTER } from "@/lib/constants";
+import { useT } from "@/lib/i18n/client";
 
 export interface ApprovalItem {
   insurerName: string;
@@ -32,13 +33,6 @@ interface Props {
   onConfirm: () => void;
 }
 
-const SAFEGUARDS = [
-  `Each email ends with an AI disclosure: “${AI_DISCLOSURE_FOOTER}”`,
-  "Scanned for NRIC, phone, health and income data before sending",
-  "Assura never agrees to buy or books calls on your behalf",
-  "Recorded in your tamper-evident activity log",
-];
-
 export default function ApprovalDialog({
   open,
   from,
@@ -46,15 +40,17 @@ export default function ApprovalDialog({
   onCancel,
   onConfirm,
 }: Props) {
+  const tt = useT();
+  const t = tt.outreach.dialog;
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            Approve and send {items.length} email{items.length === 1 ? "" : "s"}?
+            {t.title(items.length)}
           </DialogTitle>
           <DialogDescription>
-            Sent from your masked inbox{" "}
+            {t.sentFrom}{" "}
             <span className="font-mono text-foreground">{from}</span>
           </DialogDescription>
         </DialogHeader>
@@ -71,7 +67,7 @@ export default function ApprovalDialog({
         </ul>
 
         <ul className="space-y-1.5 text-xs text-muted-foreground">
-          {SAFEGUARDS.map((s) => (
+          {t.safeguards(AI_DISCLOSURE_FOOTER).map((s) => (
             <li key={s} className="flex gap-2">
               <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
               {s}
@@ -81,11 +77,11 @@ export default function ApprovalDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
-            Back to edit
+            {t.backToEdit}
           </Button>
           <Button autoFocus onClick={onConfirm}>
             <SendIcon />
-            Approve &amp; send
+            {t.approveSend}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,3 +1,4 @@
+import re
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import make_msgid
@@ -12,6 +13,13 @@ AI_DISCLOSURE = (
 )
 
 MAILPIT_HOSTS = {"mailpit", "localhost", "127.0.0.1"}
+
+
+def simulated_insurer_address(insurer_id: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", insurer_id.lower()).strip("-")
+    if not slug:
+        raise ValueError("Cannot create a simulated email address for this insurer.")
+    return f"insurer-{slug}@insurer.assura.local"
 
 
 def require_mailpit_destination() -> None:

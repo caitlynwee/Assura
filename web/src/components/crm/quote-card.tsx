@@ -1,8 +1,11 @@
+"use client";
+
 import { ReceiptTextIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ExtractedQuote } from "@/lib/types";
+import { useLocale, useT } from "@/lib/i18n/client";
 
 interface Props {
   quote: ExtractedQuote;
@@ -17,7 +20,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const PLACEHOLDER = <span className="text-muted-foreground">Not stated</span>;
+function Placeholder() {
+  return <span className="text-muted-foreground">{useT().crm.notStated}</span>;
+}
 
 function List({ items }: { items?: string[] }) {
   return items && items.length > 0 ? (
@@ -27,53 +32,55 @@ function List({ items }: { items?: string[] }) {
       ))}
     </ul>
   ) : (
-    PLACEHOLDER
+    <Placeholder />
   );
 }
 
 export default function QuoteCard({ quote }: Props) {
+  const t = useT().crm.quote;
+  const { intlLocale } = useLocale();
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
           <ReceiptTextIcon className="size-4 text-primary" />
-          Extracted quote
+          {t.title}
         </CardTitle>
         <CardDescription>
-          Parsed by the quarantined reader · {formatDate(quote.extractedAt)}
+          {t.parsedBy(formatDate(quote.extractedAt, intlLocale))}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Annual premium">
+          <Field label={t.annualPremium}>
             {quote.annualPremium !== undefined ? (
               <span className="text-lg font-semibold tabular-nums">{formatCurrency(quote.annualPremium)}</span>
             ) : (
-              PLACEHOLDER
+              <Placeholder />
             )}
           </Field>
-          <Field label="Coverage amount">
+          <Field label={t.coverageAmount}>
             {quote.coverageAmount !== undefined ? (
               <span className="text-lg font-semibold tabular-nums">{formatCurrency(quote.coverageAmount)}</span>
             ) : (
-              PLACEHOLDER
+              <Placeholder />
             )}
           </Field>
-          <Field label="Waiting period">{quote.waitingPeriod ? quote.waitingPeriod : PLACEHOLDER}</Field>
-          <Field label="Valid until">{quote.validUntil ? formatDate(quote.validUntil) : PLACEHOLDER}</Field>
+          <Field label={t.waitingPeriod}>{quote.waitingPeriod ? quote.waitingPeriod : <Placeholder />}</Field>
+          <Field label={t.validUntil}>{quote.validUntil ? formatDate(quote.validUntil, intlLocale) : <Placeholder />}</Field>
         </div>
 
         <Separator />
 
-        <Field label="Exclusions noted">
+        <Field label={t.exclusions}>
           <List items={quote.exclusionsNoted} />
         </Field>
-        <Field label="Rider options">
+        <Field label={t.riders}>
           <List items={quote.riderOptions} />
         </Field>
 
         {quote.rawNotes && (
-          <Field label="Notes">
+          <Field label={t.notes}>
             <p className="whitespace-pre-wrap text-muted-foreground">{quote.rawNotes}</p>
           </Field>
         )}

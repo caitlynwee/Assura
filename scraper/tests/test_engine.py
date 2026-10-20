@@ -5,14 +5,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-def _make_source_row(source_id="src_aia_ci"):
+def _make_source_row(
+    source_id="src_aia_ci",
+    type="product_page",
+    url="https://www.aia.com.sg/en/our-products/critical-illness.html",
+):
     """Return a mock SQLAlchemy Source object."""
     s = MagicMock()
     s.id = source_id
     s.insurer_id = "aia"
     s.label = "AIA CI Power"
-    s.url = "https://www.aia.com.sg/en/our-products/critical-illness.html"
-    s.type = "product_page"
+    s.url = url
+    s.type = type
     s.plan_ids = ["aia_ci_power"]
     s.etag = None
     s.last_modified = None
@@ -23,7 +27,7 @@ def _make_source_row(source_id="src_aia_ci"):
     return s
 
 
-def _make_plan_row(plan_id="aia_ci_power"):
+def _make_plan_row(plan_id="aia_ci_power", stored_doc_url=None):
     """Return a mock SQLAlchemy Plan object."""
     p = MagicMock()
     p.id = plan_id
@@ -32,6 +36,7 @@ def _make_plan_row(plan_id="aia_ci_power"):
     p.plan_name = "AIA Power Critical Cover"
     p.change_notes = []
     p.version = 1
+    p.stored_doc_url = stored_doc_url
     return p
 
 
@@ -66,6 +71,8 @@ async def test_failed_scrape_preserves_last_good_data():
     with patch("app.scraper.engine.get_session", return_value=session), \
          patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(True, None))), \
          patch("app.scraper.engine.download_page", new=AsyncMock(side_effect=RuntimeError("network error"))), \
+         patch("app.scraper.engine.download_raw_pdf", new=AsyncMock(return_value=None)), \
+         patch("app.scraper.engine.store_pdf", new=AsyncMock(return_value=None)), \
          patch("app.scraper.engine.source_to_camel", return_value=source_dict):
         from app.scraper.engine import run_scraper
         result = await run_scraper(trigger="manual")
@@ -92,6 +99,8 @@ async def test_no_change_skips_pipeline():
 
     with patch("app.scraper.engine.get_session", return_value=session), \
          patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(False, None))), \
+         patch("app.scraper.engine.download_raw_pdf", new=AsyncMock(return_value=None)), \
+         patch("app.scraper.engine.store_pdf", new=AsyncMock(return_value=None)), \
          patch("app.scraper.engine.source_to_camel", return_value=source_dict):
         from app.scraper.engine import run_scraper
         result = await run_scraper(trigger="manual")
@@ -125,6 +134,8 @@ async def test_changed_source_uses_downloader_supported_arguments():
          patch("app.scraper.engine.validate_plan", return_value={"planName": "Updated plan"}), \
          patch("app.scraper.engine.source_to_camel", return_value=source_dict), \
          patch("app.scraper.engine.update_source_metadata", return_value=source_dict), \
+         patch("app.scraper.engine.download_raw_pdf", new=AsyncMock(return_value=None)), \
+         patch("app.scraper.engine.store_pdf", new=AsyncMock(return_value=None)), \
          patch("app.scraper.engine.apply_source_update"):
         from app.scraper.engine import run_scraper
         result = await run_scraper(trigger="manual", source_id=source.id)
@@ -134,4 +145,97 @@ async def test_changed_source_uses_downloader_supported_arguments():
     )
     assert result["sourcesChecked"] == 1
     assert result["sourcesChanged"] == 1
+    assert result["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_stored_pdf_seeds_existing_unchanged_plan():
+    """Stored-PDF pass seeds a plan whose PDF source did NOT change this run."""
+    source = _make_source_row(
+        source_id="src_aia_ci_pdf", type="pdf", url="https://aia.com.sg/brochure.pdf"
+    )
+    plan = _make_plan_row(stored_doc_url=None)
+    session = _make_session([source], [plan])
+
+    source_dict = {
+        "id": source.id, "insurerId": source.insurer_id, "url": source.url,
+        "type": source.type, "planIds": source.plan_ids,
+        "etag": None, "lastModified": None, "contentHash": None,
+        "lastChecked": None, "lastChanged": None, "status": "ok",
+    }
+    public_url = (
+        "https://proj.supabase.co/storage/v1/object/public/documents/aia/aia_ci_power.pdf"
+    )
+    store = AsyncMock(return_value=public_url)
+
+    with patch("app.scraper.engine.get_session", return_value=session), \
+         patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(False, None))), \
+         patch("app.scraper.engine.download_raw_pdf", new=AsyncMock(return_value=b"%PDF-1.4")), \
+         patch("app.scraper.engine.store_pdf", new=store), \
+         patch("app.scraper.engine.source_to_camel", return_value=source_dict):
+        from app.scraper.engine import run_scraper
+        result = await run_scraper(trigger="manual")
+
+    store.assert_awaited_once_with("aia", "aia_ci_power", b"%PDF-1.4")
+    assert plan.stored_doc_url == public_url
+    session.expunge_all.assert_not_called()
+    assert result["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_stored_pdf_failure_never_fails_run():
+    """A download/upload error leaves stored_doc_url None and the run succeeds."""
+    source = _make_source_row(
+        source_id="src_aia_ci_pdf", type="pdf", url="https://aia.com.sg/brochure.pdf"
+    )
+    plan = _make_plan_row(stored_doc_url=None)
+    session = _make_session([source], [plan])
+
+    source_dict = {
+        "id": source.id, "insurerId": source.insurer_id, "url": source.url,
+        "type": source.type, "planIds": source.plan_ids,
+        "etag": None, "lastModified": None, "contentHash": None,
+        "lastChecked": None, "lastChanged": None, "status": "ok",
+    }
+
+    with patch("app.scraper.engine.get_session", return_value=session), \
+         patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(False, None))), \
+         patch("app.scraper.engine.download_raw_pdf", new=AsyncMock(side_effect=RuntimeError("boom"))), \
+         patch("app.scraper.engine.store_pdf", new=AsyncMock(side_effect=RuntimeError("boom"))), \
+         patch("app.scraper.engine.source_to_camel", return_value=source_dict):
+        from app.scraper.engine import run_scraper
+        result = await run_scraper(trigger="manual")
+
+    assert plan.stored_doc_url is None
+    assert result["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_stored_pdf_idempotent_skip():
+    """A plan that already has a stored copy triggers no download/upload."""
+    source = _make_source_row(
+        source_id="src_aia_ci_pdf", type="pdf", url="https://aia.com.sg/brochure.pdf"
+    )
+    plan = _make_plan_row(stored_doc_url="https://proj.supabase.co/existing.pdf")
+    session = _make_session([source], [plan])
+
+    source_dict = {
+        "id": source.id, "insurerId": source.insurer_id, "url": source.url,
+        "type": source.type, "planIds": source.plan_ids,
+        "etag": None, "lastModified": None, "contentHash": None,
+        "lastChecked": None, "lastChanged": None, "status": "ok",
+    }
+    download = AsyncMock(return_value=b"%PDF-1.4")
+    store = AsyncMock(return_value="https://proj.supabase.co/new.pdf")
+
+    with patch("app.scraper.engine.get_session", return_value=session), \
+         patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(False, None))), \
+         patch("app.scraper.engine.download_raw_pdf", new=download), \
+         patch("app.scraper.engine.store_pdf", new=store), \
+         patch("app.scraper.engine.source_to_camel", return_value=source_dict):
+        from app.scraper.engine import run_scraper
+        result = await run_scraper(trigger="manual")
+
+    download.assert_not_awaited()
+    store.assert_not_awaited()
     assert result["errors"] == []

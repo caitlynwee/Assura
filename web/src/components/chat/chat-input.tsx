@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SendHorizontalIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useT } from "@/lib/i18n/client";
 
 interface Props {
   onSend: (message: string) => void;
@@ -12,6 +13,7 @@ interface Props {
 
 export default function ChatInput({ onSend, disabled }: Props) {
   const [value, setValue] = useState("");
+  const t = useT().chat;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -34,15 +36,15 @@ export default function ChatInput({ onSend, disabled }: Props) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask about plan coverage, premiums, exclusions…"
+        placeholder={t.inputPlaceholder}
         disabled={disabled}
         rows={2}
-        aria-label="Message"
+        aria-label={t.inputLabel}
         className="min-h-0 flex-1 resize-none bg-card"
       />
       <Button type="submit" disabled={disabled || !value.trim()}>
         <SendHorizontalIcon />
-        Send
+        {t.send}
       </Button>
     </form>
   );

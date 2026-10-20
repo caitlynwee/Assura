@@ -7,44 +7,46 @@ import { Label } from "@/components/ui/label";
 import Field from "./field";
 import FormError from "./form-error";
 import SubmitButton from "./submit-button";
+import { useT } from "@/lib/i18n/client";
 
 export default function SignupForm() {
   const [state, formAction] = useActionState<FormState, FormData>(signupAction, {});
   const fe = state.fieldErrors ?? {};
+  const a = useT().auth;
 
   return (
     <form action={formAction} className="grid gap-4" noValidate>
       <Field
-        label="Name"
+        label={a.name}
         name="name"
         autoComplete="name"
-        placeholder="Alex Tan"
+        placeholder={a.namePlaceholder}
         defaultValue={state.values?.name}
         error={fe.name}
         required
       />
       <Field
-        label="Email"
+        label={a.email}
         name="email"
         type="email"
         autoComplete="email"
-        placeholder="you@example.com"
+        placeholder={a.emailPlaceholder}
         defaultValue={state.values?.email}
         error={fe.email}
-        hint="Used to sign in only. Insurers never see it."
+        hint={a.emailHint}
         required
       />
       <Field
-        label="Password"
+        label={a.password}
         name="password"
         type="password"
         autoComplete="new-password"
         error={fe.password}
-        hint="At least 8 characters, with a letter and a number."
+        hint={a.passwordHint}
         required
       />
       <Field
-        label="Confirm password"
+        label={a.confirmPassword}
         name="confirmPassword"
         type="password"
         autoComplete="new-password"
@@ -55,17 +57,17 @@ export default function SignupForm() {
       <div className="rounded-lg border bg-card p-3">
         <Label className="flex items-center gap-2 font-semibold">
           <CheckIcon className="size-4 text-primary" />
-          Free account
+          {a.freeAccount}
         </Label>
         <p className="mt-1 text-xs text-muted-foreground">
-          Compare plans and use cited Q&amp;A for free. Upgrade to Premium with Stripe whenever you need outreach.
+          {a.freeAccountBody}
         </p>
       </div>
 
       <FormError message={state.error} />
 
-      <SubmitButton className="w-full" pendingText="Creating account…">
-        Create account
+      <SubmitButton className="w-full" pendingText={a.creatingAccount}>
+        {a.createAccount}
       </SubmitButton>
     </form>
   );

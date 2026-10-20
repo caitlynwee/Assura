@@ -95,6 +95,58 @@ export async function ensureDemoAuthUser(): Promise<void> {
   console.warn(`[seed-auth] Linked ${DEMO_APP_USER_ID}.auth_uid → ${authUid}.`);
 }
 
+/** Team demo accounts (app rows seeded in seed-data.ts). Shared password. */
+const TEAM_PASSWORD = "demo1234";
+const TEAM_MEMBERS = ["jeff", "caitlyn", "marcus", "dominic"] as const;
+
+/**
+ * Ensure each groupmate's Supabase identity exists (premium, confirmed) and is
+ * linked to their seeded app row (user_<slug> ↔ <slug>@assura.local).
+ * Idempotent and no-op-safe when Supabase keys are absent, mirroring the demo
+ * seeding above.
+ */
+export async function ensureTeamAuthUsers(): Promise<void> {
+  const admin = getAdminClient();
+  if (!admin) {
+    console.warn(
+      "[seed-auth] Supabase not configured — skipping team auth users."
+    );
+    return;
+  }
+
+  for (const slug of TEAM_MEMBERS) {
+    const appUserId = `user_${slug}`;
+    const email = `${slug}@assura.local`;
+    const appMetadata = { tier: "premium", onboarded: true, appUserId };
+
+    const existing = await findAuthUserByEmail(admin, email);
+    let authUid: string;
+    if (!existing) {
+      const { data, error } = await admin.auth.admin.createUser({
+        email,
+        password: TEAM_PASSWORD,
+        email_confirm: true,
+        app_metadata: appMetadata,
+      });
+      if (error) throw error;
+      authUid = data.user.id;
+      console.warn(`[seed-auth] Created ${email} Supabase identity (${authUid}).`);
+    } else {
+      authUid = existing.id;
+      const { error } = await admin.auth.admin.updateUserById(authUid, {
+        password: TEAM_PASSWORD,
+        email_confirm: true,
+        app_metadata: appMetadata,
+      });
+      if (error) throw error;
+      console.warn(`[seed-auth] Re-synced ${email} Supabase identity (${authUid}).`);
+    }
+
+    await linkAuthUid(appUserId, authUid);
+    console.warn(`[seed-auth] Linked ${appUserId}.auth_uid → ${authUid}.`);
+  }
+}
+
 /**
  * Sync an app user's tier/onboarded into their Supabase app_metadata so the
  * edge (which reads the JWT, not the DB) sees the new values after a refresh.

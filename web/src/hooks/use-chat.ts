@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ChatMessage } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
 
 interface Options {
   /** Called when the first message of a new chat creates a conversation. */
@@ -19,6 +20,7 @@ interface Options {
  */
 export function useChat(conversationId: string | null, options: Options = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const t = useT().chat;
   const [streaming, setStreaming] = useState(false);
   const [loading, setLoading] = useState(Boolean(conversationId));
 
@@ -69,7 +71,7 @@ export function useChat(conversationId: string | null, options: Options = {}) {
           setMessages([
             {
               role: "assistant",
-              content: "Couldn't load this conversation. Please try again.",
+              content: t.loadChatFailed,
               timestamp: new Date().toISOString(),
             },
           ]);
@@ -82,6 +84,7 @@ export function useChat(conversationId: string | null, options: Options = {}) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only on conversation change, not language
   }, [conversationId, createdId]);
 
   /**
@@ -161,7 +164,7 @@ export function useChat(conversationId: string | null, options: Options = {}) {
             ...next,
             {
               role: "assistant",
-              content: "Sorry, something went wrong. Please try again.",
+              content: t.genericError,
               timestamp: new Date().toISOString(),
             },
           ];
@@ -171,7 +174,7 @@ export function useChat(conversationId: string | null, options: Options = {}) {
         optionsRef.current.onActivity?.();
       }
     },
-    [conversationId]
+    [conversationId, t]
   );
 
   const sendMessage = useCallback(

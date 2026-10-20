@@ -88,6 +88,7 @@ export interface Plan {
   exclusions: string[];
   sourceUrl: string;
   productUrl: string;
+  storedDocUrl?: string; // our stored copy of the brochure PDF; absent until scraped
   dataAsOf: string; // YYYY-MM-DD
   updatedBadge: boolean;
   changeNotes: string[];

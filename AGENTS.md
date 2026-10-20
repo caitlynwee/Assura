@@ -147,10 +147,10 @@ cd scraper && uv venv .venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
 
-# (Or just run `./dev.sh setup` from the repo root to do steps 1-3 at once.)
+# (Or just run `./scripts/run.sh setup` from the repo root to do steps 1-3 at once.)
 
 # Premium mail-service + Mailpit (Docker)
-./dev.sh infra                                 # UI: http://localhost:8025
+./scripts/run.sh infra                                 # UI: http://localhost:8025
 ```
 
 Demo login: `demo@assura.local` / `demo1234`

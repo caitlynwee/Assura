@@ -28,6 +28,17 @@ import { logEvent } from "@/lib/audit";
 import { maskEmail } from "@/lib/utils";
 import { DEMO_EMAIL, DEMO_PASSWORD } from "@/lib/demo";
 import type { User } from "@/lib/types";
+import { getT } from "@/lib/i18n/server";
+import type { Messages } from "@/lib/i18n/messages";
+
+/** Localized message for a signup validation issue (by field + check). */
+function signupIssueMessage(a: Messages["auth"], field: string, code: string): string {
+  if (field === "name") return a.errNameRequired;
+  if (field === "email") return a.errEmailInvalid;
+  if (field === "confirmPassword") return a.errPasswordsMismatch;
+  if (field === "password") return code === "too_small" ? a.errPasswordShort : a.errPasswordWeak;
+  return a.errCouldNotCreate;
+}
 
 export type FormState = {
   error?: string;
@@ -92,6 +103,7 @@ export async function loginAction(
   const emailRaw = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectTo = safeCallback(formData.get("callbackUrl"), "/compare");
+  const a = (await getT()).auth;
   // Checkbox persistence. The form posts a hidden "remember=0" plus, when the
   // box is checked, the Radix checkbox's "remember=on". Treat the user as
   // remembered when any posted value is "on" (checked), regardless of field
@@ -100,7 +112,7 @@ export async function loginAction(
 
   const parsed = loginSchema.safeParse({ email: emailRaw, password });
   if (!parsed.success) {
-    return { error: "Please enter your email and password.", values: { email: emailRaw } };
+    return { error: a.errEnterCredentials, values: { email: emailRaw } };
   }
   const email = parsed.data.email.toLowerCase();
 
@@ -119,19 +131,19 @@ export async function loginAction(
     if (isRateLimited(error)) {
       logEvent("system", "auth.login.locked", { email: maskEmail(email) });
       return {
-        error: "Too many failed attempts. Please wait a few minutes and try again.",
+        error: a.errTooManyAttempts,
         values: { email },
       };
     }
     logEvent("system", "auth.login.failed", { email: maskEmail(email) });
-    return { error: "Invalid email or password.", values: { email } };
+    return { error: a.errInvalidCredentials, values: { email } };
   }
 
   const appUser = await resolveOrCreateAuthUser(data.user);
   if (!appUser) {
     // Authenticated with Supabase but no app row — treat as failed login.
     logEvent("system", "auth.login.failed", { email: maskEmail(email) });
-    return { error: "Invalid email or password.", values: { email } };
+    return { error: a.errInvalidCredentials, values: { email } };
   }
 
   logEvent(appUser.id, "auth.login.success", {});
@@ -191,13 +203,14 @@ export async function signupAction(
     tier: "free",
   };
   const values = { name: raw.name, email: raw.email, tier: raw.tier };
+  const a = (await getT()).auth;
 
   const parsed = signupSchema.safeParse(raw);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) {
       const key = String(issue.path[0] ?? "form");
-      fieldErrors[key] ??= issue.message;
+      fieldErrors[key] ??= signupIssueMessage(a, key, issue.code);
     }
     return { fieldErrors, values };
   }
@@ -208,7 +221,7 @@ export async function signupAction(
   //    already has an app row (prevents orphaned Supabase identities).
   const existing = await findUserByEmail(email);
   if (existing) {
-    return { fieldErrors: { email: new EmailTakenError().message }, values };
+    return { fieldErrors: { email: a.errEmailTaken }, values };
   }
 
   // 2. Create the Supabase identity.
@@ -219,9 +232,9 @@ export async function signupAction(
   });
   if (error || !data.user) {
     if (error && /already/i.test(error.message)) {
-      return { fieldErrors: { email: new EmailTakenError().message }, values };
+      return { fieldErrors: { email: a.errEmailTaken }, values };
     }
-    return { error: "Could not create your account. Please try again.", values };
+    return { error: a.errCouldNotCreate, values };
   }
   const authUid = data.user.id;
 
@@ -247,9 +260,9 @@ export async function signupAction(
       await admin.auth.admin.deleteUser(authUid).catch(() => {});
     }
     if (err instanceof EmailTakenError) {
-      return { fieldErrors: { email: err.message }, values };
+      return { fieldErrors: { email: a.errEmailTaken }, values };
     }
-    return { error: "Could not create your account. Please try again.", values };
+    return { error: a.errCouldNotCreate, values };
   }
 
   // 6. Stamp app_metadata (tier/onboarded/appUserId) and audit.

@@ -61,5 +61,7 @@ async def get_status(x_internal_api_key: str | None = Header(default=None)):
     return {
         "last_run": last_run,
         "scraper_available": True,
-        "next_scheduled": f"Daily at {settings.scraper_cron_hour:02d}:00 SGT",
+        # No automatic schedule — the scraper only runs when an admin triggers it
+        # (each run costs Firecrawl tokens).
+        "next_scheduled": "Manual only (admin-triggered)",
     }

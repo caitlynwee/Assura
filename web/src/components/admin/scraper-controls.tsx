@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocale, useT } from "@/lib/i18n/client";
 
 type ScraperRun = {
   runId: string;
@@ -24,6 +25,13 @@ export default function ScraperControls() {
   const [status, setStatus] = useState<ScraperStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const t = useT().admin;
+  const { locale, intlLocale } = useLocale();
+  // Server error text is English; in Chinese show our own message.
+  const msg = (code: string, fallback: string) => {
+    const serverText = code.slice(code.indexOf(":") + 1);
+    return locale === "en" && serverText ? serverText : fallback;
+  };
 
   async function loadStatus() {
     const response = await fetch("/api/scraper/status", { cache: "no-store" });
@@ -35,7 +43,8 @@ export default function ScraperControls() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void loadStatus().catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Unable to load scraper status.");
+        // Keep the server text only to show it in English; otherwise translate on render.
+        setError(err instanceof Error && err.message ? `load:${err.message}` : "load:");
       });
     }, 0);
     return () => window.clearTimeout(timer);
@@ -54,7 +63,7 @@ export default function ScraperControls() {
         if (!response.ok) throw new Error(data.error ?? "Unable to start rescrape.");
         await loadStatus();
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Unable to start rescrape.");
+        setError(err instanceof Error && err.message ? `start:${err.message}` : "start:");
       }
     });
   }
@@ -64,39 +73,41 @@ export default function ScraperControls() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Insurance data refresh</CardTitle>
-        <CardDescription>
-          Run the scraper against all configured insurer websites. This may take several minutes.
-        </CardDescription>
+        <CardTitle>{t.refreshTitle}</CardTitle>
+        <CardDescription>{t.refreshDesc}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Button onClick={runScraper} loading={pending}>
-            {pending ? "Rescraping…" : "Rescrape all insurers"}
+            {pending ? t.rescraping : t.rescrape}
           </Button>
           <span className="text-sm text-muted-foreground">
-            {status?.scraper_available ? `Automatic schedule: ${status.next_scheduled}` : "Scraper unavailable"}
+            {status?.scraper_available ? t.schedule(status.next_scheduled) : t.unavailable}
           </span>
         </div>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {msg(error, error.startsWith("load:") ? t.loadFailed : t.startFailed)}
+          </p>
+        )}
         {lastRun ? (
           <div className="rounded-md border p-3 text-sm">
-            <p className="font-medium">Last run: {new Date(lastRun.finishedAt).toLocaleString()}</p>
+            <p className="font-medium">{t.lastRun(new Date(lastRun.finishedAt).toLocaleString(intlLocale))}</p>
             <p className="text-muted-foreground">
-              {lastRun.trigger} · checked {lastRun.sourcesChecked} · changed {lastRun.sourcesChanged}
+              {t.runSummary(t.triggers[lastRun.trigger] ?? lastRun.trigger, lastRun.sourcesChecked, lastRun.sourcesChanged)}
             </p>
             {lastRun.errors.length > 0 && (
               <ul className="mt-2 list-disc pl-5 text-destructive">
                 {lastRun.errors.map((item, index) => (
                   <li key={`${item.sourceId ?? "source"}-${index}`}>
-                    {item.sourceId ?? "source"}: {item.message ?? "Unknown error"}
+                    {item.sourceId ?? t.source}: {item.message ?? t.unknownError}
                   </li>
                 ))}
               </ul>
             )}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No scraper runs recorded yet.</p>
+          <p className="text-sm text-muted-foreground">{t.noRuns}</p>
         )}
       </CardContent>
     </Card>
