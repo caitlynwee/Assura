@@ -16,6 +16,19 @@ describe("Policy engine", () => {
     expect(evaluateAction("draft_email", premiumCtx).outcome).toBe("allow");
   });
 
+  it("allows ADVISE-tier actions for admin (premium-or-better) and still denies free", () => {
+    const adviseActions = [
+      "extract_quote",
+      "draft_email",
+      "advise_plan",
+      "update_thread_status",
+    ] as const;
+    for (const action of adviseActions) {
+      expect(evaluateAction(action, adminCtx).outcome).toBe("allow");
+      expect(evaluateAction(action, freeCtx).outcome).toBe("deny");
+    }
+  });
+
   it("allows send_email only with userApproved=true", () => {
     expect(evaluateAction("send_email", premiumCtx).outcome).toBe("deny");
     expect(evaluateAction("send_email", { ...premiumCtx, userApproved: true }).outcome).toBe("allow");

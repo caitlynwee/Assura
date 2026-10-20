@@ -748,6 +748,13 @@ Files: scraper/app/config.py, scraper/app/scraper/downloader.py, scraper/app/scr
 Others need to know: stored_doc_url is nullable; existing rows stay NULL until the next admin-triggered run seeds them. Supabase config is optional — keyless = upload silently skipped, scrape still succeeds. The "documents" bucket must be public for the links to open.
 Blockers: none
 ---
+## 2026-10-20 | Jeff | Admin tier sticky across seed/auth-metadata writes
+Status: Completed
+Done: Centralized app_metadata writer that never clobbers a DB-admin's tier; fixed ensureTeamAuthUsers/ensureDemoAuthUser to derive tier from DB (preserve admin, default premium only when not admin); routed syncAuthMetadata + Stripe sync through the safeguard; added/updated Jest tests.
+Files: web/src/lib/supabase/ensure-demo-user.ts, web/src/lib/stripe.ts, web/src/__tests__/ensure-demo-user.test.ts, web/src/__tests__/billing.test.ts (+ any new helper file)
+Others need to know: Teammates must re-login to pick up a corrected JWT (app_metadata.tier). No schema or edge-guard changes.
+Blockers: None
+---
 ## 2026-10-20 | Dominic | Fix redirect-origin 0.0.0.0 leak
 Status: Completed
 Done: Auth/billing redirects no longer leak http://0.0.0.0:3000 (the container binds HOSTNAME=0.0.0.0, which Next.js also used as the request origin). User-facing redirects now derive their origin from NEXT_PUBLIC_SITE_URL: stripe-return, reset, and callback routes reuse getSiteUrl() from @/lib/stripe (Node runtime); the edge proxy reads process.env.NEXT_PUBLIC_SITE_URL inline (trim + fallback to req.nextUrl when unset) to stay edge-safe (no new import). Found and fixed the callback route too — its destination was built from url.origin (request host). Added tests using a 0.0.0.0 request host so they fail on the old behavior. HOSTNAME=0.0.0.0, Stripe tier logic, auth verification, DB schema, and the proxy matcher are untouched.

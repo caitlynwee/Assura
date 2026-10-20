@@ -14,8 +14,59 @@
 import { getAdminClient } from "./admin";
 import { linkAuthUid, getUserById } from "../db";
 import { DEMO_EMAIL, DEMO_PASSWORD, LEGACY_DEMO_EMAIL } from "../demo";
+import type { UserTier } from "../types";
 
 const DEMO_APP_USER_ID = "user_demo";
+
+/**
+ * Resolve the tier to write into Supabase app_metadata, with admin made
+ * STICKY. The authority is the Postgres users.tier column (read fresh), with a
+ * belt-and-braces fallback to the tier already present in the Supabase
+ * app_metadata. Admin is never silently downgraded: if either the DB row or the
+ * existing JWT metadata says "admin", the result is "admin".
+ *
+ * On a fresh DB where the app row does not yet exist and there is no existing
+ * admin metadata, this falls back to `fallbackTier` (the seed default).
+ */
+async function resolveStickyTier(options: {
+  appUserId?: string;
+  existingMetadataTier?: unknown;
+  fallbackTier: UserTier;
+}): Promise<UserTier> {
+  const { appUserId, existingMetadataTier, fallbackTier } = options;
+
+  let dbTier: UserTier | undefined;
+  if (appUserId) {
+    const dbUser = await getUserById(appUserId);
+    if (dbUser) dbTier = dbUser.tier;
+  }
+
+  // Sticky admin: preserve admin from either source of truth.
+  if (dbTier === "admin" || existingMetadataTier === "admin") return "admin";
+
+  // Otherwise prefer the fresh DB tier; fall back to the seed default.
+  return dbTier ?? fallbackTier;
+}
+
+/**
+ * Build the full app_metadata object to write, applying the sticky-admin rule
+ * to the tier while preserving the other fields (onboarded, appUserId). This is
+ * the single place the "never clobber admin" rule lives; all app_metadata
+ * writers route through it.
+ */
+async function buildStickyAppMetadata(options: {
+  appUserId: string;
+  onboarded: boolean;
+  existingMetadataTier?: unknown;
+  fallbackTier: UserTier;
+}): Promise<{ tier: UserTier; onboarded: boolean; appUserId: string }> {
+  const tier = await resolveStickyTier({
+    appUserId: options.appUserId,
+    existingMetadataTier: options.existingMetadataTier,
+    fallbackTier: options.fallbackTier,
+  });
+  return { tier, onboarded: options.onboarded, appUserId: options.appUserId };
+}
 
 /** Find a Supabase auth user by email (paged listUsers), or null. */
 async function findAuthUserByEmail(
@@ -58,15 +109,16 @@ export async function ensureDemoAuthUser(): Promise<void> {
     return;
   }
 
-  const appMetadata = {
-    tier: "premium",
-    onboarded: true,
-    appUserId: DEMO_APP_USER_ID,
-  };
-
   const existing =
     (await findAuthUserByEmail(admin, DEMO_EMAIL)) ??
     (await findAuthUserByEmail(admin, LEGACY_DEMO_EMAIL));
+
+  const appMetadata = await buildStickyAppMetadata({
+    appUserId: DEMO_APP_USER_ID,
+    onboarded: true,
+    existingMetadataTier: existing?.app_metadata?.tier,
+    fallbackTier: "premium",
+  });
 
   let authUid: string;
   if (!existing) {
@@ -117,9 +169,14 @@ export async function ensureTeamAuthUsers(): Promise<void> {
   for (const slug of TEAM_MEMBERS) {
     const appUserId = `user_${slug}`;
     const email = `${slug}@assura.local`;
-    const appMetadata = { tier: "premium", onboarded: true, appUserId };
 
     const existing = await findAuthUserByEmail(admin, email);
+    const appMetadata = await buildStickyAppMetadata({
+      appUserId,
+      onboarded: true,
+      existingMetadataTier: existing?.app_metadata?.tier,
+      fallbackTier: "premium",
+    });
     let authUid: string;
     if (!existing) {
       const { data, error } = await admin.auth.admin.createUser({
@@ -173,12 +230,14 @@ export async function syncAuthMetadata(appUserId: string): Promise<void> {
     return;
   }
 
+  const appMetadata = await buildStickyAppMetadata({
+    appUserId: user.id,
+    onboarded: user.onboarded,
+    fallbackTier: user.tier,
+  });
+
   const { error } = await admin.auth.admin.updateUserById(user.authUid, {
-    app_metadata: {
-      tier: user.tier,
-      onboarded: user.onboarded,
-      appUserId: user.id,
-    },
+    app_metadata: appMetadata,
   });
   if (error) throw error;
 }

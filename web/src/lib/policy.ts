@@ -109,7 +109,8 @@ export function evaluateAction(
       };
     }
   } else if (tier === PolicyTier.ADVISE) {
-    if (context.userTier !== "premium") {
+    // Admin is a superset of premium: both are entitled to advise/draft.
+    if (context.userTier !== "premium" && context.userTier !== "admin") {
       decision = {
         outcome: "deny",
         tier,

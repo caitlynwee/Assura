@@ -111,6 +111,43 @@ describe("Stripe subscription entitlement", () => {
     });
   });
 
+  it("does not downgrade an admin on a canceled subscription, and skips metadata sync", async () => {
+    await createUser({
+      id: "user_admin_test",
+      name: "Admin Test",
+      email: "admin-test@example.com",
+      password: "unused-password",
+      tier: "admin",
+    });
+
+    await syncSubscriptionEntitlement({
+      ...makeSubscription("sub_admin", "canceled"),
+      metadata: { appUserId: "user_admin_test" },
+    });
+
+    expect(await findUserById("user_admin_test")).toMatchObject({ tier: "admin" });
+    // Entitlement sync short-circuits for admins — no DB write, no metadata sync.
+    expect(syncAuthMetadata).not.toHaveBeenCalled();
+  });
+
+  it("leaves an admin unchanged even on an active subscription event", async () => {
+    await createUser({
+      id: "user_admin_active",
+      name: "Admin Active",
+      email: "admin-active@example.com",
+      password: "unused-password",
+      tier: "admin",
+    });
+
+    await syncSubscriptionEntitlement({
+      ...makeSubscription("sub_admin_active", "active"),
+      metadata: { appUserId: "user_admin_active" },
+    });
+
+    expect(await findUserById("user_admin_active")).toMatchObject({ tier: "admin" });
+    expect(syncAuthMetadata).not.toHaveBeenCalled();
+  });
+
   it("keeps Checkout's webhook route reachable without a user session", () => {
     expect(
       evaluateRoute({

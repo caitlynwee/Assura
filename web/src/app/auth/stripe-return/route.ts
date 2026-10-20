@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", siteUrl));
   }
 
-  if (session?.user.tier === "premium") {
+  // Admin is premium-or-better: treat as entitled and send to the return target.
+  if (session?.user.tier === "premium" || session?.user.tier === "admin") {
     return NextResponse.redirect(new URL(returnTo, siteUrl));
   }
 
