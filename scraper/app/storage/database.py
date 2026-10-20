@@ -147,9 +147,9 @@ def get_engine():
         url = settings.database_url
         if not url:
             raise RuntimeError("DATABASE_URL is not set in environment")
-        # Force psycopg2 driver — replace postgresql:// and postgres:// schemes
-        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
-        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+        # Force psycopg (v3) driver — replace postgresql:// and postgres:// schemes
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
         is_local = "localhost" in url or "127.0.0.1" in url
         connect_args = {} if is_local else {"sslmode": "require"}
         _engine = create_engine(
