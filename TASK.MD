@@ -659,3 +659,10 @@ Files: `web/src/app/auth/stripe-return/route.ts`, `web/src/app/(app)/upgrade/pag
 Others need to know: The previous loop was caused by edge middleware reading a stale Free-tier JWT after the database had already been upgraded to Premium.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Repair Stripe Billing Migration on Startup
+Status: Completed
+Done: Added an idempotent catch-up migration for Stripe customer/subscription columns and registered it in the Drizzle journal so Compose startup can repair databases that missed the billing migration.
+Files: `web/drizzle/0009_stripe_billing_catchup.sql`, `web/drizzle/meta/_journal.json`
+Others need to know: `npx drizzle-kit check` passes; the user confirmed this migration resolved the Docker Compose startup issue.
+Blockers: None.
+---
