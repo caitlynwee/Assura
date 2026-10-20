@@ -620,6 +620,16 @@ Done: Extracted Premium email delivery/personas into `mail-service`; web email c
 Files: `mail-service/`, `web/src/lib/mail.ts`, `web/src/app/api/crm/threads/[threadId]/reply/route.ts`, `docker-compose.yml`, `dev.sh`, `README.md`, `docs/PROJECT.MD`
 Others need to know: Basic starts web + DB migration; Premium starts web + mail + Mailpit; scraper starts independently. All use PostgreSQL; SMTP is restricted to local Mailpit on port 1025.
 Blockers: None.
+
+
+## 2026-10-20 | Dominic | Compare: profile-matched plans + coverage filter/sort
+Status: Completed
+Done:
+- Compare defaults to "Only show plans that match my profile" (checkbox to show all). Pure, LLM-free rules in `web/src/lib/relevance.ts`, each applied only when the profile has the field: budget (annual premium for the user's age band/gender/smoker ≤ monthly budget × 12), coverage (sum assured ≥ coverage needed), age (from date of birth via profileAge; some coverage term still runs ≥ 5 years). Profile chips + "Showing X of Y" + why plans are hidden; ✓/✗ reason tooltip per row; non-matching rows greyed when showing all. Factual filter, not a recommendation.
+- Smokers: when a plan publishes no smoker rate the non-smoker rate is shown with * and a note — never an invented price.
+- Coverage-amount filter (Up to S$50k … Above S$200k → minCoverage/maxCoverage). Clickable Coverage / Premium / Illnesses / Plan headers sort ↑↓; sort dropdown has high→low / low→high. Sorting is client-side so Premium sorts by the user's own premium (was fixed M/30). Monthly equivalent under each premium. Singlife added to the insurer filter. Replaces the "Within my budget — Emphasize" switch (budget is now part of matching).
+- Tests: relevance.test.ts (12). Build/tsc/lint clean; verified in a browser (30 y/o male smoker, S$90/mo, S$150k → 3 of 14 seed plans, as computed by hand).
+Others need to know: Matching needs plans in the DB — on a fresh DB run the scraper ("Refresh data") first, since seed no longer loads plans.
 ---
 ## 2026-10-20 | Copilot | Stripe Premium Checkout
 Status: Completed
