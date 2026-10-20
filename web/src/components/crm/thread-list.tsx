@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import ThreadCard from "./thread-card";
+import { useT } from "@/lib/i18n/client";
 
 export default function ThreadList() {
   const { threads, loading, error } = useThreads();
+  const t = useT().crm;
 
   if (loading) {
     return (
@@ -26,7 +28,7 @@ export default function ThreadList() {
     return (
       <Alert variant="destructive">
         <TriangleAlertIcon />
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription>{t.loadThreadsFailed}</AlertDescription>
       </Alert>
     );
   }
@@ -37,13 +39,13 @@ export default function ThreadList() {
         <CardContent className="flex flex-col items-center gap-3 py-6 text-center">
           <InboxIcon className="size-8 text-muted-foreground" />
           <div>
-            <p className="font-medium">No outreach threads yet</p>
-            <p className="text-sm text-muted-foreground">Email an insurer and the conversation will appear here.</p>
+            <p className="font-medium">{t.emptyTitle}</p>
+            <p className="text-sm text-muted-foreground">{t.emptyBody}</p>
           </div>
           <Button asChild size="sm">
             <Link href="/outreach">
               <SendIcon />
-              Go to Outreach
+              {t.goToOutreach}
             </Link>
           </Button>
         </CardContent>

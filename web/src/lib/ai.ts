@@ -33,8 +33,16 @@ const FACTUAL_GUARDRAIL = `IMPORTANT: You provide factual information and compar
 
 export async function* chatWithPlans(
   messages: ChatMessage[],
-  plans: Plan[]
+  plans: Plan[],
+  /** Reply language: "en" (default) or "zh" (Simplified Chinese). */
+  locale: "en" | "zh" = "en"
 ): AsyncGenerator<string> {
+  // Plan names, insurer names and citation text stay exactly as in the data so
+  // sources remain checkable; only the explanation is written in Chinese.
+  const languageRule =
+    locale === "zh"
+      ? "\n\nLANGUAGE: Reply in Simplified Chinese (简体中文). Keep plan names, insurer names and the citation brackets exactly as they appear in the plan data (do not translate them)."
+      : "";
   const planContext = plans
     .map(
       (p) =>
@@ -57,7 +65,7 @@ export async function* chatWithPlans(
     messages: [
       {
         role: "system",
-        content: `You are Assura's plan information assistant. Answer questions about critical illness plans using only the plan data provided below. ${FACTUAL_GUARDRAIL}\n\nCITATIONS ARE REQUIRED:\n- Cite every factual statement about a specific plan.\n- Use this exact citation format: [Source: Plan Name — Insurer; brochure: Plan Name; data as of YYYY-MM-DD].\n- Copy the plan name, insurer, and data-as-of date exactly from the provided plan data. If the date is "date not stated", say so in the citation.\n- Do not give plan-specific facts without a citation. Do not invent citations or dates.\n\n---PLAN DATA---\n${planContext}`,
+        content: `You are Assura's plan information assistant. Answer questions about critical illness plans using only the plan data provided below. ${FACTUAL_GUARDRAIL}\n\nCITATIONS ARE REQUIRED:\n- Cite every factual statement about a specific plan.\n- Use this exact citation format: [Source: Plan Name — Insurer; brochure: Plan Name; data as of YYYY-MM-DD].\n- Copy the plan name, insurer, and data-as-of date exactly from the provided plan data. If the date is "date not stated", say so in the citation.\n- Do not give plan-specific facts without a citation. Do not invent citations or dates.${languageRule}\n\n---PLAN DATA---\n${planContext}`,
       },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ],

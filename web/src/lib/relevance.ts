@@ -38,8 +38,18 @@ export type RelevanceRule = "budget" | "coverage" | "age";
 export interface RelevanceCheck {
   rule: RelevanceRule;
   passed: boolean;
-  /** Short, factual reason shown to the user. */
+  /** Short, factual reason (English; the UI localizes from `values`). */
   label: string;
+  /** Numbers behind the reason, so the UI can phrase it in any language. */
+  values: {
+    budget?: number; // monthly budget
+    monthlyPremium?: number; // premium / 12, rounded
+    noPremium?: boolean;
+    need?: number; // coverage needed
+    coverageUnknown?: boolean; // plan states no sum assured
+    age?: number;
+    years?: number; // years of cover (Infinity = lifelong)
+  };
 }
 
 export interface PlanRelevance {
@@ -94,6 +104,11 @@ export function assessPlan(
     checks.push({
       rule: "budget",
       passed,
+      values: {
+        budget,
+        monthlyPremium: resolved.premium === undefined ? undefined : Math.round(resolved.premium / 12),
+        noPremium: resolved.premium === undefined,
+      },
       label:
         resolved.premium === undefined
           ? "no published premium"
@@ -113,6 +128,7 @@ export function assessPlan(
     checks.push({
       rule: "coverage",
       passed,
+      values: { need, coverageUnknown: unknown },
       label: unknown
         ? "coverage amount not published"
         : passed
@@ -128,6 +144,7 @@ export function assessPlan(
     checks.push({
       rule: "age",
       passed,
+      values: { age, years: best },
       label: passed
         ? best === Infinity
           ? "lifelong cover at your age"

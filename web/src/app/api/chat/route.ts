@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { chatRequestSchema } from "@/lib/validators";
 import { evaluateAction } from "@/lib/policy";
 import { chatWithPlans } from "@/lib/ai";
+import { getLocale } from "@/lib/i18n/server";
+import { getMessages } from "@/lib/i18n/messages";
 import {
   getPlans,
   getConversationById,
@@ -83,6 +85,8 @@ export async function POST(req: NextRequest) {
   await appendConversationMessage(conversationId, userMsgId, userMsg);
 
   const plans = await getPlans();
+  const locale = await getLocale();
+  const fallbackText = getMessages(locale).chat.modelUnavailable;
   const convId = conversationId;
 
   const stream = new ReadableStream({
@@ -91,7 +95,7 @@ export async function POST(req: NextRequest) {
       let answer = "";
       let clientGone = false;
       try {
-        for await (const chunk of chatWithPlans([...history, userMsg], plans)) {
+        for await (const chunk of chatWithPlans([...history, userMsg], plans, locale)) {
           answer += chunk;
           if (!clientGone) {
             try {
@@ -112,7 +116,7 @@ export async function POST(req: NextRequest) {
           try {
             controller.enqueue(
               encoder.encode(
-                `${answer ? "\n\n" : ""}Sorry, the assistant couldn't answer right now. Please try again.`
+                `${answer ? "\n\n" : ""}${fallbackText}`
               )
             );
           } catch {

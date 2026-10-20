@@ -18,13 +18,17 @@ import { cn } from "@/lib/utils";
 import Logo from "@/components/brand/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { UserTier } from "@/lib/types";
+import { useT } from "@/lib/i18n/client";
+import type { Messages } from "@/lib/i18n/messages";
 
-const NAV_ITEMS: { href: string; label: string; icon: LucideIcon; premium: boolean }[] = [
-  { href: "/compare", label: "Compare Plans", icon: LayoutGridIcon, premium: false },
-  { href: "/chat", label: "Plan Q&A", icon: MessagesSquareIcon, premium: false },
-  { href: "/outreach", label: "Outreach", icon: SendIcon, premium: true },
-  { href: "/crm", label: "CRM", icon: InboxIcon, premium: true },
-  { href: "/activity", label: "Activity Log", icon: ScrollTextIcon, premium: true },
+type NavKey = keyof Messages["layout"]["nav"];
+
+const NAV_ITEMS: { href: string; labelKey: NavKey; icon: LucideIcon; premium: boolean }[] = [
+  { href: "/compare", labelKey: "compare", icon: LayoutGridIcon, premium: false },
+  { href: "/chat", labelKey: "chat", icon: MessagesSquareIcon, premium: false },
+  { href: "/outreach", labelKey: "outreach", icon: SendIcon, premium: true },
+  { href: "/crm", labelKey: "crm", icon: InboxIcon, premium: true },
+  { href: "/activity", labelKey: "activity", icon: ScrollTextIcon, premium: true },
 ];
 
 function NavLink({
@@ -63,6 +67,7 @@ export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded
   const isPremium = tier === "premium";
   const isAdmin = tier === "admin";
   const hasOutreachAccess = isPremium || isAdmin;
+  const t = useT().layout.nav;
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-card">
@@ -70,55 +75,56 @@ export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded
         <Logo href="/compare" />
       </div>
 
-      <nav className="flex-1 space-y-1 p-3" aria-label="Main">
+      <nav className="flex-1 space-y-1 p-3" aria-label={t.main}>
         <p className="px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Workspace
+          {t.workspace}
         </p>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.map(({ labelKey, ...item }) => {
           const locked = item.premium && !hasOutreachAccess;
           return (
             <NavLink
               key={item.href}
               {...item}
+              label={t[labelKey]}
               active={pathname.startsWith(item.href)}
               trailing={
                 locked ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <LockIcon className="size-3.5 text-muted-foreground" aria-label="Premium" />
+                      <LockIcon className="size-3.5 text-muted-foreground" aria-label={t.premiumFeature} />
                     </TooltipTrigger>
-                    <TooltipContent side="right">Premium feature</TooltipContent>
+                    <TooltipContent side="right">{t.premiumFeature}</TooltipContent>
                   </Tooltip>
                 ) : undefined
               }
             />
           );
         })}
+      </nav>
+
+      <div className="border-t p-3">
         {isAdmin && (
           <NavLink
             href="/admin"
-            label="Admin dashboard"
+            label={t.admin}
             icon={WrenchIcon}
             active={pathname.startsWith("/admin")}
           />
         )}
-      </nav>
-
-      <div className="border-t p-3">
         <NavLink
           href="/settings"
-          label="Settings"
+          label={t.settings}
           icon={SettingsIcon}
           active={pathname.startsWith("/settings")}
         />
         <NavLink
           href={hasOutreachAccess ? "/onboarding" : "/upgrade"}
-          label="Privacy & consent"
+          label={t.privacy}
           icon={ShieldCheckIcon}
           active={pathname.startsWith("/onboarding")}
           trailing={
             hasOutreachAccess && !onboarded ? (
-              <span className="size-2 rounded-full bg-amber-500" title="Setup needed" />
+              <span className="size-2 rounded-full bg-amber-500" title={t.setupNeeded} />
             ) : undefined
           }
         />

@@ -1,17 +1,19 @@
 import { Sparkles } from "lucide-react";
 import { demoLoginAction } from "@/app/_actions/auth";
 import SubmitButton from "./submit-button";
+import { getT } from "@/lib/i18n/server";
 
-export default function DemoLoginButton({ callbackUrl }: { callbackUrl?: string }) {
+export default async function DemoLoginButton({ callbackUrl }: { callbackUrl?: string }) {
+  const a = (await getT()).auth;
   return (
     <form action={demoLoginAction}>
       <input type="hidden" name="callbackUrl" value={callbackUrl ?? ""} />
-      <SubmitButton variant="outline" className="w-full" pendingText="Signing in…">
+      <SubmitButton variant="outline" className="w-full" pendingText={a.signingIn}>
         <Sparkles />
-        One-click demo login
+        {a.demoLogin}
       </SubmitButton>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        Premium demo account, already onboarded with a masked inbox.
+        {a.demoLoginHint}
       </p>
     </form>
   );
