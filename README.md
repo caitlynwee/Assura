@@ -111,6 +111,8 @@ not real or externally deliverable email addresses.
 ```bash
 ./dev.sh up              # web only; development mode with hot reload (Free/basic use)
 ./dev.sh up --build      # web only, rebuilding its image first
+./dev.sh up-stripe       # web + Stripe CLI webhook forwarding (Free-to-Premium billing test)
+./dev.sh up-stripe --build # rebuild web, then start billing test
 ./dev.sh up-premium      # web + isolated mail service + Mailpit for Premium outreach demo
 ./dev.sh up-scraper      # scraper only, independent from web and mail
 ./dev.sh up-prod         # full production-built Premium demo
@@ -159,6 +161,8 @@ Run the services you're **not** working on in Docker, run your own service local
 
 ./dev.sh up              Start web only (development/hot reload)
 ./dev.sh up --build      Rebuild web image then start development mode
+./dev.sh up-stripe       Start web + Stripe CLI forwarding for billing tests
+./dev.sh up-stripe --build  Rebuild web, then start billing test
 ./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
 ./dev.sh up-scraper      Start the scraper independently
 ./dev.sh up-prod         Start full production-built Premium demo (recommended)
@@ -345,21 +349,26 @@ Premium upgrades use Stripe Checkout in test mode. Create a recurring SGD
 product price in the Stripe test dashboard, then set its `price_...` ID as
 `STRIPE_PRICE_ID`. Set `STRIPE_SECRET_KEY` to an `sk_test_...` key and keep
 `STRIPE_WEBHOOK_SECRET` server-side. The webhook endpoint is
-`/api/stripe/webhook`; for local development, run Stripe CLI:
-
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-
-Copy the CLI's `whsec_...` value into `.env` / `web/.env.local`. Subscribe the
-endpoint to `customer.subscription.created`, `customer.subscription.updated`,
-and `customer.subscription.deleted`. Configure the Stripe Customer Portal in
-the test dashboard so users can manage or cancel their subscription.
+`/api/stripe/webhook`. Configure the Stripe Customer Portal in the test
+dashboard so users can manage or cancel their subscription.
 Subscription changes are applied only from verified webhook events; returning
 from Checkout by itself does not grant Premium. The seeded shared demo account
 remains Premium without payment. New accounts start on Free and upgrade through
 Stripe. Live billing is intentionally unavailable until explicitly enabled in
 code and separately configured.
+
+For a single-command local billing test, install the Stripe CLI and configure
+`STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` in the root `.env`, then run
+`./dev.sh up-stripe`. It uses the test secret key to obtain the local webhook
+signing secret, starts forwarding the subscription events above, and passes
+that secret directly to the web container for this run. You do not need to
+copy the CLI-generated secret into `.env` when using this command. Add
+`--build` to rebuild the web image first. The regular `./dev.sh up` command
+does not start Stripe CLI; if you use it for billing tests, configure
+`STRIPE_WEBHOOK_SECRET` yourself. For an externally hosted webhook endpoint,
+configure Stripe to send `customer.subscription.created`,
+`customer.subscription.updated`, and `customer.subscription.deleted` to the
+app's webhook URL and use that endpoint's signing secret.
 
 ### `web/.env.local` — used when running web locally
 
