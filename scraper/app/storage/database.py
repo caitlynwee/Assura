@@ -18,6 +18,7 @@ from sqlalchemy import (
     Text,
     create_engine,
 )
+from sqlalchemy.pool import NullPool
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -154,10 +155,7 @@ def get_engine():
         connect_args = {} if is_local else {"sslmode": "require"}
         _engine = create_engine(
             url,
-            pool_pre_ping=True,
-            pool_size=2,
-            max_overflow=0,
-            pool_timeout=30,
+            poolclass=NullPool,  # release connections immediately — scraper is a batch job
             connect_args=connect_args,
         )
     return _engine
