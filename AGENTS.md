@@ -79,9 +79,8 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ├── scraper/      Python FastAPI — scraper, email relay, personas
 ├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
 ├── seed/         Seed data + reset.sh (source of truth for demo state)
-├── docs/         Product spec, handoffs, hackathon reference docs
-│   ├── PROJECT.MD    ← product spec
-│   └── HANDOFF.md    ← CRM/outreach handoff
+├── docs/         Product spec and hackathon reference docs
+│   └── PROJECT.MD    ← product spec
 ├── AGENTS.md     ← you are here (AI agent instructions, any tool)
 ├── TASK.MD       ← cross-session task log (UPDATE THIS when you finish something)
 └── README.md     ← setup & onboarding

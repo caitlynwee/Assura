@@ -322,6 +322,17 @@ Others need to know: Auth-created users default to Free and must complete onboar
 Blockers: None.
 ---
 
+## 2026-10-20 | Copilot | Retire stale CRM/outreach handoff
+Status: Completed
+Done:
+- Removed the obsolete CRM/outreach handoff and its AGENTS.md pointer; implementation and Docker/Mailpit verification are recorded in this task log.
+- Corrected the scraper env template from the retired Hermes key to the configured DeepSeek key.
+- Carried forward remaining PR #7 gates: live Supabase signup/account-deletion verification and the user's decision to mark ready/merge.
+Files: docs/HANDOFF.md, AGENTS.md, scraper/.env.example, TASK.MD
+Others need to know: All email delivery remains local via Mailpit. No live Supabase signup/deletion check was completed here.
+Blockers: PR #7 remains open/draft pending those live checks or an explicit waiver and user approval to merge.
+---
+
 ## 2026-10-20 | Copilot | Brevo demo email delivery
 Status: Blocked
 Done:
