@@ -347,6 +347,13 @@ Files: web/src/lib/{users,auth}.ts, web/src/app/_actions/auth.ts, web/src/__test
 Others need to know: Auth-created users default to Free and must complete onboarding/upgrade for premium features. This change does not move CRM/application data out of PostgreSQL.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Document Scraper Environment Variables
+Status: Completed
+Done: Added Firecrawl API key and scraper debug settings to the root environment example; marked the scraper-wide country default temporary pending per-user country support.
+Files: `.env.example`, `TASK.MD`
+Others need to know: `CURRENT_COUNTRY` remains in the template for now and should be removed once scraper uses the user's country.
+Blockers: None.
+---
 
 ## 2026-10-20 | Copilot | Retire stale CRM/outreach handoff
 Status: Completed
