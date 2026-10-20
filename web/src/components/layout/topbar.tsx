@@ -1,43 +1,104 @@
+"use client";
+
+import { useRef } from "react";
 import Link from "next/link";
+import { LogOutIcon, MailIcon, SettingsIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
 import { logoutAction } from "@/app/_actions/auth";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { PublicUser } from "@/lib/types";
+
+function initials(nameOrEmail: string) {
+  const parts = nameOrEmail.split(/[\s@._-]+/).filter(Boolean);
+  return (parts[0]?.[0] ?? "?").toUpperCase() + (parts[1]?.[0] ?? "").toUpperCase();
+}
 
 export default function Topbar({ user }: { user: PublicUser }) {
   const premium = user.tier === "premium";
-
+  const logoutForm = useRef<HTMLFormElement>(null);
   return (
-    <header className="flex h-14 items-center justify-end gap-4 border-b border-gray-200 bg-white px-6">
+    <header className="flex h-14 items-center justify-end gap-3 border-b bg-card px-6">
       {premium && user.maskedInbox && (
-        <span
-          className="hidden items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 font-mono text-xs text-gray-600 md:inline-flex"
-          title="Insurers only ever see this relay address"
-        >
-          <span aria-hidden="true">✉</span>
-          {user.maskedInbox}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="hidden gap-1.5 font-mono font-normal md:inline-flex">
+              <MailIcon />
+              {user.maskedInbox}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>Insurers only ever see this relay address</TooltipContent>
+        </Tooltip>
       )}
 
       {premium ? (
-        <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">Premium</span>
+        <Badge variant="blue">Premium</Badge>
       ) : (
-        <Link
-          href="/upgrade"
-          className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-700"
-        >
-          Free · Upgrade
-        </Link>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/upgrade">
+            <SparklesIcon />
+            Upgrade
+          </Link>
+        </Button>
       )}
 
-      <span className={cn("text-sm text-gray-700")} title={user.email}>
-        {user.name || user.email}
-      </span>
+      <form ref={logoutForm} action={logoutAction} className="hidden" />
 
-      <form action={logoutAction}>
-        <button type="submit" className="text-sm text-gray-500 transition hover:text-gray-900">
-          Sign out
-        </button>
-      </form>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-9 gap-2 px-2" aria-label="Account menu">
+            <Avatar className="size-7">
+              <AvatarFallback className="bg-accent text-accent-foreground">
+                {initials(user.name || user.email)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">
+              {user.name || user.email}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60">
+          <DropdownMenuLabel className="font-normal">
+            <p className="truncate text-sm font-medium">{user.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/settings">
+              <SettingsIcon />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href={premium ? "/onboarding" : "/upgrade"}>
+              <ShieldCheckIcon />
+              Privacy &amp; consent
+            </Link>
+          </DropdownMenuItem>
+          {!premium && (
+            <DropdownMenuItem asChild>
+              <Link href="/upgrade">
+                <SparklesIcon />
+                Upgrade to Premium
+              </Link>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => logoutForm.current?.requestSubmit()}>
+            <LogOutIcon />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }

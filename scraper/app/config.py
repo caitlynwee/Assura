@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     web_base_url: str = "http://localhost:3000"
     internal_api_secret: str = "dev-internal-key"
 
-    # Mailpit SMTP sandbox
+    # Mailpit SMTP sandbox (default: nothing leaves the machine)
     mailpit_smtp_host: str = "localhost"
     mailpit_smtp_port: int = 1025
 

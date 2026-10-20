@@ -1,6 +1,9 @@
+import { Suspense } from "react";
 import { requireUser } from "@/lib/session";
 import Sidebar from "@/components/layout/sidebar";
 import Topbar from "@/components/layout/topbar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import ToastOnParam from "@/components/toast-on-param";
 
 export default async function AppLayout({
   children,
@@ -11,12 +14,17 @@ export default async function AppLayout({
   const user = await requireUser();
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar tier={user.tier} onboarded={user.onboarded} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar user={user} />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">{children}</main>
+    <TooltipProvider>
+      <Suspense fallback={null}>
+        <ToastOnParam />
+      </Suspense>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar tier={user.tier} onboarded={user.onboarded} />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Topbar user={user} />
+          <main className="flex-1 overflow-y-auto bg-background p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

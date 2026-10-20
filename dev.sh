@@ -6,6 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$ROOT/scraper/.venv"
+cd "$ROOT"
 
 # ── Colours ────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -28,31 +29,36 @@ usage() {
 
   Assura dev CLI
 
-  DOCKER (all services together)
-    ./dev.sh up              Start everything  (docker compose up)
-    ./dev.sh up --build      Start everything, rebuild images first
+  DOCKER
+    ./dev.sh up              Start web only (dev mode, hot reload; Free/basic use)
+    ./dev.sh up --build      Start web only, rebuilding its image first
+    ./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
+    ./dev.sh up-scraper      Start scraper + Mailpit separately from the web
+    ./dev.sh up-prod         Start the full production-built Premium demo
     ./dev.sh down            Stop everything
     ./dev.sh restart         down + up
     ./dev.sh build [svc]     Rebuild image(s)  svc: web | scraper
     ./dev.sh logs  [svc]     Tail logs         svc: web | scraper | mailpit
 
   LOCAL (single service, no Docker)
-    ./dev.sh web             Run Next.js on :3000
+    ./dev.sh web             Run Next.js on :3000 (dev, hot-reload)
+    ./dev.sh demo            Build + run Next.js in production (no live recompiling)
     ./dev.sh scraper         Run FastAPI on :8100
     ./dev.sh mailpit         Run Mailpit  SMTP :1025  UI :8025
 
   MIXED (infra in Docker, one service local)
     ./dev.sh infra           Start mailpit + scraper in Docker (background)
-    ./dev.sh infra-web       Start mailpit in Docker, run web locally
+    ./dev.sh infra-web       Start mailpit + scraper in Docker, run web locally
 
   UTILITIES
-    ./dev.sh seed            Reset database to seed state (needs DATABASE_URL)
+    ./dev.sh seed            Reset configured database to seed state (destructive)
     ./dev.sh db:migrate      Apply Drizzle migrations
     ./dev.sh db:seed         Load seed data (RESET=1 truncates first)
     ./dev.sh test            Run scraper test suite (pytest)
     ./dev.sh lint            Lint scraper/app with ruff
     ./dev.sh ci              Run all CI checks locally (web + scraper)
-    ./dev.sh setup           First-time setup (uv venv, deps, .env files, seed)
+    ./dev.sh setup           Prepare root .env for Docker
+    ./dev.sh setup --local   Also create local env and install host dependencies
 
 EOF
 }
@@ -61,12 +67,37 @@ EOF
 cmd_up() {
   require_env
   if [ "${1:-}" = "--build" ]; then
-    info "Starting all services (with rebuild)..."
-    docker compose up --build
+    info "Starting web only (with rebuild)..."
+    docker compose up --build web
   else
-    info "Starting all services..."
-    docker compose up
+    info "Starting web only..."
+    docker compose up web
   fi
+}
+
+cmd_up_premium() {
+  require_env
+  if [ "${1:-}" = "--build" ]; then
+    info "Starting web, scraper relay, and Mailpit for the Premium demo (with rebuild)..."
+    docker compose up --build web scraper mailpit
+  else
+    info "Starting web, scraper relay, and Mailpit for the Premium demo..."
+    docker compose up web scraper mailpit
+  fi
+}
+
+cmd_up_scraper() {
+  require_env
+  info "Starting scraper separately (Mailpit starts as its email dependency)..."
+  docker compose up scraper
+}
+
+cmd_up_prod() {
+  # Whole stack in Docker with the web app BUILT (production) — no live
+  # recompiling. Uses the prod override which swaps web to Dockerfile.prod.
+  require_env
+  info "Starting all services with PRODUCTION web (building image)..."
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 }
 
 cmd_down() {
@@ -92,6 +123,26 @@ cmd_web() {
   info "Starting Next.js on :3000..."
   cd "$ROOT/web"
   npm run dev
+}
+
+cmd_demo() {
+  # Production mode for the demo: build once, then `next start` — NO on-demand
+  # compiling (unlike `next dev`), so no "Compiling..." pauses while presenting.
+  #
+  # Env: uses the SAME root .env you already fill in for Docker. We export its
+  # values into the environment so Next.js picks them up directly (process env
+  # beats .env.local), so there's just ONE env file to maintain.
+  require_env
+  info "Loading env from root .env..."
+  set -a                       # auto-export everything sourced
+  # shellcheck disable=SC1090
+  . "$ROOT/.env"
+  set +a
+  cd "$ROOT/web"
+  info "Building web for production (one-time)..."
+  npm run build
+  info "Starting Next.js (production) on :3000 — no live recompiling..."
+  npm run start
 }
 
 cmd_scraper() {
@@ -120,16 +171,19 @@ cmd_infra() {
 
 cmd_infra_web() {
   require_env
-  info "Starting mailpit in Docker (background)..."
-  docker compose up -d mailpit
+  info "Starting mailpit + scraper relay in Docker (background)..."
+  docker compose up -d mailpit scraper
   info "Starting Next.js locally..."
   cd "$ROOT/web"
   npm run dev
 }
 
 cmd_seed() {
+  require_env
+  warn "This will truncate the configured database and restore demo seed data."
   info "Resetting database to seed state..."
-  bash "$ROOT/seed/reset.sh"
+  docker compose run --rm db-migrate sh -c \
+    'npm run db:migrate && RESET=1 npm run db:seed && npm run db:seed-auth'
   info "Done."
 }
 
@@ -178,20 +232,33 @@ cmd_ci() {
 }
 
 cmd_setup() {
+  case "${1:-}" in
+    ""|--local) ;;
+    *) error "Usage: ./dev.sh setup [--local]" ;;
+  esac
+
   info "Running first-time setup..."
 
   # ── Root .env ────────────────────────────────────────────────
   if [ ! -f "$ROOT/.env" ]; then
     cp "$ROOT/.env.example" "$ROOT/.env"
-    warn ".env created — fill in AUTH_SECRET and DEEPSEEK_API_KEY before running docker."
+    warn ".env created — configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY before Docker startup."
   else
     echo "  .env already exists, skipping."
+  fi
+
+  if [ "${1:-}" != "--local" ]; then
+    echo ""
+    echo "  Configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY in .env."
+    echo "  Then run: ./dev.sh up-prod"
+    echo "  For host-based development dependencies, run: ./dev.sh setup --local"
+    return
   fi
 
   # ── web/.env.local ───────────────────────────────────────────
   if [ ! -f "$ROOT/web/.env.local" ]; then
     cp "$ROOT/web/.env.local.example" "$ROOT/web/.env.local"
-    warn "web/.env.local created — fill in AUTH_SECRET and DEEPSEEK_API_KEY for local dev."
+    warn "web/.env.local created — configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY for local dev."
   else
     echo "  web/.env.local already exists, skipping."
   fi
@@ -217,20 +284,25 @@ cmd_setup() {
   echo -e "${GREEN}Setup complete.${NC}"
   echo ""
   echo "  Next steps:"
-  echo "  1. Edit .env  (AUTH_SECRET + DEEPSEEK_API_KEY)"
-  echo "  2. ./dev.sh up          ← Docker (all services)"
-  echo "     ./dev.sh web         ← local web only"
+  echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
+  echo "  2. ./dev.sh up          ← web only (Free/basic use; hot reload)"
+  echo "     ./dev.sh up-premium  ← web + scraper relay + Mailpit"
+  echo "     ./dev.sh up-prod     ← full production-built Premium demo"
   echo ""
 }
 
 # ── Router ─────────────────────────────────────────────────────────────────
 case "${1:-}" in
   up)          cmd_up "${2:-}" ;;
+  up-premium)  cmd_up_premium "${2:-}" ;;
+  up-scraper)  cmd_up_scraper ;;
+  up-prod)     cmd_up_prod ;;
   down)        cmd_down ;;
   restart)     cmd_restart "${2:-}" ;;
   build)       cmd_build "${2:-}" ;;
   logs)        cmd_logs "${2:-}" ;;
   web)         cmd_web ;;
+  demo)        cmd_demo ;;
   scraper)     cmd_scraper ;;
   mailpit)     cmd_mailpit ;;
   infra)       cmd_infra ;;
@@ -241,7 +313,7 @@ case "${1:-}" in
   test)        cmd_test ;;
   lint)        cmd_lint ;;
   ci)          cmd_ci ;;
-  setup)       cmd_setup ;;
+  setup)       cmd_setup "${2:-}" ;;
   help|--help) usage ;;
   *)           usage; exit 1 ;;
 esac

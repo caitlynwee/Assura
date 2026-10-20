@@ -11,7 +11,13 @@ interface PlanFilters {
   sortBy?: "coverageAmount" | "premiums" | "illnessesCovered" | "planName";
   sortDir?: "asc" | "desc";
   search?: string;
+  // Emphasis-only flag for the "Within my budget" toggle. Never sent to the API
+  // (plans are emphasized, never hidden) — see the param-building loop below.
+  withinBudgetOnly?: boolean;
 }
+
+// Filter keys that are NOT real /api/plans query params — kept client-side only.
+const NON_API_FILTER_KEYS: ReadonlySet<string> = new Set(["withinBudgetOnly"]);
 
 // Shared filter state at module level so PlanTable and PlanFilters stay in sync
 let sharedFilters: PlanFilters = {};
@@ -57,7 +63,8 @@ export function usePlans() {
     const filters = getFilters();
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => {
-      if (v !== undefined) params.set(k, String(v));
+      // Skip emphasis-only keys so the API request shape stays unchanged.
+      if (v !== undefined && !NON_API_FILTER_KEYS.has(k)) params.set(k, String(v));
     });
 
     setLoading(true);

@@ -1,64 +1,132 @@
 "use client";
 
+import { RotateCcwIcon, SearchIcon } from "lucide-react";
 import { usePlanFilters } from "@/hooks/use-plans";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
-export default function PlanFilters() {
+// Radix Select items can't use "" as a value, so "all" stands for "no filter".
+const ALL = "all";
+
+const INSURERS = [
+  ["aia", "AIA Singapore"],
+  ["prudential", "Prudential"],
+  ["greateastern", "Great Eastern"],
+  ["income", "NTUC Income"],
+  ["manulife", "Manulife"],
+] as const;
+
+type SortBy = "coverageAmount" | "premiums" | "illnessesCovered" | "planName";
+
+export default function PlanFilters({ hasBudget = false }: { hasBudget?: boolean }) {
   const { filters, setFilter, reset } = usePlanFilters();
 
   return (
-    <div className="bg-white border rounded-xl p-4 flex flex-wrap items-end gap-4">
-      <div className="flex flex-col gap-1 min-w-[180px]">
-        <label className="text-xs text-gray-500 font-medium">Insurer</label>
-        <select
-          value={filters.insurerId ?? ""}
-          onChange={(e) => setFilter("insurerId", e.target.value || undefined)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All insurers</option>
-          <option value="aia">AIA Singapore</option>
-          <option value="prudential">Prudential</option>
-          <option value="greateastern">Great Eastern</option>
-          <option value="income">NTUC Income</option>
-          <option value="manulife">Manulife</option>
-        </select>
-      </div>
+    <Card className="py-4">
+      <CardContent className="flex flex-wrap items-end gap-4 px-4">
+        <div className="grid min-w-[220px] flex-1 gap-1.5">
+          <Label htmlFor="plan-search" className="text-xs text-muted-foreground">
+            Search
+          </Label>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="plan-search"
+              value={filters.search ?? ""}
+              onChange={(e) => setFilter("search", e.target.value || undefined)}
+              placeholder="Plan or insurer name"
+              className="pl-8"
+            />
+          </div>
+        </div>
 
-      <div className="flex flex-col gap-1 min-w-[150px]">
-        <label className="text-xs text-gray-500 font-medium">Early stage CI</label>
-        <select
-          value={filters.earlyStage ?? ""}
-          onChange={(e) => setFilter("earlyStage", (e.target.value as "true" | "false") || undefined)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Any</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
-      </div>
+        <div className="grid min-w-[180px] gap-1.5">
+          <Label htmlFor="f-insurer" className="text-xs text-muted-foreground">
+            Insurer
+          </Label>
+          <Select
+            value={filters.insurerId ?? ALL}
+            onValueChange={(v) => setFilter("insurerId", v === ALL ? undefined : v)}
+          >
+            <SelectTrigger id="f-insurer">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All insurers</SelectItem>
+              {INSURERS.map(([id, name]) => (
+                <SelectItem key={id} value={id}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <div className="flex flex-col gap-1 min-w-[160px]">
-        <label className="text-xs text-gray-500 font-medium">Sort by</label>
-        <select
-          value={filters.sortBy ?? ""}
-          onChange={(e) =>
-            setFilter("sortBy", (e.target.value as "coverageAmount" | "premiums" | "illnessesCovered" | "planName") || undefined)
-          }
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Default</option>
-          <option value="coverageAmount">Coverage amount</option>
-          <option value="premiums">Premium (M/30)</option>
-          <option value="illnessesCovered">Illnesses covered</option>
-          <option value="planName">Plan name</option>
-        </select>
-      </div>
+        <div className="grid min-w-[150px] gap-1.5">
+          <Label htmlFor="f-early" className="text-xs text-muted-foreground">
+            Early stage CI
+          </Label>
+          <Select
+            value={filters.earlyStage ?? ALL}
+            onValueChange={(v) => setFilter("earlyStage", v === ALL ? undefined : (v as "true" | "false"))}
+          >
+            <SelectTrigger id="f-early">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Any</SelectItem>
+              <SelectItem value="true">Yes</SelectItem>
+              <SelectItem value="false">No</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      <button
-        onClick={reset}
-        className="text-xs text-gray-400 hover:text-gray-600 underline self-end pb-2"
-      >
-        Reset filters
-      </button>
-    </div>
+        <div className="grid min-w-[170px] gap-1.5">
+          <Label htmlFor="f-sort" className="text-xs text-muted-foreground">
+            Sort by
+          </Label>
+          <Select
+            value={filters.sortBy ?? ALL}
+            onValueChange={(v) => setFilter("sortBy", v === ALL ? undefined : (v as SortBy))}
+          >
+            <SelectTrigger id="f-sort">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Default</SelectItem>
+              <SelectItem value="coverageAmount">Coverage amount</SelectItem>
+              <SelectItem value="premiums">Premium (M/30)</SelectItem>
+              <SelectItem value="illnessesCovered">Illnesses covered</SelectItem>
+              <SelectItem value="planName">Plan name</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {hasBudget && (
+          <div className="grid gap-1.5">
+            <Label htmlFor="f-within-budget" className="text-xs text-muted-foreground">
+              Within my budget
+            </Label>
+            <div className="flex h-9 items-center gap-2">
+              <Switch
+                id="f-within-budget"
+                checked={filters.withinBudgetOnly ?? false}
+                onCheckedChange={(v) => setFilter("withinBudgetOnly", v || undefined)}
+              />
+              <span className="text-sm text-muted-foreground">Emphasize</span>
+            </div>
+          </div>
+        )}
+
+        <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground">
+          <RotateCcwIcon />
+          Reset
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

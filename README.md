@@ -27,12 +27,15 @@ Built for the **2026 Shenzhen FinTechathon** — International Track, Topic D (I
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) 24+
 
 **Option B — Local (no Docker)**
-- Node.js 20+
+- Node.js 22+
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) — `brew install uv` (or `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - Mailpit — `brew install mailpit`
 
-You need **both** an `AUTH_SECRET` and a `DEEPSEEK_API_KEY` regardless of which option you choose.
+The app uses Supabase for authentication and PostgreSQL, and DeepSeek for AI features. Configure the Supabase values, `DATABASE_URL`, and `DEEPSEEK_API_KEY` in the root `.env` before starting Docker.
+The web and scraper use small database connection pools for Supabase's limited
+session-mode pool. For larger deployments, use Supabase's transaction-mode
+pooler URL as recommended by Supabase.
 
 ---
 
@@ -51,50 +54,77 @@ cd Assura
 ./dev.sh setup
 ```
 
-This single command does everything:
+By default, this creates only the root `.env` template needed by Docker; it
+does not require Node.js, Python, or uv on the host. To install host-side
+development dependencies as well, use `./dev.sh setup --local`.
+
+The local setup (`--local`) also:
 - Creates `.env` and `web/.env.local` from the example files
 - Creates the Python virtual environment with **uv** (`scraper/.venv`)
 - Installs all Python (via `uv`) and Node.js dependencies
-- Seeds `./data` from `./seed`
 
-### 3. Fill in secrets
+### 3. Configure services
 
-Open `.env` (used by Docker) and `web/.env.local` (used for local dev) and fill in:
-
-```bash
-# Generate AUTH_SECRET with:
-openssl rand -base64 32
-```
+For Docker, fill in the root `.env`:
 
 ```env
-AUTH_SECRET=<paste generated value>
+DATABASE_URL=<Supabase PostgreSQL connection string>
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<Supabase publishable/anon key>
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+SUPABASE_SERVICE_ROLE_KEY=<server-only Supabase secret key>
 DEEPSEEK_API_KEY=sk-...
 ```
 
-Both files need the same two values. Everything else is pre-configured.
+Use the bare Supabase project URL (no `/rest/v1/` path). Never expose
+`SUPABASE_SERVICE_ROLE_KEY` to the browser or commit real credentials.
+To enable account email changes, add `http://localhost:3000/auth/callback` to
+the Supabase project's allowed redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to the
+app's public origin in non-local deployments and allow that origin's
+`/auth/callback` URL too.
+`web/.env.local` is only needed when running the web app outside Docker; fill
+in the corresponding Supabase and DeepSeek values there too.
 
 ### 4. Start the project
 
 ```bash
-./dev.sh up
+./dev.sh up-prod
 ```
 
-Open http://localhost:3000 — the app is running.
+This runs the whole stack in Docker with the web app built for production.
+Open http://localhost:3000 — the app is running. Use the seeded demo account
+below. The initial one-shot migration also seeds the demo Supabase identity;
+that requires the Supabase URL, anon key, and service-role key.
+Other Supabase users can sign in with their own credentials; Assura creates a
+free app profile on first successful sign-in. Personal information is editable
+from **Settings** and stored in the PostgreSQL `users` table. The sign-in email
+is managed by Supabase and can be changed from Settings after confirming the
+new address. The shared demo account email remains fixed. Masked relay addresses use
+the `@relay.assura.local` domain and are routed only to local Mailpit; they are
+not real or externally deliverable email addresses.
 
 ---
 
 ## Running the project
 
-### All services together (Docker)
+### Docker
 
 ```bash
-./dev.sh up              # start everything
-./dev.sh up --build      # start everything, rebuild images first
-./dev.sh down            # stop everything
-./dev.sh restart         # stop then start
+./dev.sh up              # web only; development mode with hot reload (Free/basic use)
+./dev.sh up --build      # web only, rebuilding its image first
+./dev.sh up-premium      # web + scraper email relay + Mailpit for Premium outreach demo
+./dev.sh up-scraper      # scraper + Mailpit without starting the web app
+./dev.sh up-prod         # full production-built Premium demo
+./dev.sh down            # stop all Assura services
 ```
 
-On first `up`, Docker builds the images (~2 min). Subsequent starts are fast.
+The basic web app does not need the scraper or Mailpit. `up` starts only the
+web service and its required one-shot migration/seeding job. The scraper can
+run independently with `up-scraper`. In the current architecture, Premium
+outreach needs both Mailpit and the scraper service because the scraper hosts
+the local email relay and simulated insurer replies; `up-premium` starts those
+dependencies alongside the web app. `up-prod` is the recommended full demo
+flow. First startup builds images and runs database migrations/seeding.
 
 ### Single service — local (no Docker)
 
@@ -115,8 +145,9 @@ Run the services you're **not** working on in Docker, run your own service local
 ./dev.sh infra           # starts mailpit + scraper in Docker (background)
 ./dev.sh web             # run web locally in this terminal
 
-# Working on the scraper? Run everything else in Docker:
-docker compose up -d mailpit web
+# Working on the scraper? Run Mailpit in Docker, web and scraper locally:
+docker compose up -d mailpit
+./dev.sh web
 ./dev.sh scraper
 ```
 
@@ -125,10 +156,14 @@ docker compose up -d mailpit web
 ## dev.sh cheat sheet
 
 ```
-./dev.sh setup           First-time setup (run this first)
+./dev.sh setup           Prepare root .env for Docker
+./dev.sh setup --local   Also install local development dependencies
 
-./dev.sh up              Start all services in Docker
-./dev.sh up --build      Rebuild images then start
+./dev.sh up              Start web only (development/hot reload)
+./dev.sh up --build      Rebuild web image then start development mode
+./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
+./dev.sh up-scraper      Start scraper + Mailpit separately from web
+./dev.sh up-prod         Start full production-built Premium demo (recommended)
 ./dev.sh down            Stop all services
 ./dev.sh restart         Stop + start
 ./dev.sh build web       Rebuild one image (web or scraper)
@@ -140,7 +175,7 @@ docker compose up -d mailpit web
 ./dev.sh mailpit         Run Mailpit locally
 ./dev.sh infra           Start mailpit + scraper in Docker (background)
 
-./dev.sh seed            Reset ./data from ./seed
+./dev.sh seed            Destructively reset the configured database to seed state
 ./dev.sh test            Run scraper test suite (pytest)
 ./dev.sh lint            Lint scraper/app with ruff
 ./dev.sh ci              Run all CI checks locally (web + scraper)
@@ -155,7 +190,7 @@ GitHub Actions runs on every push and pull request to `main` (`.github/workflows
 - **web** — `npm ci` → lint → build → tests (jest, when the `test` script exists)
 - **scraper** — dependencies via **uv** → `ruff` → `pytest`
 
-Both jobs spin up a PostgreSQL 16 service container (used once the storage migration lands).
+CI provisions PostgreSQL for the automated database-backed tests.
 Run the same checks locally before pushing with `./dev.sh ci`.
 
 Optional pre-commit hooks (ruff + eslint + hygiene checks) live in `.pre-commit-config.yaml`:
@@ -184,9 +219,12 @@ pre-commit run --all-files    # run them once across the repo
 
 | Field | Value |
 |---|---|
-| Email | `demo@fineprint.local` |
+| Email | `demo@assura.local` |
 | Password | `demo1234` |
 | Tier | Premium |
+
+The demo email uses the non-deliverable `.local` domain and is only a sign-in
+identifier; Supabase marks this seeded demo identity as confirmed.
 
 ---
 
@@ -201,7 +239,7 @@ pre-commit run --all-files    # run them once across the repo
 │                                                                               │
 │   mailpit (:1025 SMTP, :8025 UI)                                             │
 │                                                                               │
-│   ./data  ──────────────── bind mount ──────────────  /data (shared)        │
+│   web + scraper ───────── Supabase PostgreSQL (DATABASE_URL)                │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -211,13 +249,13 @@ pre-commit run --all-files    # run them once across the repo
 /
 ├── web/          Next.js 16 (App Router) — frontend + all API routes
 ├── scraper/      Python FastAPI — scraper pipeline, email relay, personas
-├── data/         Runtime JSON files (gitignored — populated by seed/reset.sh)
-├── seed/         Source-of-truth seed data + reset.sh
+├── seed/         Source-of-truth demo data + database reset script
 ├── dev.sh        Development CLI (start here)
 ├── docker-compose.yml
+├── docs/         Product spec and hackathon reference docs
 ├── AGENTS.md     AI agent instructions (tool-agnostic: Claude, Kiro, Copilot, ...)
 ├── TASK.MD       Cross-session task log (update when you complete work)
-└── PROJECT.MD    Full product spec
+└── README.md     This file
 ```
 
 ### CRM and outreach ownership boundary
@@ -232,9 +270,9 @@ These surfaces are separated so they can be developed in parallel.
 - `web/src/components/crm/`
 - `web/src/hooks/use-thread*.ts`
 
-The CRM owns `threads.json`, quote extraction, risk flags, thread statuses,
-comparison entries, and audit events. It is the only service that writes CRM
-state.
+The CRM owns PostgreSQL thread records, quote extraction, risk flags, thread
+statuses, comparison entries, and audit events. Its API routes are the only
+writers for CRM state.
 
 **Outreach-owned files**
 
@@ -246,7 +284,7 @@ state.
 - `scraper/app/routers/email.py`
 
 Outreach owns draft generation, consent filtering, Mailpit delivery, and the
-simulated insurer personas. It must not write `threads.json` directly. After a
+simulated insurer personas. It must not write CRM database records directly. After a
 simulated reply, it calls the authenticated `POST /api/internal/crm/replies`
 endpoint with an inbound message and optional risk flag; the CRM performs the
 state transition and audit logging.
@@ -254,13 +292,13 @@ state transition and audit logging.
 **Startup order:**
 
 ```
-init-data (seeds ./data if empty, then exits)
+db-migrate (applies migrations + seeds the database, then exits)
     │
     ├── mailpit  (email sandbox)
     │
     ├── scraper  (FastAPI + APScheduler cron)
     │
-    └── web      (Next.js + NextAuth)
+    └── web      (Next.js + Supabase Auth)
 ```
 
 ---
@@ -284,18 +322,20 @@ Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 
 | Variable | Description |
 |---|---|
-| `AUTH_SECRET` | NextAuth signing secret — generate with `openssl rand -base64 32` |
+| `DATABASE_URL` | Supabase PostgreSQL connection string |
+| `NEXT_PUBLIC_SUPABASE_URL` | Bare Supabase project URL (`https://<project-ref>.supabase.co`) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-safe Supabase publishable/anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase secret key used for demo identity seeding |
 | `DEEPSEEK_API_KEY` | DeepSeek API key from platform.deepseek.com (the AI layer uses the OpenAI-compatible DeepSeek API) |
 
-All other variables (service URLs, Mailpit host, ports) are pre-set in `docker-compose.yml`.
-
-> **Coming with the storage migration:** once the JSON → PostgreSQL migration lands, a
-> `DATABASE_URL` is also required (a `postgres` service is added to `docker-compose.yml`).
-> The migration is in progress on branch `migrate/postgres-storage`.
+`INTERNAL_API_SECRET` can remain at the local demo default unless you choose a
+different value. Mailpit host and port are preconfigured; outreach email is
+local-only and does not require external SMTP credentials.
 
 ### `web/.env.local` — used when running web locally
 
-Same `AUTH_SECRET` and `DEEPSEEK_API_KEY`. Pre-filled example at `web/.env.local.example`.
+Set the Supabase URL/keys, `DATABASE_URL`, and `DEEPSEEK_API_KEY`. The example
+file is `web/.env.local.example`.
 
 ### `scraper/.env` — used when running scraper locally
 
@@ -305,13 +345,15 @@ Pre-filled example at `scraper/.env.example`.
 
 ## Resetting demo data
 
-If you need to restore `./data` to the clean demo state:
+To restore the configured PostgreSQL database to the clean demo state:
 
 ```bash
 ./dev.sh seed
 ```
 
-This copies `seed/*.json` into `data/` and clears the `.jsonl` logs. Safe to run at any time.
+This truncates and reseeds the configured database, and recreates/links the
+demo Supabase Auth identity when the required Supabase keys are present. This
+is destructive to existing application data; use only when you want a demo reset.
 
 ---
 

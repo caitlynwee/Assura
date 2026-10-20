@@ -2,7 +2,7 @@
 
 > Tool-agnostic guide for any AI coding assistant working in this repo (Claude, Kiro, Copilot,
 > Cursor, etc.). `AGENTS.md` is the cross-tool standard filename; most assistants read it
-> automatically. Read this plus `TASK.MD` (current state) and `PROJECT.MD` (product spec) at the
+> automatically. Read this plus `TASK.MD` (current state) and `docs/PROJECT.MD` (product spec) at the
 > start of every session.
 
 ## Goal: Win the 2026 Shenzhen FinTechathon
@@ -29,7 +29,7 @@ International Track · Topic D (Insurance Assistant) · Theme: "AI as a Financia
 ## Product: What We Are Building
 Assura is a "reverse CRM" for insurance customers:
 1. **Level 1 — Compare**: Scrapes public brochure data from 6 Singapore CI insurers, presents a filterable comparison table with cited sources.
-2. **Level 2 — Outreach**: With user approval, AI emails insurers on the user's behalf using a masked relay inbox. User edits and approves every email before it sends.
+2. **Level 2 — Outreach**: With user approval, AI drafts emails. All delivery goes to the local Mailpit sandbox. User edits and approves every email before it sends.
 3. **Level 3 — CRM**: Tracks all threads, extracts quotes via a quarantined LLM call, flags suspicious replies (pushy, data-grabber, injector persona).
 
 **Demo flow (must work perfectly — 4 minutes):**
@@ -41,7 +41,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ### Dominic — Website & Auth
 - Full Next.js frontend: all pages, components, UI polish
-- User authentication (NextAuth v5 Credentials, JWT sessions, demo login)
+- User authentication (Supabase Auth, JWT sessions, demo login)
 - Free vs Premium feature gating
 - Web security: middleware auth guards, input validation, no XSS
 - Files: `web/src/app/`, `web/src/components/`, `web/src/middleware.ts`
@@ -66,7 +66,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ### Caitlyn — Documentation & Deck
 - Technical documentation: system architecture diagram, core algorithm walkthrough, security design write-up
-- Self-assessment report: known-risk list (see PROJECT.MD security section)
+- Self-assessment report: known-risk list (see docs/PROJECT.MD security section)
 - Presentation deck (≤10 minutes): problem → solution → demo → security → innovation
 - Judges will ask about security — ensure the policy engine tiers and audit chain are documented clearly
 
@@ -79,9 +79,11 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ├── scraper/      Python FastAPI — scraper, email relay, personas
 ├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
 ├── seed/         Seed data + reset.sh (source of truth for demo state)
+├── docs/         Product spec and hackathon reference docs
+│   └── PROJECT.MD    ← product spec
 ├── AGENTS.md     ← you are here (AI agent instructions, any tool)
 ├── TASK.MD       ← cross-session task log (UPDATE THIS when you finish something)
-└── PROJECT.MD    ← product spec
+└── README.md     ← setup & onboarding
 ```
 
 ---
@@ -89,13 +91,13 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ## Architecture Decisions (do not change without team consensus)
 - **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
 - **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` (full handoff lives on that branch). Until that merges, JSON files remain the source of truth.
-- **Auth**: NextAuth v5, Credentials provider, JWT. `auth.config.ts` = edge-safe (middleware). `auth.ts` = full server-side (has bcrypt + db).
+- **Auth**: Supabase Auth verifies credentials; PostgreSQL app profiles supply tier/consent data. `proxy.ts` verifies access-token signatures with Supabase JWKS.
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.
 - **Next.js 16 dynamic routes**: Params are `Promise<{...}>` — always `await params`.
 - **Policy engine**: `web/src/lib/policy.ts` — pure code, no LLM, deny by default. Every AI action goes through this.
 - **Quarantine**: All untrusted external text (insurer replies, scraped HTML) → `quarantine.ts` — no-tools LLM, fixed JSON schema, Zod-validated.
-- **Email sandbox**: Mailpit only. Nothing leaves the machine. Every email prepends AI disclosure.
+- **Email delivery**: Mailpit only. No external SMTP provider or recipient is configured; every send still requires user approval, PII screening, and the AI disclosure footer.
 
 ## Security — Non-Negotiable (30% of score)
 These must be demonstrably working in the demo:
@@ -135,7 +137,7 @@ Blockers: What is stopping you (if any)
 bash seed/reset.sh
 
 # 2. Web app
-cd web && cp .env.local.example .env.local   # fill AUTH_SECRET + DEEPSEEK_API_KEY
+cd web && cp .env.local.example .env.local   # fill Supabase + DATABASE_URL + DEEPSEEK_API_KEY
 npm install && npm run dev                    # http://localhost:3000
 
 # 3. Scraper server (uv — install: brew install uv)
@@ -149,7 +151,7 @@ uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
 mailpit                                       # UI: http://localhost:8025 | SMTP: localhost:1025
 ```
 
-Demo login: `demo@fineprint.local` / `demo1234`
+Demo login: `demo@assura.local` / `demo1234`
 
 ---
 

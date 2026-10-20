@@ -71,9 +71,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let messageId: string;
+  let delivery: { messageId: string; from: string; to: string };
   try {
-    messageId = await sendEmail({
+    delivery = await sendEmail({
       from: fromAddress,
       to: insurer.agentEmail,
       subject,
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
   const newMessage: ThreadMessage = {
     id: generateId("msg"),
     direction: "outbound",
-    from: fromAddress,
-    to: insurer.agentEmail,
+    from: delivery.from,
+    to: delivery.to,
     subject,
     body: emailBody,
     timestamp: now,
@@ -131,5 +131,5 @@ export async function POST(req: NextRequest) {
     resolvedThreadId = thread.id;
   }
 
-  return NextResponse.json({ threadId: resolvedThreadId, messageId });
+  return NextResponse.json({ threadId: resolvedThreadId, messageId: delivery.messageId });
 }

@@ -1,0 +1,46 @@
+# Production image for the Next.js web app — builds the app at image-build time
+# and serves the compiled output with `next start` (standalone). No on-demand
+# compiling at runtime (unlike the dev Dockerfile), so the demo is snappy.
+#
+# NEXT_PUBLIC_* vars are inlined into the client bundle during `next build`, so
+# they must be passed as build args (not just runtime env). Server-only secrets
+# (DATABASE_URL, service-role key, JWT handling) are read at runtime.
+
+# ── deps ─────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+
+# ── build ────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Public (client-inlined) Supabase values — required at build time.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+# Dummy non-public values so route analysis during build never throws (the
+# real secrets are provided at runtime). Lazy/guarded clients tolerate these.
+ENV AUTH_SECRET=build-time-placeholder
+ENV DATABASE_URL=postgres://build:build@localhost:5432/build
+
+RUN npm run build
+
+# ── runner ───────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+# Standalone server + static assets + public dir.
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+
+EXPOSE 3000
+CMD ["node", "server.js"]

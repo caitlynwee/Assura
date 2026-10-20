@@ -1,29 +1,39 @@
 export const dynamic = "force-dynamic";
 
-import PlanTable from "@/components/compare/plan-table";
-import PlanFilters from "@/components/compare/plan-filters";
-import RunScraperButton from "@/components/compare/run-scraper-button";
+import PageHeader from “@/components/layout/page-header”;
+import RunScraperButton from “@/components/compare/run-scraper-button”;
+import { getCurrentUser } from “@/lib/session”;
+import type { ComparePersonalProfile } from “@/lib/premium”;
 
-export const metadata = { title: "Compare Plans — Assura" };
+export const metadata = { title: “Compare Plans — Assura” };
 
-const CURRENT_COUNTRY = process.env.CURRENT_COUNTRY ?? "Singapore";
+export default async function ComparePage() {
+  // Read the current user without redirecting — the no-profile path must still
+  // render the default comparison. Pass ONLY the non-sensitive fields the client
+  // needs for premium personalization (never health/income/occupation).
+  const user = await getCurrentUser();
+  const p = user?.profile;
+  const profile: ComparePersonalProfile | undefined = p
+    ? {
+        age: p.age,
+        gender: p.gender,
+        smoker: p.smoker,
+        monthlyBudget: p.monthlyBudget,
+        coverageNeeded: p.coverageNeeded,
+      }
+    : undefined;
 
-export default function ComparePage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Compare Plans</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Top critical illness plans in{" "}
-            <span className="font-medium text-gray-700">{CURRENT_COUNTRY}</span>.
-            Data extracted from public insurer brochures.
-          </p>
-        </div>
+    <div className=”space-y-6”>
+      <div className=”flex items-start justify-between”>
+        <PageHeader
+          title=”Compare Plans”
+          description=”Critical illness plans from Singapore insurers. Every figure is sourced from a public brochure, with its “data as of” date.”
+        />
         <RunScraperButton />
       </div>
-      <PlanFilters />
-      <PlanTable />
+      <PlanFilters hasBudget={typeof profile?.monthlyBudget === “number”} />
+      <PlanTable profile={profile} />
     </div>
   );
 }

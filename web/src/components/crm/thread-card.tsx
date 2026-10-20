@@ -1,9 +1,11 @@
 import Link from "next/link";
-import Badge from "@/components/ui/badge";
+import { CornerDownLeftIcon, CornerUpRightIcon, FlagIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import type { Thread } from "@/lib/types";
 
-const STATUS_VARIANTS: Record<string, "blue" | "green" | "yellow" | "red" | "orange" | "gray" | "purple"> = {
+export const STATUS_VARIANTS: Record<string, "blue" | "green" | "yellow" | "red" | "orange" | "gray" | "purple"> = {
   draft: "gray",
   awaiting_approval: "yellow",
   sent: "blue",
@@ -13,7 +15,7 @@ const STATUS_VARIANTS: Record<string, "blue" | "green" | "yellow" | "red" | "ora
   closed: "gray",
 };
 
-const STATUS_LABELS: Record<string, string> = {
+export const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   awaiting_approval: "Awaiting Approval",
   sent: "Sent",
@@ -27,37 +29,54 @@ interface Props {
   thread: Thread;
 }
 
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter((w) => /^[A-Z]/.test(w))
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("");
+}
+
 export default function ThreadCard({ thread }: Props) {
   const lastMessage = thread.messages.at(-1);
 
   return (
-    <Link
-      href={`/crm/${thread.id}`}
-      className="block bg-white border rounded-xl p-4 hover:border-blue-300 transition group"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-medium text-gray-900 truncate">{thread.insurerName}</p>
+    <Link href={`/crm/${thread.id}`} className="group block rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+      <Card className="flex-row items-start gap-4 px-4 py-4 transition-colors group-hover:border-primary/40 group-hover:bg-accent/30">
+        <span
+          className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground"
+          aria-hidden="true"
+        >
+          {initials(thread.insurerName)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate font-medium">{thread.insurerName}</p>
             <Badge variant={STATUS_VARIANTS[thread.status] ?? "gray"}>
               {STATUS_LABELS[thread.status] ?? thread.status}
             </Badge>
             {thread.riskFlags.length > 0 && (
-              <Badge variant="red">⚠ Flagged</Badge>
+              <Badge variant="red">
+                <FlagIcon />
+                Flagged
+              </Badge>
             )}
           </div>
-          <p className="text-sm text-gray-500 truncate mt-0.5">{thread.subject}</p>
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">{thread.subject}</p>
           {lastMessage && (
-            <p className="text-xs text-gray-400 mt-1 truncate">
-              {lastMessage.direction === "inbound" ? "↩ " : "↪ "}
-              {lastMessage.body.slice(0, 80)}...
+            <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+              {lastMessage.direction === "inbound" ? (
+                <CornerDownLeftIcon className="size-3 shrink-0" aria-label="Reply" />
+              ) : (
+                <CornerUpRightIcon className="size-3 shrink-0" aria-label="Sent" />
+              )}
+              <span className="truncate">{lastMessage.body.slice(0, 100)}</span>
             </p>
           )}
         </div>
-        <p className="text-xs text-gray-400 flex-shrink-0">
-          {formatDate(thread.updatedAt)}
-        </p>
-      </div>
+        <p className="shrink-0 text-xs text-muted-foreground">{formatDate(thread.updatedAt)}</p>
+      </Card>
     </Link>
   );
 }
