@@ -12,13 +12,15 @@ router = APIRouter()
 
 class TriggerRequest(BaseModel):
     source_id: str | None = None
+    country: str | None = None
 
 
 @router.post("/run")
 async def run_now(body: TriggerRequest | None = None):
     """Trigger a scrape immediately (manual 'Run now' button)."""
     source_id = body.source_id if body else None
-    result = await run_scraper(trigger="manual", source_id=source_id)
+    country = body.country if body else None
+    result = await run_scraper(trigger="manual", source_id=source_id, country=country)
     return result
 
 

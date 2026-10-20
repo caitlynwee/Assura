@@ -29,7 +29,18 @@ async def lifespan(app: FastAPI):
 
 async def _run_scheduled_scrape() -> None:
     from app.scraper.engine import run_scraper
-    await run_scraper(trigger="cron")
+    from app.storage.database import Source, get_session
+
+    # Scrape all countries that have existing sources in the DB
+    session = get_session()
+    try:
+        rows = session.query(Source.country).distinct().all()
+        countries = [r[0] for r in rows] or ["Singapore"]
+    finally:
+        session.close()
+
+    for country in countries:
+        await run_scraper(trigger="cron", country=country)
 
 
 def create_app() -> FastAPI:

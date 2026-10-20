@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getUserById } from "@/lib/db";
 import { scraperTriggerSchema } from "@/lib/validators";
 import { assertAllowed } from "@/lib/policy";
 import { logEvent } from "@/lib/audit";
@@ -33,10 +34,13 @@ export async function POST(req: NextRequest) {
   });
 
   try {
+    const user = await getUserById(userId);
+    const country = user?.profile?.countryOfOrigin ?? "Singapore";
+
     const res = await fetch(`${SCRAPER_URL}/scraper/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_id: parsed.data.sourceId }),
+      body: JSON.stringify({ source_id: parsed.data.sourceId, country }),
     });
     if (!res.ok) throw new Error("Scraper returned " + res.status);
     const data = await res.json();

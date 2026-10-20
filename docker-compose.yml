@@ -67,11 +67,7 @@ services:
       JINA_API_KEY: ${JINA_API_KEY:-}
       FIRE_CRAWL_API_KEY: ${FIRE_CRAWL_API_KEY:-}
       LLM_MODEL: deepseek-chat
-      CURRENT_COUNTRY: ${CURRENT_COUNTRY:-Singapore}
       DEBUG_SCRAPER: ${DEBUG_SCRAPER:-}
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
 
   web:
     build:
