@@ -125,13 +125,17 @@ async def run_scraper(
 
     session = get_session()
     try:
-        # ── Discovery ──────────────────────────────────────────────────────────
+        # ── Discovery — only when no sources exist for this country ───────────
+        # Skipping discovery on re-runs avoids burning Firecrawl credits and
+        # prevents UniqueViolation/PendingRollback errors when rows already exist.
         if not source_id:
-            try:
-                discovered = await discover_top_insurers(country)
-                _upsert_discovered(session, discovered)
-            except Exception:  # noqa: BLE001, S110
-                pass  # non-fatal — proceed with existing sources
+            existing_count = session.query(Source).filter_by(country=country).count()
+            if existing_count == 0:
+                try:
+                    discovered = await discover_top_insurers(country)
+                    _upsert_discovered(session, discovered)
+                except Exception:  # noqa: BLE001
+                    session.rollback()  # reset session so subsequent queries work
 
         # ── Load sources ───────────────────────────────────────────────────────
         if source_id:
