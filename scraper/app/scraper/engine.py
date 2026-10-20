@@ -17,8 +17,9 @@ import uuid
 from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
 from app.scraper.discovery import discover_top_insurers
-from app.scraper.downloader import download_page
+from app.scraper.downloader import download_page, download_raw_pdf
 from app.scraper.extractor import extract_text
+from app.scraper.pdf_store import store_pdf
 from app.scraper.validator import validate_plan
 from app.storage.database import (
     Insurer,
@@ -146,6 +147,15 @@ async def run_scraper(
 
         insurers_by_id = {i.id: i for i in session.query(Insurer).all()}
         plans_by_id = {p.id: p for p in session.query(Plan).all()}
+
+        # Map plan_id → PDF brochure URL from the loaded PDF source rows. Built
+        # independently of change detection so the decoupled stored-PDF pass can
+        # seed stored copies even for plans whose source did not change.
+        pdf_url_by_plan: dict[str, str] = {}
+        for s in sources:
+            if s.type == "pdf" and s.url:
+                for pid in (s.plan_ids or []):
+                    pdf_url_by_plan[pid] = s.url
 
         checked = 0
         changed = 0
@@ -296,7 +306,27 @@ async def run_scraper(
                     {"planId": plan_id, "message": f"{type(exc).__name__}: {msg}"}
                 )
 
-        if changed == 0:
+        # ── Stored-PDF pass (best-effort, decoupled from change detection) ────
+        # For every plan with a known PDF URL and no stored copy yet, download
+        # the raw PDF and upload it to Supabase, recording the public URL on the
+        # plan. Idempotent (skips plans that already have a stored copy) and
+        # failure-safe (a failed fetch/upload never fails the run or wipes data).
+        stored_pdf_wrote = False
+        for plan_id, plan in list(plans_by_id.items()):
+            pdf_url = pdf_url_by_plan.get(plan_id)
+            if not pdf_url or getattr(plan, "stored_doc_url", None):
+                continue
+            try:
+                raw = await download_raw_pdf(pdf_url)
+                if raw:
+                    stored_url = await store_pdf(plan.insurer_id, plan.id, raw)
+                    if stored_url:
+                        plan.stored_doc_url = stored_url
+                        stored_pdf_wrote = True
+            except Exception as exc:  # noqa: BLE001 — stored copy is best-effort
+                print(f"[engine] stored-pdf skipped for {plan_id}: {exc}")
+
+        if changed == 0 and not stored_pdf_wrote:
             session.expunge_all()
 
         run_row = ScraperRun(

@@ -72,6 +72,40 @@ async def download_page(
     return response.content
 
 
+async def download_raw_pdf(url: str) -> bytes | None:
+    """Download the RAW PDF bytes for a brochure URL (separate from Jina text).
+
+    Reuses the existing robots + rate-limit pattern. Returns the PDF bytes when
+    the response is a PDF (by content-type OR leading %PDF- magic bytes), or
+    None when robots disallows the fetch or the body is not a PDF. Transport/HTTP
+    errors (raise_for_status, timeouts) propagate to the caller, which treats any
+    exception as "no stored copy".
+    """
+    domain = _get_domain(url)
+
+    if not await _is_allowed(url):
+        return None
+
+    await _rate_limit(domain)
+
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(120.0),
+        follow_redirects=True,
+        headers={"User-Agent": USER_AGENT},
+    ) as client:
+        resp = await client.get(url)
+
+    _last_fetch[domain] = asyncio.get_event_loop().time()
+    resp.raise_for_status()
+
+    ctype = resp.headers.get("content-type", "").lower()
+    body = resp.content
+    looks_pdf = "application/pdf" in ctype or body[:5] == b"%PDF-"
+    if not looks_pdf:
+        return None
+    return body
+
+
 async def _rate_limit(domain: str) -> None:
     last = _last_fetch.get(domain, 0.0)
     elapsed = asyncio.get_event_loop().time() - last

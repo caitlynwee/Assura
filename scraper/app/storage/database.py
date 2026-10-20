@@ -62,6 +62,7 @@ class Plan(Base):
     exclusions = Column(JSONB, nullable=False)
     source_url = Column(Text, nullable=False)
     product_url = Column(Text, nullable=False, server_default="")
+    stored_doc_url = Column(Text)  # nullable — our cached brochure PDF URL
     data_as_of = Column(Text, nullable=False)
     updated_badge = Column(Boolean, nullable=False)
     change_notes = Column(JSONB, nullable=False)
@@ -193,6 +194,7 @@ def plan_to_camel(plan: Plan) -> dict[str, Any]:
         "exclusions": plan.exclusions,
         "sourceUrl": plan.source_url,
         "productUrl": plan.product_url,
+        "storedDocUrl": plan.stored_doc_url,
         "dataAsOf": plan.data_as_of,
         "updatedBadge": plan.updated_badge,
         "changeNotes": plan.change_notes,
