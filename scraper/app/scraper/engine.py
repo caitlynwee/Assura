@@ -14,7 +14,6 @@ at least one source changed and Phase 2 succeeds per plan (errors are non-fatal)
 
 import uuid
 
-from app.config import settings
 from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
 from app.scraper.discovery import discover_top_insurers
@@ -120,7 +119,7 @@ async def run_scraper(
     source_id: str | None = None,
     country: str | None = None,
 ) -> dict:
-    country = country or settings.current_country
+    country = country or "Singapore"
     run_id = str(uuid.uuid4())
     started_at = now_utc_iso()
 
