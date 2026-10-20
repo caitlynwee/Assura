@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArchiveIcon,
   ArrowLeftIcon,
-  BotIcon,
   CheckIcon,
-  ClockIcon,
   FlagIcon,
   ListPlusIcon,
   ShieldAlertIcon,
@@ -58,15 +56,12 @@ function InlineError({ message }: { message: string | null }) {
 }
 
 export default function ThreadDetail({ threadId }: Props) {
-  const { thread, loading, error, polling, setThread, pollUntilChanged } =
+  const { thread, loading, error, polling, setThread, refresh, pollUntilChanged } =
     useThread(threadId);
 
   const [extracting, setExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [quote, setQuote] = useState<ExtractedQuote | null>(null);
-  const [simulating, setSimulating] = useState(false);
-  const [simulateError, setSimulateError] = useState<string | null>(null);
-  const [simulateNotice, setSimulateNotice] = useState<string | null>(null);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [confirmingComparison, setConfirmingComparison] = useState(false);
   const [addingToComparison, setAddingToComparison] = useState(false);
@@ -104,32 +99,24 @@ export default function ThreadDetail({ threadId }: Props) {
     }
   }
 
-  async function handleSimulateReply() {
-    setSimulating(true);
-    setSimulateError(null);
-    setSimulateNotice(null);
-    try {
-      const res = await fetch(`/api/crm/threads/${threadId}/reply`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setSimulateError(data.error ?? "Could not simulate an insurer reply.");
-        return;
-      }
-      // The reply may land server-side asynchronously (and the 'slow' persona
-      // only replies after a follow-up), so poll a few times and stop early
-      // once the thread's status or message count changes.
-      const changed = await pollUntilChanged();
-      if (!changed) {
-        setSimulateNotice(
-          "No reply has arrived yet. This insurer's persona may only respond to a follow-up — try again shortly."
-        );
-      }
-    } catch {
-      setSimulateError("Could not simulate an insurer reply.");
-    } finally {
-      setSimulating(false);
-    }
-  }
+  // Replies now arrive asynchronously from the background mail listener (an
+  // immediate "ticketed" ack, then a delayed persona answer). Poll the thread
+  // while it is open so the ack and answer appear without a manual refresh:
+  // once after initial load to catch the imminent ack, then periodically.
+  const threadClosed = thread?.status === "closed";
+  useEffect(() => {
+    if (loading || threadClosed) return;
+    let cancelled = false;
+    // Catch the imminent ack right after load.
+    void pollUntilChanged();
+    const interval = setInterval(() => {
+      if (!cancelled) void refresh();
+    }, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [loading, threadClosed, pollUntilChanged, refresh]);
 
   async function updateStatus(status: "closed" | "flagged") {
     setStatusAction(status);
@@ -258,31 +245,16 @@ export default function ThreadDetail({ threadId }: Props) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  loading={simulating}
-                  onClick={handleSimulateReply}
-                  disabled={closed}
-                >
-                  {!simulating && <BotIcon />}
-                  Simulate insurer reply
-                </Button>
                 <p className="text-xs text-muted-foreground">
-                  Demo only: runs this insurer&apos;s configured persona through the outreach server.
+                  Insurer replies arrive automatically in the sandbox: an immediate
+                  acknowledgement, then this insurer&apos;s persona answer a few seconds later.
+                  This thread refreshes on its own as they land.
                 </p>
                 {polling && (
                   <p className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
                     <Spinner className="size-3.5" /> Checking for a reply…
                   </p>
                 )}
-                {simulateNotice && (
-                  <Alert variant="warning">
-                    <ClockIcon />
-                    <AlertDescription>{simulateNotice}</AlertDescription>
-                  </Alert>
-                )}
-                <InlineError message={simulateError} />
               </div>
 
               <Separator />
