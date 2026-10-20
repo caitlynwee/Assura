@@ -24,11 +24,19 @@ const API_FILTER_KEYS = ["insurerId", "minCoverage", "maxCoverage", "earlyStage"
 
 // Shared filter state at module level so PlanTable and PlanFilters stay in sync
 let sharedFilters: PlanFilters = {};
+// Bumped by refreshPlans() to force a re-fetch from the DB without changing filters.
+let refreshNonce = 0;
 const listeners = new Set<() => void>();
 
 function getFilters() { return sharedFilters; }
 function setFilters(next: PlanFilters) {
   sharedFilters = next;
+  listeners.forEach((l) => l());
+}
+
+/** Force all usePlans() consumers to re-fetch plans from the database (no scrape). */
+export function refreshPlans() {
+  refreshNonce += 1;
   listeners.forEach((l) => l());
 }
 
@@ -78,10 +86,13 @@ export function usePlans() {
   }, []);
 
   const query = apiQuery(getFilters());
+  // Include the refresh nonce so refreshPlans() re-fetches even when filters
+  // are unchanged. The nonce is NOT sent to the API — it only keys the effect.
+  const fetchKey = `${query}#${refreshNonce}`;
 
-  // Mark loading as soon as the query changes (adjusting state during render).
-  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
-  const loading = loadedQuery !== query;
+  // Mark loading as soon as the fetch key changes (adjusting state during render).
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== fetchKey;
 
   useEffect(() => {
     let cancelled = false;
@@ -99,12 +110,12 @@ export function usePlans() {
         if (!cancelled) setError("Failed to load plans.");
       })
       .finally(() => {
-        if (!cancelled) setLoadedQuery(query);
+        if (!cancelled) setLoadedKey(fetchKey);
       });
     return () => {
       cancelled = true;
     };
-  }, [query]);
+  }, [fetchKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { plans, loading, error };
 }

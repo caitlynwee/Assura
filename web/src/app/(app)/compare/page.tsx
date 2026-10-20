@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import PlanTable from "@/components/compare/plan-table";
 import PlanFilters from "@/components/compare/plan-filters";
 import PageHeader from "@/components/layout/page-header";
-import RunScraperButton from "@/components/compare/run-scraper-button";
+import RefreshPlansButton from "@/components/compare/refresh-plans-button";
 import { getCurrentUser } from "@/lib/session";
 import type { ComparePersonalProfile } from "@/lib/premium";
 import { profileAge } from "@/lib/profile";
@@ -37,7 +37,7 @@ export default async function ComparePage() {
           title={t.title}
           description={t.description}
         />
-        <RunScraperButton />
+        <RefreshPlansButton />
       </div>
       <PlanFilters />
       <PlanTable profile={profile} />
