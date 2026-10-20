@@ -26,6 +26,7 @@ import type {
   ThreadMessage,
   ScraperRun,
   ConsentFlags,
+  UserProfile,
   ChatConversation,
   ChatMessage,
   Citation,
@@ -54,7 +55,9 @@ export function getDb(): Database {
       "DATABASE_URL is not set. Point it at a PostgreSQL instance before using the data layer."
     );
   }
-  sqlClient = postgres(url);
+  // Keep total session-pool usage small: the scraper and migration job share
+  // Supabase's limited session-mode connection pool with this web process.
+  sqlClient = postgres(url, { max: 3 });
   dbInstance = drizzlePostgres(sqlClient, { schema });
   return dbInstance;
 }
@@ -85,6 +88,7 @@ function rowToUser(row: UserRow): User {
     maskedInbox: row.maskedInbox,
     onboarded: row.onboarded,
     consent,
+    profile: (row.profile as UserProfile | null) ?? {},
     createdAt: row.createdAt,
     ...(row.authUid != null ? { authUid: row.authUid } : {}),
   };
@@ -152,6 +156,27 @@ export async function getUserByAuthUid(authUid: string): Promise<User | null> {
     .from(schema.users)
     .where(eq(schema.users.authUid, authUid))
     .limit(1);
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+
+/** Sync the email from an already-verified Supabase identity to its app row. */
+export async function syncUserEmailByAuthUid(
+  authUid: string,
+  email: string
+): Promise<User | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await getUserByAuthUid(authUid);
+  if (!user) return null;
+
+  const existingEmailOwner = await getUserByEmail(normalizedEmail);
+  if (existingEmailOwner && existingEmailOwner.id !== user.id) return null;
+  if (user.email === normalizedEmail) return user;
+
+  const rows = await getDb()
+    .update(schema.users)
+    .set({ email: normalizedEmail })
+    .where(eq(schema.users.authUid, authUid))
+    .returning();
   return rows[0] ? rowToUser(rows[0]) : null;
 }
 

@@ -38,7 +38,14 @@ export async function auth(): Promise<AppSession> {
   const supabase = await getServerClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+  if (
+    error?.code === "refresh_token_not_found" ||
+    (error?.status === 400 && /invalid refresh token/i.test(error.message))
+  ) {
+    redirect("/auth/reset");
+  }
   if (!user) return null;
 
   const appUser = await resolveOrCreateAuthUser(user);

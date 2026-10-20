@@ -57,6 +57,18 @@ function stubServerClient(): AppSupabaseServerClient {
         error: { message: NOT_CONFIGURED, name: "AuthError", status: 500 },
       };
     },
+    async updateUser() {
+      return {
+        data: { user: null },
+        error: { message: NOT_CONFIGURED, name: "AuthError", status: 500 },
+      };
+    },
+    async exchangeCodeForSession() {
+      return {
+        data: { user: null, session: null },
+        error: { message: NOT_CONFIGURED, name: "AuthError", status: 500 },
+      };
+    },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
   return { auth };

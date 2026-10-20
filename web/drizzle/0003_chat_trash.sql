@@ -1,1 +1,0 @@
-ALTER TABLE "chat_conversations" ADD COLUMN "deleted_at" text;

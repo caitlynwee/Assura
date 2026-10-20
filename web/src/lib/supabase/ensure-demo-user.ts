@@ -13,7 +13,7 @@
 
 import { getAdminClient } from "./admin";
 import { linkAuthUid, getUserById } from "../db";
-import { DEMO_EMAIL, DEMO_PASSWORD } from "../demo";
+import { DEMO_EMAIL, DEMO_PASSWORD, LEGACY_DEMO_EMAIL } from "../demo";
 
 const DEMO_APP_USER_ID = "user_demo";
 
@@ -43,7 +43,7 @@ async function findAuthUserByEmail(
 }
 
 /**
- * Ensure the demo@fineprint.local Supabase identity exists with the demo
+ * Ensure the Assura-branded demo Supabase identity exists with the demo
  * password + premium app_metadata, and back-fill user_demo.auth_uid.
  *
  * Idempotent: creates the identity if absent, else re-syncs password/metadata.
@@ -64,7 +64,9 @@ export async function ensureDemoAuthUser(): Promise<void> {
     appUserId: DEMO_APP_USER_ID,
   };
 
-  const existing = await findAuthUserByEmail(admin, DEMO_EMAIL);
+  const existing =
+    (await findAuthUserByEmail(admin, DEMO_EMAIL)) ??
+    (await findAuthUserByEmail(admin, LEGACY_DEMO_EMAIL));
 
   let authUid: string;
   if (!existing) {
@@ -80,6 +82,7 @@ export async function ensureDemoAuthUser(): Promise<void> {
   } else {
     authUid = existing.id;
     const { error } = await admin.auth.admin.updateUserById(authUid, {
+      email: DEMO_EMAIL,
       password: DEMO_PASSWORD,
       email_confirm: true,
       app_metadata: appMetadata,

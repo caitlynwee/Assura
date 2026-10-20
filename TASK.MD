@@ -423,15 +423,87 @@ Others need to know: Before relying on real-account flows, smoke-test signup and
 Blockers: None for the PR merge; live Supabase smoke tests remain outstanding.
 ---
 
+## 2026-10-20 | Copilot | Fix sign-in pool exhaustion and add account settings
+Status: Completed
+Done:
+- Capped web PostgreSQL and scraper SQLAlchemy pools to fit Supabase's constrained session-mode connection pool.
+- Removed redundant post-login token refresh; invalid refresh-token cookies now clear through `/auth/reset`.
+- Added Settings to edit a display name and personal profile fields persisted in PostgreSQL; moved account deletion there and placed Sign out last in the account menu.
+- Added a profile JSONB migration after the latest timestamp in the shared database's migration history and upgraded the production web image to Node 22.
+- Verified 57 web tests, 15 scraper tests, targeted web lint and Ruff, host/Docker builds, migration and seed startup, and Docker endpoint/auth-reset smoke tests.
+Files: web/src/{lib/{db,schema,users,auth,onboarding}.ts,app/(app)/settings,app/_actions/settings.ts,components/settings}, web/drizzle/0002_last_killer_shrike.sql, scraper/app/storage/database.py, web/Dockerfile.prod
+Others need to know: Personal/health/income data is never shared unless separate consent permits it; sign-in email remains managed by Supabase. Full web lint still reports a pre-existing issue in untouched `web/src/hooks/use-plans.ts`.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Rebrand local masked relay addresses
+Status: Completed
+Done:
+- Changed generated, seeded, and simulated masked inbox addresses to `@relay.assura.local`.
+- Added a data migration for existing accounts and documented that the `.local` address is Mailpit-only, not externally deliverable.
+- Verified focused web and scraper tests/lints, Drizzle reports no schema changes, and Docker applied migration 5; the seeded demo inbox now uses the Assura domain.
+Files: web/src/lib/mail.ts, web/drizzle/0003_assura_relay_domain.sql, scraper/app/personas/simulator.py, seed/users.json, README.md
+Others need to know: Demo login remains `demo@fineprint.local`; it is separate from the masked relay address.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Enable confirmed account email changes
+Status: Completed
+Done:
+- Added a Settings email-change request that delegates to Supabase Auth and requires its confirmation link; the shared demo account remains protected.
+- Added the Supabase PKCE callback and syncs the app profile only after Supabase reports the confirmed email; handles multi-step confirmation as pending.
+- Added callback URL configuration guidance and tests for validation, audit masking, demo protection, and profile email sync.
+- Verified 19 focused web tests, changed-file ESLint, and production Next.js build.
+Files: web/src/app/_actions/settings.ts, web/src/app/auth/callback/route.ts, web/src/components/settings/settings-form.tsx, web/src/lib/{db,users,supabase/server}.ts, .env.example, README.md
+Others need to know: Add `http://localhost:3000/auth/callback` to Supabase Auth's allowed redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to the public app origin in hosted environments.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Allow Premium users to downgrade
+Status: Completed
+Done:
+- Added a Settings plan section so regular Premium users can confirm an immediate downgrade to Free; user data remains stored.
+- Refreshes Supabase auth metadata after the tier change and redirects to Compare with success feedback.
+- Protects the shared Premium demo account from downgrade and covers both permitted and blocked cases in tests.
+- Verified 21 focused web tests, changed-file ESLint, production build, and Docker Compose configuration.
+Files: web/src/app/_actions/settings.ts, web/src/app/(app)/settings/page.tsx, web/src/components/settings/settings-form.tsx, web/src/components/toast-on-param.tsx, web/src/__tests__/settings.test.ts
+Others need to know: Demo account remains Premium for the judging flow; regular users can downgrade and later use the existing Upgrade page to regain Premium.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Split basic and Premium Docker startup
+Status: Completed
+Done:
+- Changed `./dev.sh up` to start only the web service and its required migration/seed job; removed unnecessary web dependencies on scraper and Mailpit.
+- Added explicit `up-premium` and `up-scraper` commands; the Premium demo includes scraper because it currently hosts email relay/persona handling, plus Mailpit.
+- Updated `infra-web` to start the scraper relay as well as Mailpit, so local web development can exercise Premium email flows.
+- Updated README startup guidance and mixed local/Docker workflow.
+- Verified `bash -n dev.sh`, both development and production Compose configurations, the resolved service dependencies, and `git diff --check`.
+Files: dev.sh, docker-compose.yml, README.md, TASK.MD
+Others need to know: In this implementation Premium outreach needs web + scraper relay + Mailpit; basic/free web use needs only web and DB setup.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Brand demo sign-in email
+Status: Completed
+Done:
+- Changed the shared demo login from `demo@fineprint.local` to `demo@assura.local`, updating seeded identity and docs/tests consistently.
+- Preserve the linked Supabase identity by upgrading the legacy email in place during seed-auth.
+- Added a Drizzle data migration for the app row and a regression test for rebranding the existing Supabase Auth identity.
+- Verified 22 focused tests, ESLint, and production build; Docker migration 8 updated the database and seed-auth re-synced the same Supabase UID.
+Files: web/src/lib/demo.ts, web/src/lib/supabase/ensure-demo-user.ts, web/drizzle/0004_demo_assura_email.sql, seed/users.json
+Others need to know: The `.local` email is a confirmed demo-only sign-in identifier and cannot receive external email.
+Blockers: None.
+
 ## 2026-10-20 | Dominic | Plan Q&A chat history (saved conversations + sidebar)
 Status: Completed
 Done:
-- Chats now persist in Postgres (new `chat_conversations` + `chat_messages` tables, migration 0002_chat_history). Refreshing /chat keeps the conversation; the active chat id lives in `?c=`.
+- Chats now persist in Postgres (new `chat_conversations` + `chat_messages` tables, now migration 0005_chat_history). Refreshing /chat keeps the conversation; the active chat id lives in `?c=`.
 - Sidebar on /chat like other AI chat apps: New chat, list grouped Today / Yesterday / Previous 7 days / Older, click to switch, trash icon → confirm dialog → permanent delete (messages cascade).
 - /api/chat now saves the question + streamed answer and loads history SERVER-SIDE from the DB (client can no longer inject fake assistant turns). New: GET /api/chat/conversations, GET + DELETE /api/chat/conversations/:id — all scoped to the signed-in user (404 for anyone else's). Deletes are audit-logged as `chat.conversation_deleted` (id only, never content).
 - Fix: a failed model call used to error the stream before any bytes, so the server dropped the connection and the browser silently retried the POST (5×). It now finishes with a readable "couldn't answer" message instead.
 - Tests: chat-history.test.ts (11 tests: save, continue, ownership, injected history ignored, model failure, list/get/delete scoping, cascade + audit). Full suite 53/53, build + tsc clean, no new lint errors.
-Files: web/src/lib/{schema,db,types,validators,seed}.ts, web/drizzle/0002_chat_history.sql (+meta), web/src/app/api/chat/**, web/src/hooks/{use-chat,use-conversations}.ts, web/src/components/chat/{chat-workspace,chat-history-sidebar,chat-window}.tsx, web/src/app/(app)/chat/page.tsx, web/src/__tests__/{chat-history.test.ts,setup.ts}
+Files: web/src/lib/{schema,db,types,validators,seed}.ts, web/drizzle/0005_chat_history.sql (+meta), web/src/app/api/chat/**, web/src/hooks/{use-chat,use-conversations}.ts, web/src/components/chat/{chat-workspace,chat-history-sidebar,chat-window}.tsx, web/src/app/(app)/chat/page.tsx, web/src/__tests__/{chat-history.test.ts,setup.ts}
 Others need to know:
 - Run `npm run db:migrate` (or restart Docker so db-init migrates) — the two new tables are required for /chat.
 - Reset scripts (seed.ts resetDatabase / RESET=1) now also clear chat tables.
@@ -441,11 +513,11 @@ Blockers: None
 ## 2026-10-20 | Dominic | Plan Q&A: Recently deleted bin + edit & regenerate
 Status: Completed
 Done:
-- Deleting a chat now moves it to "Recently deleted" (soft delete via new `chat_conversations.deleted_at`, migration 0003_chat_trash) with an Undo toast. Bin dialog (sidebar → Recently deleted): Restore, Delete forever (confirm), Empty bin (confirm), "N days left" per chat.
+- Deleting a chat now moves it to "Recently deleted" (soft delete via new `chat_conversations.deleted_at`, in migration 0005_chat_history) with an Undo toast. Bin dialog (sidebar → Recently deleted): Restore, Delete forever (confirm), Empty bin (confirm), "N days left" per chat.
 - 30-day retention: binned chats older than TRASH_RETENTION_DAYS are permanently deleted (all users) whenever a chat list or the bin loads — lazy purge, no scheduler; expired chats can never be seen or restored.
 - Edit & regenerate: hover a sent message → Edit → Enter. Server deletes that message and everything after it, saves the edited text and streams a fresh answer (`editMessageId` on POST /api/chat; ids returned in X-User-Message-Id / X-Assistant-Message-Id headers).
 - New: POST /api/chat/conversations/:id/restore, GET + DELETE /api/chat/trash, DELETE …/:id?permanent=true. All owner-scoped; audit events chat.conversation_deleted/_restored/_purged, chat.trash_emptied, chat.trash_auto_purged, chat.message_edited (ids only).
 - Tests: 76/76 (13 new for bin/purge/edit/ownership). Build, tsc, lint clean. Verified in a browser.
 Others need to know:
-- ⚠ Shared Supabase DB has migrations recorded with future dates (up to 1792600000000). Drizzle SKIPS any migration dated earlier than the newest applied one, so 0002/0003 have hand-set `when` values (1792600000000 / 1792610000000). New migrations must use a later `when`, and please don't migrate the shared DB from unmerged branches.
+- ⚠ Drizzle SKIPS any migration whose `when` is earlier than the newest one already recorded in the DB, and the shared Supabase DB has hand-dated future migrations. On merging main, the branch's 0002_chat_history/0003_chat_trash were replaced by ONE idempotent 0005_chat_history (`when` 1792620000000, CREATE … IF NOT EXISTS) so it is safe whether or not the chat tables already exist. Any NEW migration must use a `when` later than 1792620000000. Please don't migrate the shared DB from unmerged branches.
 ---

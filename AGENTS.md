@@ -151,7 +151,7 @@ uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
 mailpit                                       # UI: http://localhost:8025 | SMTP: localhost:1025
 ```
 
-Demo login: `demo@fineprint.local` / `demo1234`
+Demo login: `demo@assura.local` / `demo1234`
 
 ---
 

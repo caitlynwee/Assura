@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import Link from "next/link";
-import { LogOutIcon, MailIcon, ShieldCheckIcon, SparklesIcon, Trash2Icon } from "lucide-react";
+import { LogOutIcon, MailIcon, SettingsIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
 import { logoutAction } from "@/app/_actions/auth";
-import DeleteAccountDialog from "@/components/account/delete-account-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,8 +26,6 @@ function initials(nameOrEmail: string) {
 export default function Topbar({ user }: { user: PublicUser }) {
   const premium = user.tier === "premium";
   const logoutForm = useRef<HTMLFormElement>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-
   return (
     <header className="flex h-14 items-center justify-end gap-3 border-b bg-card px-6">
       {premium && user.maskedInbox && (
@@ -76,6 +73,12 @@ export default function Topbar({ user }: { user: PublicUser }) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
+            <Link href="/settings">
+              <SettingsIcon />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
             <Link href={premium ? "/onboarding" : "/upgrade"}>
               <ShieldCheckIcon />
               Privacy &amp; consent
@@ -94,20 +97,8 @@ export default function Topbar({ user }: { user: PublicUser }) {
             <LogOutIcon />
             Sign out
           </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={(e) => {
-              e.preventDefault();
-              setDeleteOpen(true);
-            }}
-          >
-            <Trash2Icon />
-            Delete account
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
     </header>
   );
 }

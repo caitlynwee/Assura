@@ -29,10 +29,12 @@ usage() {
 
   Assura dev CLI
 
-  DOCKER (all services together)
-    ./dev.sh up              Start everything in Docker (web dev mode, hot reload)
-    ./dev.sh up --build      Start dev mode, rebuild images first
-    ./dev.sh up-prod         Start the full Docker demo (production-built web)
+  DOCKER
+    ./dev.sh up              Start web only (dev mode, hot reload; Free/basic use)
+    ./dev.sh up --build      Start web only, rebuilding its image first
+    ./dev.sh up-premium      Start web + scraper relay + Mailpit for Premium demo
+    ./dev.sh up-scraper      Start scraper + Mailpit separately from the web
+    ./dev.sh up-prod         Start the full production-built Premium demo
     ./dev.sh down            Stop everything
     ./dev.sh restart         down + up
     ./dev.sh build [svc]     Rebuild image(s)  svc: web | scraper
@@ -46,7 +48,7 @@ usage() {
 
   MIXED (infra in Docker, one service local)
     ./dev.sh infra           Start mailpit + scraper in Docker (background)
-    ./dev.sh infra-web       Start mailpit in Docker, run web locally
+    ./dev.sh infra-web       Start mailpit + scraper in Docker, run web locally
 
   UTILITIES
     ./dev.sh seed            Reset configured database to seed state (destructive)
@@ -65,12 +67,29 @@ EOF
 cmd_up() {
   require_env
   if [ "${1:-}" = "--build" ]; then
-    info "Starting all services (with rebuild)..."
-    docker compose up --build
+    info "Starting web only (with rebuild)..."
+    docker compose up --build web
   else
-    info "Starting all services..."
-    docker compose up
+    info "Starting web only..."
+    docker compose up web
   fi
+}
+
+cmd_up_premium() {
+  require_env
+  if [ "${1:-}" = "--build" ]; then
+    info "Starting web, scraper relay, and Mailpit for the Premium demo (with rebuild)..."
+    docker compose up --build web scraper mailpit
+  else
+    info "Starting web, scraper relay, and Mailpit for the Premium demo..."
+    docker compose up web scraper mailpit
+  fi
+}
+
+cmd_up_scraper() {
+  require_env
+  info "Starting scraper separately (Mailpit starts as its email dependency)..."
+  docker compose up scraper
 }
 
 cmd_up_prod() {
@@ -152,8 +171,8 @@ cmd_infra() {
 
 cmd_infra_web() {
   require_env
-  info "Starting mailpit in Docker (background)..."
-  docker compose up -d mailpit
+  info "Starting mailpit + scraper relay in Docker (background)..."
+  docker compose up -d mailpit scraper
   info "Starting Next.js locally..."
   cd "$ROOT/web"
   npm run dev
@@ -264,14 +283,17 @@ cmd_setup() {
   echo ""
   echo "  Next steps:"
   echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
-  echo "  2. ./dev.sh up-prod     ← full Docker demo (production-built web)"
-  echo "     ./dev.sh up          ← Docker development mode (web hot reload)"
+  echo "  2. ./dev.sh up          ← web only (Free/basic use; hot reload)"
+  echo "     ./dev.sh up-premium  ← web + scraper relay + Mailpit"
+  echo "     ./dev.sh up-prod     ← full production-built Premium demo"
   echo ""
 }
 
 # ── Router ─────────────────────────────────────────────────────────────────
 case "${1:-}" in
   up)          cmd_up "${2:-}" ;;
+  up-premium)  cmd_up_premium "${2:-}" ;;
+  up-scraper)  cmd_up_scraper ;;
   up-prod)     cmd_up_prod ;;
   down)        cmd_down ;;
   restart)     cmd_restart "${2:-}" ;;
