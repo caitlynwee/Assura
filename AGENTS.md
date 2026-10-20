@@ -41,7 +41,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ### Dominic — Website & Auth
 - Full Next.js frontend: all pages, components, UI polish
-- User authentication (NextAuth v5 Credentials, JWT sessions, demo login)
+- User authentication (Supabase Auth, JWT sessions, demo login)
 - Free vs Premium feature gating
 - Web security: middleware auth guards, input validation, no XSS
 - Files: `web/src/app/`, `web/src/components/`, `web/src/middleware.ts`
@@ -91,7 +91,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ## Architecture Decisions (do not change without team consensus)
 - **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
 - **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` (full handoff lives on that branch). Until that merges, JSON files remain the source of truth.
-- **Auth**: NextAuth v5, Credentials provider, JWT. `auth.config.ts` = edge-safe (middleware). `auth.ts` = full server-side (has bcrypt + db).
+- **Auth**: Supabase Auth verifies credentials; PostgreSQL app profiles supply tier/consent data. `proxy.ts` verifies access-token signatures with Supabase JWKS.
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.
 - **Next.js 16 dynamic routes**: Params are `Promise<{...}>` — always `await params`.
@@ -137,7 +137,7 @@ Blockers: What is stopping you (if any)
 bash seed/reset.sh
 
 # 2. Web app
-cd web && cp .env.local.example .env.local   # fill AUTH_SECRET + DEEPSEEK_API_KEY
+cd web && cp .env.local.example .env.local   # fill Supabase + DATABASE_URL + DEEPSEEK_API_KEY
 npm install && npm run dev                    # http://localhost:3000
 
 # 3. Scraper server (uv — install: brew install uv)
