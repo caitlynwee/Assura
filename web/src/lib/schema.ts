@@ -191,6 +191,9 @@ export const chatConversations = pgTable("chat_conversations", {
   title: text("title").notNull(),
   createdAt: text("created_at").notNull(), // ISO 8601
   updatedAt: text("updated_at").notNull(), // ISO 8601 — bumped on every message
+  // ISO 8601 when moved to "Recently deleted"; null = active. Rows in the bin
+  // are permanently removed after TRASH_RETENTION_DAYS.
+  deletedAt: text("deleted_at"),
 });
 
 // ─── chat_messages ───────────────────────────────────────────────────────────

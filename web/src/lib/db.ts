@@ -14,7 +14,7 @@
  */
 
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, isNull, isNotNull, gte, lt } from "drizzle-orm";
 import postgres from "postgres";
 import * as schema from "./schema";
 import type {
@@ -345,8 +345,12 @@ export async function updateThread(
 }
 
 // ─── chat conversations (Plan Q&A history) ───────────────────────────────────
-// Every query is scoped by userId so one user can never read or delete another
-// user's conversations.
+// Every query is scoped by userId so one user can never read, change or delete
+// another user's conversations.
+//
+// Lifecycle: active (deletedAt null) → "Recently deleted" (deletedAt set) →
+// permanently removed after TRASH_RETENTION_DAYS, or immediately via
+// "Delete forever" / "Empty bin". Messages cascade with their conversation.
 
 type ConversationRow = typeof schema.chatConversations.$inferSelect;
 type ChatMessageRow = typeof schema.chatMessages.$inferSelect;
@@ -357,12 +361,14 @@ function rowToConversation(row: ConversationRow): ChatConversation {
     title: row.title,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    deletedAt: row.deletedAt ?? null,
   };
 }
 
 function rowToChatMessage(row: ChatMessageRow): ChatMessage {
   const citations = row.citations as Citation[] | null;
   return {
+    id: row.id,
     role: row.role as ChatMessage["role"],
     content: row.content,
     timestamp: row.timestamp,
@@ -370,19 +376,50 @@ function rowToChatMessage(row: ChatMessageRow): ChatMessage {
   };
 }
 
-/** A user's conversations, most recently active first. */
+const ownedBy = (conversationId: string, userId: string) =>
+  and(
+    eq(schema.chatConversations.id, conversationId),
+    eq(schema.chatConversations.userId, userId)
+  );
+
+/** A user's active conversations, most recently active first. */
 export async function getConversationsByUser(
   userId: string
 ): Promise<ChatConversation[]> {
   const rows = (await getDb()
     .select()
     .from(schema.chatConversations)
-    .where(eq(schema.chatConversations.userId, userId))
+    .where(
+      and(
+        eq(schema.chatConversations.userId, userId),
+        isNull(schema.chatConversations.deletedAt)
+      )
+    )
     .orderBy(desc(schema.chatConversations.updatedAt))) as ConversationRow[];
   return rows.map(rowToConversation);
 }
 
-/** One conversation, only if it belongs to `userId`. */
+/** A user's "Recently deleted" conversations, most recently deleted first. */
+export async function getDeletedConversationsByUser(
+  userId: string
+): Promise<ChatConversation[]> {
+  const rows = (await getDb()
+    .select()
+    .from(schema.chatConversations)
+    .where(
+      and(
+        eq(schema.chatConversations.userId, userId),
+        isNotNull(schema.chatConversations.deletedAt)
+      )
+    )
+    .orderBy(desc(schema.chatConversations.deletedAt))) as ConversationRow[];
+  return rows.map(rowToConversation);
+}
+
+/**
+ * One ACTIVE conversation, only if it belongs to `userId`.
+ * Conversations in "Recently deleted" are treated as not found.
+ */
 export async function getConversationById(
   conversationId: string,
   userId: string
@@ -392,8 +429,8 @@ export async function getConversationById(
     .from(schema.chatConversations)
     .where(
       and(
-        eq(schema.chatConversations.id, conversationId),
-        eq(schema.chatConversations.userId, userId)
+        ownedBy(conversationId, userId),
+        isNull(schema.chatConversations.deletedAt)
       )
     )
     .limit(1)) as ConversationRow[];
@@ -413,7 +450,7 @@ export async function getConversationMessages(
 }
 
 export async function insertConversation(
-  conversation: ChatConversation & { userId: string }
+  conversation: Omit<ChatConversation, "deletedAt"> & { userId: string }
 ): Promise<void> {
   await getDb().insert(schema.chatConversations).values({
     id: conversation.id,
@@ -421,6 +458,7 @@ export async function insertConversation(
     title: conversation.title,
     createdAt: conversation.createdAt,
     updatedAt: conversation.updatedAt,
+    deletedAt: null,
   });
 }
 
@@ -450,21 +488,122 @@ export async function appendConversationMessage(
     .where(eq(schema.chatConversations.id, conversationId));
 }
 
-/** Delete a conversation (messages cascade). Returns false if not owned/found. */
+/**
+ * Edit support: remove a USER message and everything after it, so the edited
+ * text can be appended in its place and the answer regenerated.
+ * Returns false (and changes nothing) if the message isn't a user message in
+ * this conversation. Caller must check conversation ownership first.
+ */
+export async function truncateConversationFrom(
+  conversationId: string,
+  messageId: string
+): Promise<boolean> {
+  const db = getDb();
+  const rows = (await db
+    .select()
+    .from(schema.chatMessages)
+    .where(
+      and(
+        eq(schema.chatMessages.id, messageId),
+        eq(schema.chatMessages.conversationId, conversationId)
+      )
+    )
+    .limit(1)) as ChatMessageRow[];
+  const target = rows[0];
+  if (!target || target.role !== "user") return false;
+
+  await db
+    .delete(schema.chatMessages)
+    .where(
+      and(
+        eq(schema.chatMessages.conversationId, conversationId),
+        gte(schema.chatMessages.ordering, target.ordering)
+      )
+    );
+  return true;
+}
+
+/** Move a conversation to "Recently deleted". False if not owned/active. */
+export async function softDeleteConversation(
+  conversationId: string,
+  userId: string,
+  deletedAt: string
+): Promise<boolean> {
+  const updated = await getDb()
+    .update(schema.chatConversations)
+    .set({ deletedAt })
+    .where(
+      and(
+        ownedBy(conversationId, userId),
+        isNull(schema.chatConversations.deletedAt)
+      )
+    )
+    .returning({ id: schema.chatConversations.id });
+  return updated.length > 0;
+}
+
+/** Bring a conversation back from "Recently deleted". False if not in the bin. */
+export async function restoreConversation(
+  conversationId: string,
+  userId: string
+): Promise<boolean> {
+  const updated = await getDb()
+    .update(schema.chatConversations)
+    .set({ deletedAt: null })
+    .where(
+      and(
+        ownedBy(conversationId, userId),
+        isNotNull(schema.chatConversations.deletedAt)
+      )
+    )
+    .returning({ id: schema.chatConversations.id });
+  return updated.length > 0;
+}
+
+/**
+ * Permanently delete a conversation (messages cascade), whether active or in
+ * the bin. Returns false if not owned/found.
+ */
 export async function deleteConversation(
   conversationId: string,
   userId: string
 ): Promise<boolean> {
   const deleted = await getDb()
     .delete(schema.chatConversations)
+    .where(ownedBy(conversationId, userId))
+    .returning({ id: schema.chatConversations.id });
+  return deleted.length > 0;
+}
+
+/** "Empty bin": permanently delete all of a user's binned conversations. */
+export async function emptyTrash(userId: string): Promise<number> {
+  const deleted = await getDb()
+    .delete(schema.chatConversations)
     .where(
       and(
-        eq(schema.chatConversations.id, conversationId),
-        eq(schema.chatConversations.userId, userId)
+        eq(schema.chatConversations.userId, userId),
+        isNotNull(schema.chatConversations.deletedAt)
       )
     )
     .returning({ id: schema.chatConversations.id });
-  return deleted.length > 0;
+  return deleted.length;
+}
+
+/**
+ * Permanently delete every binned conversation (all users) that was deleted
+ * before `cutoffIso`. ISO-8601 UTC strings compare correctly as text.
+ */
+export async function purgeExpiredConversations(cutoffIso: string): Promise<number> {
+  const deleted = await getDb()
+    .delete(schema.chatConversations)
+    .where(
+      and(
+        isNotNull(schema.chatConversations.deletedAt),
+        lt(schema.chatConversations.deletedAt, cutoffIso)
+      )
+    )
+    .returning({ id: schema.chatConversations.id });
+  return deleted.length;
 }
 
 // ─── scraper_runs ─────────────────────────────────────────────────────────────

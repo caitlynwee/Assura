@@ -224,6 +224,8 @@ export interface BlockerResult {
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export interface ChatMessage {
+  /** Server id. Present on saved messages; needed to edit a user message. */
+  id?: string;
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
@@ -236,6 +238,8 @@ export interface ChatConversation {
   title: string;
   createdAt: string;
   updatedAt: string;
+  /** ISO time it was moved to "Recently deleted"; null while active. */
+  deletedAt?: string | null;
 }
 
 export interface Citation {
