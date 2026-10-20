@@ -192,12 +192,18 @@ async def run_scraper(
                     elif source_type == "product_page":
                         plan_texts[plan_id]["product_url"] = source_dict["url"]
 
+                # Upload raw PDF to Supabase Storage when available
+                if source_type == "pdf" and response.content[:4] == b"%PDF":
+                    from app.utils.storage import upload_pdf
+                    storage_url = await upload_pdf(source_dict["id"], response.content)
+                    if storage_url:
+                        source.storage_url = storage_url
+
                 # Update source metadata immediately (per-source, not per-plan)
                 updated_source_dict = update_source_metadata(
                     source_dict, response, response.content
                 )
                 apply_source_update(source, updated_source_dict)
-                source.content_text = text  # persist extracted markdown to DB
 
                 changed += 1
 

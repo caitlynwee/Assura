@@ -68,6 +68,8 @@ services:
       FIRE_CRAWL_API_KEY: ${FIRE_CRAWL_API_KEY:-}
       LLM_MODEL: deepseek-chat
       DEBUG_SCRAPER: ${DEBUG_SCRAPER:-}
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
 
   web:
     build:
