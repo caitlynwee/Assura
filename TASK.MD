@@ -748,3 +748,10 @@ Files: scraper/app/config.py, scraper/app/scraper/downloader.py, scraper/app/scr
 Others need to know: stored_doc_url is nullable; existing rows stay NULL until the next admin-triggered run seeds them. Supabase config is optional — keyless = upload silently skipped, scrape still succeeds. The "documents" bucket must be public for the links to open.
 Blockers: none
 ---
+## 2026-10-20 | Jeff | Admin tier sticky across seed/auth-metadata writes
+Status: Completed
+Done: Centralized app_metadata writer that never clobbers a DB-admin's tier; fixed ensureTeamAuthUsers/ensureDemoAuthUser to derive tier from DB (preserve admin, default premium only when not admin); routed syncAuthMetadata + Stripe sync through the safeguard; added/updated Jest tests.
+Files: web/src/lib/supabase/ensure-demo-user.ts, web/src/lib/stripe.ts, web/src/__tests__/ensure-demo-user.test.ts, web/src/__tests__/billing.test.ts (+ any new helper file)
+Others need to know: Teammates must re-login to pick up a corrected JWT (app_metadata.tier). No schema or edge-guard changes.
+Blockers: None
+---
