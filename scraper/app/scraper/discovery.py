@@ -209,9 +209,11 @@ _DOMAIN_OVERRIDES: dict[str, dict[str, str]] = {
         "page": 'site:aia.com.sg "Absolute Critical Cover" critical illness plan',
     },
     "prudential.com.sg": {
-        # PRUActive Crisis Guard — Prudential's flagship standalone individual CI plan
-        "pdf": 'site:prudential.com.sg "PRUActive Crisis Guard" brochure filetype:pdf',
-        "page": 'site:prudential.com.sg "PRUActive Crisis Guard" critical illness',
+        # PRUActive Protect — 37 conditions, Prudential's main standalone individual CI plan
+        # No standalone PDF brochure exists on prudential.com.sg; search broadly to find
+        # the MAS comparefirst.sg product summary which has structured plan data
+        "pdf": '"PRUActive Protect" "product summary" Singapore critical illness filetype:pdf',
+        "page": 'site:prudential.com.sg "PRUActive Protect" critical illness plan',
     },
     "greateasternlife.com": {
         # GREAT Critical Cover Series — Great Eastern's standalone individual CI plan
