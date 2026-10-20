@@ -78,7 +78,7 @@ async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
         user_masked_inbox = (
             thread_dict["messages"][0]["from"]
             if thread_dict["messages"]
-            else "user@relay.fineprint.local"
+            else "user@relay.assura.local"
         )
 
         await send_email(

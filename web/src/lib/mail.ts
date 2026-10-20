@@ -17,7 +17,7 @@ const INTERNAL_API_SECRET = process.env.INTERNAL_API_SECRET ?? "dev-internal-key
 export function generateMaskedAddress(userId: string): string {
   // Deterministic: same userId always gets same relay address
   const slug = userId.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 12);
-  return `user-${slug}@relay.fineprint.local`;
+  return `user-${slug}@relay.assura.local`;
 }
 
 interface SendEmailParams {

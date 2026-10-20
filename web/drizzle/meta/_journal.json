@@ -22,6 +22,13 @@
       "when": 1792598400001,
       "tag": "0002_last_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792598400002,
+      "tag": "0003_assura_relay_domain",
+      "breakpoints": true
     }
   ]
 }

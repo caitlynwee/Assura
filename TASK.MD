@@ -435,3 +435,14 @@ Files: web/src/{lib/{db,schema,users,auth,onboarding}.ts,app/(app)/settings,app/
 Others need to know: Personal/health/income data is never shared unless separate consent permits it; sign-in email remains managed by Supabase. Full web lint still reports a pre-existing issue in untouched `web/src/hooks/use-plans.ts`.
 Blockers: None.
 ---
+
+## 2026-10-20 | Copilot | Rebrand local masked relay addresses
+Status: Completed
+Done:
+- Changed generated, seeded, and simulated masked inbox addresses to `@relay.assura.local`.
+- Added a data migration for existing accounts and documented that the `.local` address is Mailpit-only, not externally deliverable.
+- Verified focused web and scraper tests/lints, Drizzle reports no schema changes, and Docker applied migration 5; the seeded demo inbox now uses the Assura domain.
+Files: web/src/lib/mail.ts, web/drizzle/0003_assura_relay_domain.sql, scraper/app/personas/simulator.py, seed/users.json, README.md
+Others need to know: Demo login remains `demo@fineprint.local`; it is separate from the masked relay address.
+Blockers: None.
+---
