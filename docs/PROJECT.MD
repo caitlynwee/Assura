@@ -26,8 +26,9 @@ THREE DELIVERABLES
    - If changed: download a versioned copy, extract text, convert to the plan schema with a no-tools LLM call, validate, send to the backend, add a change note and "Updated" badge.
    - Public pages only, robots.txt respected, rate-limited. A failed scrape never deletes the last good data.
    - Demo trick: one source is a local mock brochure page we can edit live.
-3. Outreach server
+3. Outreach service
    - Holds NO user credentials.
+   - Runs separately from the scraper; the Premium demo starts web + mail service + Mailpit, while basic testing needs only web.
    - Sends from a per-user relay address to the local Mailpit sandbox only; no external email is delivered.
    - Every email discloses that it was sent with Assura's help and reviewed and approved by the user.
    - Shares only what the user ticked in onboarding. Never shares name, real email, phone, NRIC, health or income.
@@ -46,10 +47,10 @@ TECH AND DATA
 - Storage: PostgreSQL is the runtime source of truth. The web app owns schema and migrations through Drizzle; the Python scraper uses SQLAlchemy mappings against the same database and does not manage schema. Supabase provides the hosted PostgreSQL instance and authentication.
 - Structured data: relational columns are used for fields queried directly; PostgreSQL `JSONB` holds nested records and arrays that are read or updated as units (for example profiles, plan benefits, and extracted quotes). The typed TypeScript seed fixture creates the demo user; the scraper discovers and stores the insurer catalog.
 - Audit chain: entries are stored in PostgreSQL `audit_entries`. The `detail` and timestamp values retain their exact serialized text so the chain can be recomputed without JSONB normalization affecting the hash.
-- Repo structure: monorepo with `/web` (Next.js) and `/scraper` (Python) sub-folders.
+- Repo structure: monorepo with `/web` (Next.js), `/scraper` (Python), and `/mail-service` (Python) sub-folders.
 - Frontend + backend API: Next.js (App Router). API routes handle web business logic. Supabase Auth verifies credentials; the PostgreSQL `users` table stores Assura profile, tier, and consent data.
-- Background jobs (scraper, relay, reply simulator): separate Python server in /scraper, communicates with /web via internal HTTP. Not combined into the Next.js process.
-- Sandbox email: Mailpit (local, nothing leaves the machine). Needs to be installed before demo.
+- Background jobs: `/scraper` runs plan discovery independently. `/mail-service` handles isolated relay delivery and simulated replies, communicating with `/web` via internal HTTP. Neither is combined into the Next.js process.
+- Sandbox email: Mailpit (local, nothing leaves the machine), started automatically by the Premium Docker profile.
 - Required tests: policy engine, personal-data blocker, hash chain, change detection.
 
 DEMO FLOW (under 4 minutes, doubles as the demo video)

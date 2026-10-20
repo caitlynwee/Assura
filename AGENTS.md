@@ -60,9 +60,9 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
   Hermes agent idea was dropped as overkill for the demo; drafting is one LLM call, no agent loop)
 - Outreach flow: insurer picker → template → AI draft → user approval → send
 - CRM: thread timeline, status management, quote extraction, risk flag display
-- 5 simulated insurer personas (helpful, slow, pushy, data-grabber, injector)
+- 5 simulated insurer personas (helpful, slow, pushy, data-grabber, injector), hosted by the isolated mail service
 - Connect AI APIs; ensure quarantine reader is used for all inbound insurer text
-- Files: `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `scraper/app/personas/`, `scraper/app/email_relay/`
+- Files: `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `mail-service/app/`
 
 ### Caitlyn — Documentation & Deck
 - Technical documentation: system architecture diagram, core algorithm walkthrough, security design write-up
@@ -76,7 +76,8 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ```
 /
 ├── web/          Next.js 16 (App Router) — frontend + API routes
-├── scraper/      Python FastAPI — scraper, email relay, personas
+├── scraper/      Python FastAPI — independent plan and brochure scraper
+├── mail-service/ Python FastAPI — Premium mail relay and simulated insurer replies
 ├── seed/         PostgreSQL reset script
 ├── docs/         Product spec and hackathon reference docs
 │   └── PROJECT.MD    ← product spec
@@ -97,6 +98,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 - **Policy engine**: `web/src/lib/policy.ts` — pure code, no LLM, deny by default. Every AI action goes through this.
 - **Quarantine**: All untrusted external text (insurer replies, scraped HTML) → `quarantine.ts` — no-tools LLM, fixed JSON schema, Zod-validated.
 - **Email delivery**: Mailpit only. No external SMTP provider or recipient is configured; every send still requires user approval, PII screening, and the AI disclosure footer.
+- **Service boundaries**: Basic web uses only web + PostgreSQL. Premium outreach uses web + `mail-service` + Mailpit. The scraper runs independently and is not needed by web or mail. Mail service SMTP is restricted to Mailpit hostnames on port 1025.
 
 ## Security — Non-Negotiable (30% of score)
 These must be demonstrably working in the demo:
@@ -139,15 +141,15 @@ bash seed/reset.sh
 cd web && cp .env.local.example .env.local   # fill Supabase + DATABASE_URL + DEEPSEEK_API_KEY
 npm install && npm run dev                    # http://localhost:3000
 
-# 3. Scraper server (uv — install: brew install uv)
+# 3. Scraper server (uv — install: brew install uv; only needed for scraping)
 cd scraper && uv venv .venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 uvicorn app.main:app --port 8100 --reload    # http://localhost:8100
 
 # (Or just run `./dev.sh setup` from the repo root to do steps 1-3 at once.)
 
-# 4. Mailpit (install once: brew install mailpit)
-mailpit                                       # UI: http://localhost:8025 | SMTP: localhost:1025
+# Premium mail-service + Mailpit (Docker)
+./dev.sh infra                                 # UI: http://localhost:8025
 ```
 
 Demo login: `demo@assura.local` / `demo1234`
