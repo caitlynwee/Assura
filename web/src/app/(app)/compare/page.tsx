@@ -35,7 +35,7 @@ export default async function ComparePage() {
         />
         <RunScraperButton />
       </div>
-      <PlanFilters hasBudget={typeof profile?.monthlyBudget === "number"} />
+      <PlanFilters />
       <PlanTable profile={profile} />
     </div>
   );
