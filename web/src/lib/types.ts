@@ -41,10 +41,15 @@ export interface User {
   createdAt: string; // ISO 8601
   /** Supabase auth.users.id (uuid as text); undefined until linked. */
   authUid?: string;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
 }
 
 /** User object safe to send to the client — never includes passwordHash. */
-export type PublicUser = Omit<User, "passwordHash">;
+export type PublicUser = Omit<
+  User,
+  "passwordHash" | "stripeCustomerId" | "stripeSubscriptionId"
+>;
 
 // ─── Insurance Plans ──────────────────────────────────────────────────────────
 

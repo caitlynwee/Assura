@@ -99,6 +99,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 - **Quarantine**: All untrusted external text (insurer replies, scraped HTML) → `quarantine.ts` — no-tools LLM, fixed JSON schema, Zod-validated.
 - **Email delivery**: Mailpit only. No external SMTP provider or recipient is configured; every send still requires user approval, PII screening, and the AI disclosure footer.
 - **Service boundaries**: Basic web uses only web + PostgreSQL. Premium outreach uses web + `mail-service` + Mailpit. The scraper runs independently and is not needed by web or mail. Mail service SMTP is restricted to Mailpit hostnames on port 1025.
+- **Premium billing**: Account upgrades use Stripe Checkout subscriptions in test mode only. Verified Stripe webhooks are the only path that grants or removes paid Premium access. The seeded shared demo account remains Premium without payment; new signups are Free by default.
 
 ## Security — Non-Negotiable (30% of score)
 These must be demonstrably working in the demo:

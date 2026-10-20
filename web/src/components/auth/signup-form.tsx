@@ -1,33 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { CheckIcon } from "lucide-react";
 import { signupAction, type FormState } from "@/app/_actions/auth";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
 import Field from "./field";
 import FormError from "./form-error";
 import SubmitButton from "./submit-button";
 
-const PLANS = [
-  {
-    id: "premium",
-    title: "Premium",
-    tag: "Demo · no payment",
-    points: ["AI outreach to insurers", "Masked inbox + CRM", "Audit log"],
-  },
-  {
-    id: "free",
-    title: "Free",
-    tag: "Compare only",
-    points: ["Plan comparison", "Cited plan Q&A"],
-  },
-] as const;
-
 export default function SignupForm() {
   const [state, formAction] = useActionState<FormState, FormData>(signupAction, {});
-  const [tier, setTier] = useState<string>(state.values?.tier ?? "premium");
   const fe = state.fieldErrors ?? {};
 
   return (
@@ -70,40 +52,14 @@ export default function SignupForm() {
         required
       />
 
-      <div className="grid gap-2">
-        <Label id="plan-label">Plan</Label>
-        <RadioGroup
-          name="tier"
-          value={tier}
-          onValueChange={setTier}
-          aria-labelledby="plan-label"
-          className="grid-cols-2"
-        >
-          {PLANS.map((p) => (
-            <Label
-              key={p.id}
-              htmlFor={`tier-${p.id}`}
-              className={cn(
-                "flex cursor-pointer flex-col items-start gap-2 rounded-lg border bg-card p-3 font-normal transition-colors",
-                tier === p.id ? "border-primary ring-1 ring-primary" : "hover:bg-muted/50"
-              )}
-            >
-              <span className="flex w-full items-center gap-2">
-                <RadioGroupItem id={`tier-${p.id}`} value={p.id} />
-                <span className="font-semibold">{p.title}</span>
-                <span className="ml-auto text-[11px] text-muted-foreground">{p.tag}</span>
-              </span>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {p.points.map((pt) => (
-                  <li key={pt} className="flex items-center gap-1.5">
-                    <CheckIcon className="size-3 text-primary" />
-                    {pt}
-                  </li>
-                ))}
-              </ul>
-            </Label>
-          ))}
-        </RadioGroup>
+      <div className="rounded-lg border bg-card p-3">
+        <Label className="flex items-center gap-2 font-semibold">
+          <CheckIcon className="size-4 text-primary" />
+          Free account
+        </Label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Compare plans and use cited Q&amp;A for free. Upgrade to Premium with Stripe whenever you need outreach.
+        </p>
       </div>
 
       <FormError message={state.error} />

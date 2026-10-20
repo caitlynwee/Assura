@@ -48,6 +48,8 @@ export const users = pgTable("users", {
   // login (email fallback → back-fill) or eagerly via the demo-user seed step.
   authUid: text("auth_uid"),
   profile: jsonb("profile").$type<UserProfile>().notNull().default({}),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
 });
 
 // ─── insurers ─────────────────────────────────────────────────────────────────

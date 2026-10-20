@@ -4,15 +4,17 @@ import PageHeader from "@/components/layout/page-header";
 import SettingsForm from "@/components/settings/settings-form";
 import { requireUser } from "@/lib/session";
 import { DEMO_EMAIL } from "@/lib/demo";
+import { findUserById } from "@/lib/users";
 
 export const metadata = { title: "Settings — Assura" };
 
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; emailError?: string }>;
+  searchParams: Promise<{ email?: string; emailError?: string; billing?: string }>;
 }) {
   const user = await requireUser();
+  const appUser = await findUserById(user.id);
   const params = await searchParams;
 
   return (
@@ -22,14 +24,29 @@ export default async function SettingsPage({
         description="Manage your personal information and account."
       />
       <SettingsEmailNotice email={params.email} emailError={params.emailError} />
+      <SettingsBillingNotice billing={params.billing} />
       <SettingsForm
         initialName={user.name}
         email={user.email}
         tier={user.tier}
+        hasStripeCustomer={Boolean(appUser?.stripeCustomerId)}
         initialProfile={user.profile ?? {}}
         isDemoAccount={user.email.toLowerCase() === DEMO_EMAIL}
       />
     </div>
+  );
+}
+
+function SettingsBillingNotice({ billing }: { billing?: string }) {
+  if (!billing) return null;
+  const message =
+    billing === "unavailable"
+      ? "No Stripe subscription is linked to this account yet."
+      : "We couldn't open Stripe Billing Portal. Please try again later.";
+  return (
+    <p role="alert" className="text-sm text-destructive">
+      {message}
+    </p>
   );
 }
 
