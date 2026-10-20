@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# dev.sh — single entry point for all development tasks
-# Usage: ./dev.sh <command> [options]
+# run.sh — single entry point for all development tasks (run from repo root as ./scripts/run.sh)
+# Usage: ./scripts/run.sh <command> [options]
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# This script lives in scripts/; ROOT is the repo root (one level up).
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV="$ROOT/scraper/.venv"
 cd "$ROOT"
 
@@ -16,11 +17,11 @@ error() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 require_venv() {
-  [ -d "$VENV" ] || error "Python venv not found. Run: ./dev.sh setup"
+  [ -d "$VENV" ] || error "Python venv not found. Run: ./scripts/run.sh setup"
 }
 
 require_env() {
-  [ -f "$ROOT/.env" ] || error ".env not found. Run: ./dev.sh setup"
+  [ -f "$ROOT/.env" ] || error ".env not found. Run: ./scripts/run.sh setup"
 }
 
 # ── Usage ──────────────────────────────────────────────────────────────────
@@ -30,38 +31,40 @@ usage() {
   Assura dev CLI
 
   DOCKER
-    ./dev.sh up              Start web only (dev mode, hot reload; Free/basic use)
-    ./dev.sh up --build      Start web only, rebuilding its image first
-    ./dev.sh up-stripe       Start web + mail + Mailpit + Dockerized Stripe CLI
-    ./dev.sh up-stripe --build  Rebuild app images, then start billing demo
-    ./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
-    ./dev.sh up-scraper      Start scraper independently (no web or mail required)
-    ./dev.sh up-prod         Start the full production-built Premium demo
-    ./dev.sh down            Stop everything
-    ./dev.sh restart         down + up
-    ./dev.sh build [svc]     Rebuild image(s)  svc: web | mail | scraper
-    ./dev.sh logs  [svc]     Tail logs         svc: web | mail | mailpit | scraper
+    ./scripts/run.sh up              Start web only (dev mode, hot reload; Free/basic use)
+    ./scripts/run.sh up --build      Start web only, rebuilding its image first
+    ./scripts/run.sh up-stripe       Start web + mail + Mailpit + Dockerized Stripe CLI
+    ./scripts/run.sh up-stripe --build  Rebuild app images, then start billing demo
+    ./scripts/run.sh up-premium      Start web + mail service + Mailpit for Premium demo
+    ./scripts/run.sh up-scraper      Start scraper independently (no web or mail required)
+    ./scripts/run.sh up-prod         Start the full production-built Premium demo
+    ./scripts/run.sh down            Stop everything
+    ./scripts/run.sh restart         down + up
+    ./scripts/run.sh build [svc]     Rebuild image(s)  svc: web | mail | scraper
+    ./scripts/run.sh logs  [svc]     Tail logs         svc: web | mail | mailpit | scraper
 
   LOCAL (single service, no Docker)
-    ./dev.sh web             Run Next.js on :3000 (dev, hot-reload)
-    ./dev.sh demo            Build + run Next.js in production (no live recompiling)
-    ./dev.sh scraper         Run FastAPI on :8100
-    ./dev.sh mailpit         Run Mailpit  SMTP :1025  UI :8025
+    ./scripts/run.sh web             Run Next.js on :3000 (dev, hot-reload)
+    ./scripts/run.sh demo            Build + run Next.js in production (no live recompiling)
+    ./scripts/run.sh scraper         Run FastAPI on :8100
+    ./scripts/run.sh mailpit         Run Mailpit  SMTP :1025  UI :8025
 
   MIXED (infra in Docker, one service local)
-    ./dev.sh infra           Start mail service + Mailpit in Docker (background)
-    ./dev.sh infra-web       Start mail service + Mailpit in Docker, run web locally
+    ./scripts/run.sh infra           Start mail service + Mailpit in Docker (background)
+    ./scripts/run.sh infra-web       Start mail service + Mailpit in Docker, run web locally
 
   UTILITIES
-    ./dev.sh seed            Reset configured database to seed state (destructive)
-    ./dev.sh db:migrate      Apply Drizzle migrations
-    ./dev.sh db:seed         Load seed data (RESET=1 truncates first)
-    ./dev.sh test            Run scraper test suite (pytest)
-    ./dev.sh test-mail       Run mail service test suite (pytest)
-    ./dev.sh lint            Lint scraper/app with ruff
-    ./dev.sh ci              Run all CI checks locally (web + scraper + mail)
-    ./dev.sh setup           Prepare root .env for Docker
-    ./dev.sh setup --local   Also create local env and install host dependencies
+    ./scripts/run.sh seed            Reset configured database to seed state (destructive)
+    ./scripts/run.sh db:migrate      Apply Drizzle migrations
+    ./scripts/run.sh db:seed         Load seed data (RESET=1 truncates first)
+    ./scripts/run.sh test            Run scraper test suite (pytest)
+    ./scripts/run.sh test-mail       Run mail service test suite (pytest)
+    ./scripts/run.sh lint            Lint scraper/app with ruff
+    ./scripts/run.sh ci              Run all CI checks locally (web + scraper + mail)
+    ./scripts/run.sh env             Sync .env ↔ .env.example keys (keeps your values)
+    ./scripts/run.sh env --check     Report .env/.env.example key drift (no changes)
+    ./scripts/run.sh setup           Prepare root .env for Docker
+    ./scripts/run.sh setup --local   Also create local env and install host dependencies
 
 EOF
 }
@@ -81,7 +84,7 @@ cmd_up() {
 cmd_up_stripe() {
   require_env
   if [ -n "${1:-}" ] && [ "$1" != "--build" ]; then
-    error "Usage: ./dev.sh up-stripe [--build]"
+    error "Usage: ./scripts/run.sh up-stripe [--build]"
   fi
 
   local stripe_key price_id webhook_secret
@@ -210,7 +213,7 @@ cmd_infra() {
   echo "  Mailpit UI  → http://localhost:8025"
   echo "  Mail API    → http://localhost:8200"
   echo ""
-  info "Now run web locally:  ./dev.sh web"
+  info "Now run web locally:  ./scripts/run.sh web"
 }
 
 cmd_infra_web() {
@@ -287,7 +290,7 @@ cmd_ci() {
 cmd_setup() {
   case "${1:-}" in
     ""|--local) ;;
-    *) error "Usage: ./dev.sh setup [--local]" ;;
+    *) error "Usage: ./scripts/run.sh setup [--local]" ;;
   esac
 
   info "Running first-time setup..."
@@ -303,9 +306,9 @@ cmd_setup() {
   if [ "${1:-}" != "--local" ]; then
     echo ""
     echo "  Configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY in .env."
-    echo "  Then run: ./dev.sh up-prod"
-    echo "  For the full Stripe Premium demo: add STRIPE_SECRET_KEY and STRIPE_PRICE_ID, then run ./dev.sh up-stripe (Docker only; no host Stripe CLI required)"
-    echo "  For host-based development dependencies, run: ./dev.sh setup --local"
+    echo "  Then run: ./scripts/run.sh up-prod"
+    echo "  For the full Stripe Premium demo: add STRIPE_SECRET_KEY and STRIPE_PRICE_ID, then run ./scripts/run.sh up-stripe (Docker only; no host Stripe CLI required)"
+    echo "  For host-based development dependencies, run: ./scripts/run.sh setup --local"
     return
   fi
 
@@ -341,10 +344,10 @@ cmd_setup() {
   echo ""
   echo "  Next steps:"
   echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
-  echo "  2. ./dev.sh up          ← web only (Free/basic use; hot reload)"
-  echo "     ./dev.sh up-premium  ← web + mail service + Mailpit"
-  echo "     ./dev.sh up-stripe   ← full billing demo (Stripe CLI runs in Docker)"
-  echo "     ./dev.sh up-prod     ← full production-built Premium demo"
+  echo "  2. ./scripts/run.sh up          ← web only (Free/basic use; hot reload)"
+  echo "     ./scripts/run.sh up-premium  ← web + mail service + Mailpit"
+  echo "     ./scripts/run.sh up-stripe   ← full billing demo (Stripe CLI runs in Docker)"
+  echo "     ./scripts/run.sh up-prod     ← full production-built Premium demo"
   echo ""
 }
 
@@ -372,6 +375,7 @@ case "${1:-}" in
   test-mail)   cmd_test_mail ;;
   lint)        cmd_lint ;;
   ci)          cmd_ci ;;
+  env)         bash "$ROOT/scripts/sync-env.sh" "${2:-}" ;;
   setup)       cmd_setup "${2:-}" ;;
   help|--help) usage ;;
   *)           usage; exit 1 ;;
