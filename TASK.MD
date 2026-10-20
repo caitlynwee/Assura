@@ -628,3 +628,10 @@ Files: `web/src/app/_actions/billing.ts`, `web/src/app/api/stripe/webhook/route.
 Others need to know: Configure a recurring SGD Stripe test Price ID, `sk_test_` key, `whsec_` webhook secret, and server-only Supabase service-role key. Configure Customer Portal and forward the three subscription events listed in README. Stripe IDs are excluded from public-user responses.
 Blockers: Checkout was not exercised against Stripe because test credentials and a Price ID are not configured in this environment.
 ---
+## 2026-10-20 | Copilot | Stripe Environment Template
+Status: Completed
+Done: Clarified the root environment template with expected Stripe test credential formats and the local webhook secret workflow; kept credential values blank to avoid exposing secrets in tracked files.
+Files: `.env.example`
+Others need to know: Add real values to the ignored root `.env`, not `.env.example`.
+Blockers: None.
+---
