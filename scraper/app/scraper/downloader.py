@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config import settings
+from app.utils.debug_dump import dump
 from app.utils.http_client import USER_AGENT, get_client
 
 # Per-domain last-fetch timestamp for rate limiting
@@ -65,7 +66,9 @@ async def download_page(
         response.raise_for_status()
 
     _last_fetch[domain] = asyncio.get_event_loop().time()
+    text = response.content.decode("utf-8", errors="replace")
     print(f"[downloader] Jina fetched {url} → {len(response.content)} bytes")
+    dump(f"jina_{source_type}", {"url": url, "jina_url": jina_url, "content": text})
     return response.content
 
 
