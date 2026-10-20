@@ -51,6 +51,20 @@ services:
       mailpit:
         condition: service_started
 
+  stripe-cli:
+    profiles: ["stripe"]
+    image: stripe/stripe-cli:latest
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
+    command:
+      - listen
+      - --events=customer.subscription.created,customer.subscription.updated,customer.subscription.deleted
+      - --forward-to
+      - http://web:3000/api/stripe/webhook
+    depends_on:
+      web:
+        condition: service_started
+
   scraper:
     profiles: ["scraper"]
     build:

@@ -32,7 +32,7 @@ usage() {
   DOCKER
     ./dev.sh up              Start web only (dev mode, hot reload; Free/basic use)
     ./dev.sh up --build      Start web only, rebuilding its image first
-    ./dev.sh up-stripe       Start web + mail + Mailpit + Stripe forwarding
+    ./dev.sh up-stripe       Start web + mail + Mailpit + Dockerized Stripe CLI
     ./dev.sh up-stripe --build  Rebuild app images, then start billing demo
     ./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
     ./dev.sh up-scraper      Start scraper independently (no web or mail required)
@@ -80,12 +80,11 @@ cmd_up() {
 
 cmd_up_stripe() {
   require_env
-  command -v stripe &>/dev/null || error "Stripe CLI not installed. Install it and retry (macOS: brew install stripe/stripe-cli/stripe)."
   if [ -n "${1:-}" ] && [ "$1" != "--build" ]; then
     error "Usage: ./dev.sh up-stripe [--build]"
   fi
 
-  local stripe_key price_id webhook_secret stripe_listen_pid
+  local stripe_key price_id webhook_secret
   stripe_key="$(docker compose config --environment | awk -F= '$1 == "STRIPE_SECRET_KEY" { sub(/^[^=]*=/, ""); print; exit }')"
   price_id="$(docker compose config --environment | awk -F= '$1 == "STRIPE_PRICE_ID" { sub(/^[^=]*=/, ""); print; exit }')"
 
@@ -98,9 +97,9 @@ cmd_up_stripe() {
     *) error "Set STRIPE_PRICE_ID to a recurring test Price ID (price_...) in .env." ;;
   esac
 
-  info "Getting the local Stripe webhook signing secret..."
-  if ! webhook_secret="$(STRIPE_API_KEY="$stripe_key" stripe listen --print-secret)"; then
-    error "Could not get a webhook secret. Check that the Stripe CLI can authenticate with this test key."
+  info "Getting the local Stripe webhook signing secret in Docker..."
+  if ! webhook_secret="$(docker compose --profile stripe run --rm --no-deps stripe-cli listen --print-secret)"; then
+    error "Could not get a webhook secret from the Stripe CLI container. Check Docker connectivity and the Stripe test key."
   fi
   case "$webhook_secret" in
     whsec_*) ;;
@@ -108,20 +107,13 @@ cmd_up_stripe() {
   esac
 
   local -a compose_args
-  compose_args=(up)
+  compose_args=(--profile stripe up)
   if [ "${1:-}" = "--build" ]; then
     compose_args+=(--build)
   fi
-  compose_args+=(web mail mailpit)
+  compose_args+=(web mail mailpit stripe-cli)
 
-  info "Starting Stripe webhook forwarding to http://localhost:3000/api/stripe/webhook..."
-  STRIPE_API_KEY="$stripe_key" stripe listen \
-    --events=customer.subscription.created,customer.subscription.updated,customer.subscription.deleted \
-    --forward-to http://localhost:3000/api/stripe/webhook &
-  stripe_listen_pid=$!
-  trap "kill $stripe_listen_pid 2>/dev/null || true; wait $stripe_listen_pid 2>/dev/null || true" EXIT
-
-  info "Starting web, Premium mail services, and Stripe forwarding..."
+  info "Starting web, Premium mail services, and Stripe webhook forwarding..."
   STRIPE_WEBHOOK_SECRET="$webhook_secret" docker compose "${compose_args[@]}"
 }
 
@@ -310,7 +302,7 @@ cmd_setup() {
     echo ""
     echo "  Configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY in .env."
     echo "  Then run: ./dev.sh up-prod"
-    echo "  For the full Stripe Premium demo: add STRIPE_SECRET_KEY and STRIPE_PRICE_ID, then run ./dev.sh up-stripe"
+    echo "  For the full Stripe Premium demo: add STRIPE_SECRET_KEY and STRIPE_PRICE_ID, then run ./dev.sh up-stripe (Docker only; no host Stripe CLI required)"
     echo "  For host-based development dependencies, run: ./dev.sh setup --local"
     return
   fi
@@ -349,7 +341,7 @@ cmd_setup() {
   echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
   echo "  2. ./dev.sh up          ← web only (Free/basic use; hot reload)"
   echo "     ./dev.sh up-premium  ← web + mail service + Mailpit"
-  echo "     ./dev.sh up-stripe   ← web + mail + Mailpit + Stripe webhook forwarding"
+  echo "     ./dev.sh up-stripe   ← full billing demo (Stripe CLI runs in Docker)"
   echo "     ./dev.sh up-prod     ← full production-built Premium demo"
   echo ""
 }

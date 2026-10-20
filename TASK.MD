@@ -637,8 +637,8 @@ Blockers: None.
 ---
 ## 2026-10-20 | Copilot | One-Command Stripe Billing Demo
 Status: Completed
-Done: `./dev.sh up-stripe [--build]` starts web, Premium mail, Mailpit, and Stripe CLI event forwarding together; it obtains a local webhook signing secret and injects it into the web container without writing it to `.env`.
-Files: `dev.sh`, `README.md`, `.env.example`
-Others need to know: Requires Stripe CLI and `STRIPE_SECRET_KEY` plus recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
+Done: `./dev.sh up-stripe [--build]` starts web, Premium mail, Mailpit, and the Dockerized Stripe CLI together; it obtains a local webhook signing secret and injects it into the web container without writing it to `.env`, so no host Stripe CLI installation is needed.
+Files: `dev.sh`, `docker-compose.yml`, `README.md`, `.env.example`
+Others need to know: Requires Docker, `STRIPE_SECRET_KEY`, and recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
 Blockers: None.
 ---
