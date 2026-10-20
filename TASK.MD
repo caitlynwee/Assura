@@ -422,3 +422,18 @@ Files: TASK.MD
 Others need to know: Before relying on real-account flows, smoke-test signup and account deletion against the intended Supabase project; CI does not validate those live service flows.
 Blockers: None for the PR merge; live Supabase smoke tests remain outstanding.
 ---
+
+## 2026-10-20 | Dominic | Plan Q&A chat history (saved conversations + sidebar)
+Status: Completed
+Done:
+- Chats now persist in Postgres (new `chat_conversations` + `chat_messages` tables, migration 0002_chat_history). Refreshing /chat keeps the conversation; the active chat id lives in `?c=`.
+- Sidebar on /chat like other AI chat apps: New chat, list grouped Today / Yesterday / Previous 7 days / Older, click to switch, trash icon → confirm dialog → permanent delete (messages cascade).
+- /api/chat now saves the question + streamed answer and loads history SERVER-SIDE from the DB (client can no longer inject fake assistant turns). New: GET /api/chat/conversations, GET + DELETE /api/chat/conversations/:id — all scoped to the signed-in user (404 for anyone else's). Deletes are audit-logged as `chat.conversation_deleted` (id only, never content).
+- Fix: a failed model call used to error the stream before any bytes, so the server dropped the connection and the browser silently retried the POST (5×). It now finishes with a readable "couldn't answer" message instead.
+- Tests: chat-history.test.ts (11 tests: save, continue, ownership, injected history ignored, model failure, list/get/delete scoping, cascade + audit). Full suite 53/53, build + tsc clean, no new lint errors.
+Files: web/src/lib/{schema,db,types,validators,seed}.ts, web/drizzle/0002_chat_history.sql (+meta), web/src/app/api/chat/**, web/src/hooks/{use-chat,use-conversations}.ts, web/src/components/chat/{chat-workspace,chat-history-sidebar,chat-window}.tsx, web/src/app/(app)/chat/page.tsx, web/src/__tests__/{chat-history.test.ts,setup.ts}
+Others need to know:
+- Run `npm run db:migrate` (or restart Docker so db-init migrates) — the two new tables are required for /chat.
+- Reset scripts (seed.ts resetDatabase / RESET=1) now also clear chat tables.
+Blockers: None
+---

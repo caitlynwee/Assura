@@ -56,7 +56,9 @@ export const chatMessageSchema = z.object({
 
 export const chatRequestSchema = z.object({
   message: z.string().min(1).max(2000),
-  history: z.array(chatMessageSchema).max(50).optional().default([]),
+  // Existing conversation to continue. Omit to start a new one. History is
+  // loaded server-side from the database — the client can't inject it.
+  conversationId: z.string().min(1).max(64).optional(),
 });
 
 // ─── Outreach ─────────────────────────────────────────────────────────────────
