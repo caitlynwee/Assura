@@ -6,6 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$ROOT/scraper/.venv"
+cd "$ROOT"
 
 # ── Colours ────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -29,8 +30,9 @@ usage() {
   Assura dev CLI
 
   DOCKER (all services together)
-    ./dev.sh up              Start everything  (docker compose up)
-    ./dev.sh up --build      Start everything, rebuild images first
+    ./dev.sh up              Start everything in Docker (web dev mode, hot reload)
+    ./dev.sh up --build      Start dev mode, rebuild images first
+    ./dev.sh up-prod         Start the full Docker demo (production-built web)
     ./dev.sh down            Stop everything
     ./dev.sh restart         down + up
     ./dev.sh build [svc]     Rebuild image(s)  svc: web | scraper
@@ -47,13 +49,14 @@ usage() {
     ./dev.sh infra-web       Start mailpit in Docker, run web locally
 
   UTILITIES
-    ./dev.sh seed            Reset database to seed state (needs DATABASE_URL)
+    ./dev.sh seed            Reset configured database to seed state (destructive)
     ./dev.sh db:migrate      Apply Drizzle migrations
     ./dev.sh db:seed         Load seed data (RESET=1 truncates first)
     ./dev.sh test            Run scraper test suite (pytest)
     ./dev.sh lint            Lint scraper/app with ruff
     ./dev.sh ci              Run all CI checks locally (web + scraper)
-    ./dev.sh setup           First-time setup (uv venv, deps, .env files, seed)
+    ./dev.sh setup           Prepare root .env for Docker
+    ./dev.sh setup --local   Also create local env and install host dependencies
 
 EOF
 }
@@ -68,6 +71,14 @@ cmd_up() {
     info "Starting all services..."
     docker compose up
   fi
+}
+
+cmd_up_prod() {
+  # Whole stack in Docker with the web app BUILT (production) — no live
+  # recompiling. Uses the prod override which swaps web to Dockerfile.prod.
+  require_env
+  info "Starting all services with PRODUCTION web (building image)..."
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 }
 
 cmd_down() {
@@ -149,8 +160,11 @@ cmd_infra_web() {
 }
 
 cmd_seed() {
+  require_env
+  warn "This will truncate the configured database and restore demo seed data."
   info "Resetting database to seed state..."
-  bash "$ROOT/seed/reset.sh"
+  docker compose run --rm db-migrate sh -c \
+    'npm run db:migrate && RESET=1 npm run db:seed && npm run db:seed-auth'
   info "Done."
 }
 
@@ -199,20 +213,33 @@ cmd_ci() {
 }
 
 cmd_setup() {
+  case "${1:-}" in
+    ""|--local) ;;
+    *) error "Usage: ./dev.sh setup [--local]" ;;
+  esac
+
   info "Running first-time setup..."
 
   # ── Root .env ────────────────────────────────────────────────
   if [ ! -f "$ROOT/.env" ]; then
     cp "$ROOT/.env.example" "$ROOT/.env"
-    warn ".env created — fill in AUTH_SECRET and DEEPSEEK_API_KEY before running docker."
+    warn ".env created — configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY before Docker startup."
   else
     echo "  .env already exists, skipping."
+  fi
+
+  if [ "${1:-}" != "--local" ]; then
+    echo ""
+    echo "  Configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY in .env."
+    echo "  Then run: ./dev.sh up-prod"
+    echo "  For host-based development dependencies, run: ./dev.sh setup --local"
+    return
   fi
 
   # ── web/.env.local ───────────────────────────────────────────
   if [ ! -f "$ROOT/web/.env.local" ]; then
     cp "$ROOT/web/.env.local.example" "$ROOT/web/.env.local"
-    warn "web/.env.local created — fill in AUTH_SECRET and DEEPSEEK_API_KEY for local dev."
+    warn "web/.env.local created — configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY for local dev."
   else
     echo "  web/.env.local already exists, skipping."
   fi
@@ -236,15 +263,16 @@ cmd_setup() {
   echo -e "${GREEN}Setup complete.${NC}"
   echo ""
   echo "  Next steps:"
-  echo "  1. Edit .env  (AUTH_SECRET + DEEPSEEK_API_KEY)"
-  echo "  2. ./dev.sh up          ← Docker (all services)"
-  echo "     ./dev.sh web         ← local web only"
+  echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
+  echo "  2. ./dev.sh up-prod     ← full Docker demo (production-built web)"
+  echo "     ./dev.sh up          ← Docker development mode (web hot reload)"
   echo ""
 }
 
 # ── Router ─────────────────────────────────────────────────────────────────
 case "${1:-}" in
   up)          cmd_up "${2:-}" ;;
+  up-prod)     cmd_up_prod ;;
   down)        cmd_down ;;
   restart)     cmd_restart "${2:-}" ;;
   build)       cmd_build "${2:-}" ;;
@@ -261,7 +289,7 @@ case "${1:-}" in
   test)        cmd_test ;;
   lint)        cmd_lint ;;
   ci)          cmd_ci ;;
-  setup)       cmd_setup ;;
+  setup)       cmd_setup "${2:-}" ;;
   help|--help) usage ;;
   *)           usage; exit 1 ;;
 esac

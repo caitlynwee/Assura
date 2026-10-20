@@ -66,10 +66,10 @@ export const INCOME_KEYWORDS: string[] = [
   "noa",
 ];
 
-// ─── AI disclosure prefix ─────────────────────────────────────────────────────
+// ─── AI disclosure footer ──────────────────────────────────────────────────────
 
-export const AI_DISCLOSURE_PREFIX =
-  "Note: This email is drafted and sent by an AI assistant (Fineprint) on behalf of a customer who has reviewed and approved it. The customer's real contact details are not shared in this message.";
+export const AI_DISCLOSURE_FOOTER =
+  "— Sent with the help of Assura, a personal insurance assistant, and reviewed and approved by me before sending.";
 
 // ─── Thread statuses ──────────────────────────────────────────────────────────
 

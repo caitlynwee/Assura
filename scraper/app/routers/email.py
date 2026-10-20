@@ -34,15 +34,20 @@ async def send_outreach_email(
     body: SendRequest,
     x_internal_api_key: str | None = Header(default=None),
 ):
-    """Send an approved outreach email via Mailpit."""
+    """Send an approved outreach email to the local Mailpit sandbox."""
     _require_internal_key(x_internal_api_key)
-    message_id = await send_email(
+    message_id, from_address, to_address = await send_email(
         from_address=body.from_address,
         to_address=body.to_address,
         subject=body.subject,
         body=body.body,
     )
-    return {"message_id": message_id, "status": "sent"}
+    return {
+        "message_id": message_id,
+        "from_address": from_address,
+        "to_address": to_address,
+        "status": "sent",
+    }
 
 
 @router.post("/reply")
@@ -61,9 +66,12 @@ async def trigger_reply(
 
 @router.get("/health")
 async def health_check():
-    """Check Mailpit SMTP connectivity."""
+    """Check connectivity to the local Mailpit SMTP sandbox."""
     from app.email_relay.relay import check_smtp_connection
     ok = await check_smtp_connection()
     if not ok:
-        raise HTTPException(status_code=503, detail="Mailpit SMTP unreachable")
+        raise HTTPException(
+            status_code=503,
+            detail="Local Mailpit SMTP is unreachable.",
+        )
     return {"status": "ok"}

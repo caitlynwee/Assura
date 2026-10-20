@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     web_base_url: str = "http://localhost:3000"
     internal_api_secret: str = "dev-internal-key"
 
-    # Mailpit SMTP sandbox
+    # Mailpit SMTP sandbox (default: nothing leaves the machine)
     mailpit_smtp_host: str = "localhost"
     mailpit_smtp_port: int = 1025
 
@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     database_url: str = ""
 
     # LLM
-    anthropic_api_key: str = ""
-    llm_model: str = "claude-haiku-4-5-20251001"
+    deepseek_api_key: str = ""
+    llm_model: str = "deepseek-chat"
 
     # Scraper behaviour
     scraper_rate_limit_delay: float = 2.0  # seconds between requests to same domain

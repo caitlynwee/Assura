@@ -20,4 +20,9 @@ npx tsx src/lib/migrate.ts
 # Truncate all tables and re-insert seed rows.
 RESET=1 npx tsx src/lib/seed.ts
 
+# Ensure the demo Supabase auth identity exists and re-link user_demo.auth_uid.
+# RESET=1 above wiped auth_uid (seed/users.json has none), so this must re-run.
+# Early-returns (no throw) when Supabase keys are absent, so keyless resets pass.
+npx tsx src/lib/seed-auth.ts
+
 echo "Done. Database reset to seed state."

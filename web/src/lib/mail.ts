@@ -1,10 +1,9 @@
 /**
  * mail.ts — Mailpit SMTP integration.
  *
- * Sends from per-user relay addresses to Mailpit sandbox.
- * Nothing leaves the machine.
+ * Sends approved outreach through the local relay service to Mailpit only.
  *
- * The outreach service prefixes the AI disclosure and owns SMTP delivery.
+ * The outreach service appends the AI disclosure footer and owns SMTP delivery.
  * Rate limits are enforced here before forwarding an approved send.
  */
 
@@ -30,7 +29,9 @@ interface SendEmailParams {
   threadId?: string;
 }
 
-export async function sendEmail(params: SendEmailParams): Promise<string> {
+export async function sendEmail(
+  params: SendEmailParams
+): Promise<{ messageId: string; from: string; to: string }> {
   const { from, to, subject, body, userId, threadId } = params;
 
   // Check daily rate limit
@@ -62,14 +63,23 @@ export async function sendEmail(params: SendEmailParams): Promise<string> {
     throw new Error(`Outreach server rejected email (${response.status}): ${detail}`);
   }
 
-  const result = (await response.json()) as { message_id?: string };
+  const result = (await response.json()) as {
+    message_id?: string;
+    from_address?: string;
+    to_address?: string;
+  };
   const messageId = result.message_id;
-  if (!messageId) {
-    throw new Error("Outreach server returned no message ID.");
+  if (!messageId || !result.from_address || !result.to_address) {
+    throw new Error("Outreach server returned an incomplete send confirmation.");
   }
 
-  logEvent(userId, "email.sent", { messageId, to, subject, threadId: threadId ?? null });
-  return messageId;
+  logEvent(userId, "email.sent", {
+    messageId,
+    to: result.to_address,
+    subject,
+    threadId: threadId ?? null,
+  });
+  return { messageId, from: result.from_address, to: result.to_address };
 }
 
 async function checkDailyLimit(userId: string): Promise<void> {
