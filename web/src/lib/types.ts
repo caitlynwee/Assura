@@ -78,6 +78,7 @@ export interface Plan {
   keyBenefits: string[];
   exclusions: string[];
   sourceUrl: string;
+  productUrl: string;
   dataAsOf: string; // YYYY-MM-DD
   updatedBadge: boolean;
   changeNotes: string[];
