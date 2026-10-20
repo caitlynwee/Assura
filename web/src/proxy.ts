@@ -26,6 +26,7 @@ import { createServerClient } from "@supabase/ssr";
 import { jwtVerify, createRemoteJWKSet, type JWTVerifyGetKey } from "jose";
 import { NextResponse, type NextRequest } from "next/server";
 import { evaluateRoute } from "@/lib/auth-routing";
+import { REMEMBER_COOKIE } from "@/lib/constants";
 import type { UserTier } from "@/lib/types";
 
 interface EdgeSession {
@@ -59,6 +60,9 @@ export default async function proxy(req: NextRequest) {
   let session = SIGNED_OUT;
 
   if (url && anonKey) {
+    // "Keep me signed in" unchecked → strip maxAge on refreshed session cookies
+    // so they stay session-only even as the middleware rotates the token.
+    const stripMaxAge = req.cookies.get(REMEMBER_COOKIE)?.value === "0";
     const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
@@ -66,7 +70,13 @@ export default async function proxy(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           for (const { name, value, options } of cookiesToSet) {
-            res.cookies.set(name, value, options);
+            if (stripMaxAge) {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { maxAge, ...sessionOptions } = options;
+              res.cookies.set(name, value, sessionOptions);
+            } else {
+              res.cookies.set(name, value, options);
+            }
           }
         },
       },

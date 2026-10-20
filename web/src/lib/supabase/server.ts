@@ -16,6 +16,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { readSupabaseEnv } from "./env";
+import { REMEMBER_COOKIE } from "@/lib/constants";
 
 type RealServerClient = ReturnType<typeof createServerClient>;
 
@@ -83,12 +84,27 @@ function stubServerClient(): AppSupabaseServerClient {
 /**
  * Create a cookie-bound server Supabase client (or a stub when keys are absent).
  * Not memoized: each request binds to its own cookie store.
+ *
+ * @param opts.stripMaxAge - When true, the Supabase session cookies are written
+ *   WITHOUT a `maxAge`, making them session cookies that expire when the
+ *   browser closes ("Keep me signed in" unchecked). Used by the login action,
+ *   where the preference cookie set in the same request isn't yet visible to
+ *   `getAll()`. For all other requests the preference is derived from the
+ *   `sb-remember` marker cookie below.
  */
-export async function getServerClient(): Promise<AppSupabaseServerClient> {
+export async function getServerClient(
+  opts?: { stripMaxAge?: boolean }
+): Promise<AppSupabaseServerClient> {
   const env = readSupabaseEnv();
   if (!env) return stubServerClient();
 
   const cookieStore = await cookies();
+  // Derive the persistence preference from the marker cookie for non-login
+  // requests. The login action passes the explicit override instead, because a
+  // cookie set during the same request isn't readable via getAll().
+  const rememberMarker = cookieStore.get(REMEMBER_COOKIE)?.value;
+  const stripMaxAge = opts?.stripMaxAge ?? rememberMarker === "0";
+
   return createServerClient(env.url, env.anonKey, {
     cookies: {
       getAll() {
@@ -97,7 +113,15 @@ export async function getServerClient(): Promise<AppSupabaseServerClient> {
       setAll(cookiesToSet) {
         try {
           for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options);
+            if (stripMaxAge) {
+              // Drop maxAge so the cookie becomes a session cookie (cleared on
+              // browser close) instead of a persistent one.
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { maxAge, ...sessionOptions } = options;
+              cookieStore.set(name, value, sessionOptions);
+            } else {
+              cookieStore.set(name, value, options);
+            }
           }
         } catch {
           // Called from a Server Component where cookies are read-only. The

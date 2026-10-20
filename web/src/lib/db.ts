@@ -254,6 +254,62 @@ export async function getPlans(country?: string): Promise<Plan[]> {
   return rows as Plan[];
 }
 
+/** The row shape accepted by insertPlan (every NOT-NULL plan column). */
+export type NewPlanRow = typeof schema.plans.$inferInsert;
+
+/**
+ * Insert a single plan row. Only ever ADDS — it never deletes or truncates, so
+ * it is safe alongside the scraper (which preserves good data on a failed run).
+ * The caller owns id generation and the writer-controlled fields
+ * (version/updatedBadge/changeNotes/dataAsOf/scrapedAt).
+ */
+export async function insertPlan(plan: NewPlanRow): Promise<void> {
+  await getDb().insert(schema.plans).values(plan);
+}
+
+// ─── plan brochures (admin-uploaded files) ────────────────────────────────────
+
+export interface BrochureUpload {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  data: Buffer;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+export interface BrochureFile {
+  filename: string;
+  contentType: string;
+  size: number;
+  data: Buffer;
+}
+
+/** Store an uploaded brochure file (bytes live in the database). */
+export async function insertBrochure(brochure: BrochureUpload): Promise<void> {
+  await getDb().insert(schema.planBrochures).values(brochure);
+}
+
+/** Fetch a stored brochure for download, or null when it does not exist. */
+export async function getBrochureById(id: string): Promise<BrochureFile | null> {
+  const rows = await getDb()
+    .select({
+      filename: schema.planBrochures.filename,
+      contentType: schema.planBrochures.contentType,
+      size: schema.planBrochures.size,
+      data: schema.planBrochures.data,
+    })
+    .from(schema.planBrochures)
+    .where(eq(schema.planBrochures.id, id))
+    .limit(1);
+  if (!rows[0]) return null;
+  const row = rows[0];
+  // postgres.js returns bytea as a Buffer; pglite (tests) may return a Uint8Array.
+  const data = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data as Uint8Array);
+  return { filename: row.filename, contentType: row.contentType, size: row.size, data };
+}
+
 // ─── sources ──────────────────────────────────────────────────────────────────
 
 export async function getSources(): Promise<Source[]> {

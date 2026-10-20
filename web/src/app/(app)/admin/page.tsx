@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import PageHeader from "@/components/layout/page-header";
 import ScraperControls from "@/components/admin/scraper-controls";
+import AddPlanForm from "@/components/admin/add-plan-form";
 import { requireAdmin } from "@/lib/session";
 import { getT } from "@/lib/i18n/server";
 
@@ -21,6 +22,7 @@ export default async function AdminPage() {
         description={t.description(user.email)}
       />
       <ScraperControls />
+      <AddPlanForm />
       <section className="rounded-lg border bg-card p-5">
         <h2 className="font-medium">{t.safeguardsTitle}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
