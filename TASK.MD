@@ -728,3 +728,16 @@ Files: `mail-service/app/{config,simulator,listener,main}.py`, `mail-service/app
 Others need to know: Insurer replies are no longer user-triggered — they arrive automatically from the listener. Quarantine/quote-extraction path on the web side is unchanged (injector hidden text still handled by CRM extraction). New mail-service settings: mailpit_api_base, listener_enabled, listener_poll_seconds (3.0), reply_delay_seconds (6.0). Verification: `./dev.sh test-mail` 18 passed, `./dev.sh lint` clean, mail-service ruff clean; web `npm run build` exit 0, `npm run lint` clean, `npm test` 122 passed.
 Blockers: Could not run the live Docker Mailpit stack in this environment; poll→detect→ack→delayed-answer→CRM-callback wiring is covered by unit tests with mocked Mailpit API + CRM callback.
 ---
+
+## 2026-10-20 | Marcus | Stored Brochure PDFs
+Status: Completed
+Done:
+- Scraper now keeps a real copy of each brochure PDF: new download_raw_pdf() (plain httpx, robots+rate-limit reuse, content-type/magic-byte check) + new pdf_store.store_pdf() (Supabase Storage REST upload, x-upsert, public-URL build, keyless no-op, failure-safe).
+- engine.run_scraper gained a decoupled, idempotent best-effort stored-PDF pass (after Phase 2) that seeds stored_doc_url for any plan with a known PDF source URL and no stored copy — independent of change detection. Failures never fail the run or wipe data. No scheduler/cron reintroduced; trigger stays POST /scraper/run.
+- Schema (additive, nullable): plans.stored_doc_url via Drizzle (migration 0011) + SQLAlchemy Plan mapping + Plan TS type storedDocUrl?. Migration is a pure ADD COLUMN.
+- Compare UI Source column now shows three views: Official page (productUrl), Official brochure (sourceUrl, live insurer PDF), Our copy/backup (storedDocUrl, only when present). i18n updated en+zh.
+- Supabase env wired into scraper/.env.example + docker-compose scraper service (reuses NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, no secrets committed).
+Files: scraper/app/config.py, scraper/app/scraper/downloader.py, scraper/app/scraper/pdf_store.py (new), scraper/app/scraper/engine.py, scraper/app/storage/database.py, scraper/.env.example, scraper/tests/test_pdf_store.py (new), scraper/tests/test_engine.py, web/src/lib/schema.ts, web/src/lib/types.ts, web/drizzle/0011_adorable_lady_vermin.sql (+meta), web/src/components/compare/plan-table.tsx, web/src/lib/i18n/messages/sections/compare.ts, docker-compose.yml
+Others need to know: stored_doc_url is nullable; existing rows stay NULL until the next admin-triggered run seeds them. Supabase config is optional — keyless = upload silently skipped, scrape still succeeds. The "documents" bucket must be public for the links to open.
+Blockers: none
+---

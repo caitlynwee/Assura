@@ -78,6 +78,13 @@
       "when": 1792630000001,
       "tag": "0009_stripe_billing_catchup",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792498500390,
+      "tag": "0011_adorable_lady_vermin",
+      "breakpoints": true
     }
   ]
 }
