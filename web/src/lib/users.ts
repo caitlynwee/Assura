@@ -89,7 +89,7 @@ export async function resolveOrCreateAuthUser(identity: {
 
 export function toPublicUser(user: User): PublicUser {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { passwordHash, ...rest } = user;
+  const { passwordHash, stripeCustomerId, stripeSubscriptionId, ...rest } = user;
   return rest;
 }
 
@@ -186,6 +186,8 @@ export async function updateUser(
       maskedInbox,
       onboarded: mutable.onboarded,
       profile: mutable.profile ?? {},
+      stripeCustomerId: mutable.stripeCustomerId ?? null,
+      stripeSubscriptionId: mutable.stripeSubscriptionId ?? null,
       shareAge: mutable.consent.shareAge,
       shareGender: mutable.consent.shareGender,
       shareSmokerStatus: mutable.consent.shareSmokerStatus,

@@ -621,3 +621,10 @@ Files: `mail-service/`, `web/src/lib/mail.ts`, `web/src/app/api/crm/threads/[thr
 Others need to know: Basic starts web + DB migration; Premium starts web + mail + Mailpit; scraper starts independently. All use PostgreSQL; SMTP is restricted to local Mailpit on port 1025.
 Blockers: None.
 ---
+## 2026-10-20 | Copilot | Stripe Premium Checkout
+Status: Completed
+Done: Replaced free Premium activation with Stripe test-mode subscription Checkout; signed webhook events synchronize Premium entitlement, and paid users can manage/cancel in Stripe Billing Portal. New signups are Free, while the shared demo remains Premium.
+Files: `web/src/app/_actions/billing.ts`, `web/src/app/api/stripe/webhook/route.ts`, `web/src/lib/stripe.ts`, `web/drizzle/0008_stripe_billing.sql`, `web/src/app/(app)/upgrade/page.tsx`
+Others need to know: Configure a recurring SGD Stripe test Price ID, `sk_test_` key, `whsec_` webhook secret, and server-only Supabase service-role key. Configure Customer Portal and forward the three subscription events listed in README. Stripe IDs are excluded from public-user responses.
+Blockers: Checkout was not exercised against Stripe because test credentials and a Price ID are not configured in this environment.
+---

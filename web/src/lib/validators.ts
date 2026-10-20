@@ -27,7 +27,7 @@ export const signupSchema = z
       .regex(/[A-Za-z]/, "Password must contain a letter.")
       .regex(/\d/, "Password must contain a number."),
     confirmPassword: z.string(),
-    tier: z.enum(["free", "premium"]).default("premium"),
+    tier: z.literal("free").default("free"),
   })
   .refine((d) => d.password === d.confirmPassword, {
     message: "Passwords do not match.",

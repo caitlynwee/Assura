@@ -15,7 +15,7 @@ THREE DELIVERABLES
 1. Website
    - Public: homepage (pitch, how it works, Free vs Premium, login) and login (one-click demo login).
    - Logged in: full plan comparison (filters, sorting, source link and "data as of" date per plan) and plan Q&A chat whose answers cite the brochure.
-   - Premium (assume the demo user is premium, no payments):
+   - Premium subscriptions are purchased through Stripe Checkout (test mode for development); the shared demo account remains premium without payment:
      - Onboarding: email only, consent checkboxes for what may be shared, masked inbox address shown.
      - Outreach: pick up to 5 insurers and question templates, AI drafts, user edits and approves.
      - CRM: threads with statuses (Draft, Awaiting approval, Sent, Replied, Info received, Flagged, Closed), extracted quote fields, risk flags, close thread, "add quote to comparison".

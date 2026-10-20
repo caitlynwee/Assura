@@ -57,6 +57,13 @@
       "when": 1792620000002,
       "tag": "0002_country_sg_to_singapore",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792620000003,
+      "tag": "0008_stripe_billing",
+      "breakpoints": true
     }
   ]
 }
