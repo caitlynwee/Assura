@@ -6,6 +6,8 @@
  */
 
 import { z } from "zod";
+import { COUNTRY_OF_ORIGIN_OPTIONS } from "./countries";
+import { ageFromDateOfBirth } from "./profile";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -106,11 +108,15 @@ export const threadUpdateSchema = z.object({
 
 export const profileSchema = z.object({
   age: z.number().int().min(18).max(80).optional(),
+  dateOfBirth: z.string().date().refine((value) => {
+    const age = ageFromDateOfBirth(value);
+    return age !== undefined && age >= 18 && age <= 80;
+  }, "Date of birth must be for someone aged 18 to 80.").optional(),
+  countryOfOrigin: z.enum(COUNTRY_OF_ORIGIN_OPTIONS).optional(),
   gender: z.enum(["male", "female", "prefer_not_to_say"]).optional(),
   smoker: z.boolean().optional(),
   coverageNeeded: z.number().int().positive().max(10_000_000).optional(),
   monthlyBudget: z.number().int().positive().max(100_000).optional(),
-  occupation: z.string().trim().max(80).optional(),
 });
 
 export const onboardingSchema = z.object({

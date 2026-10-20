@@ -308,7 +308,7 @@ db-migrate (applies migrations + seeds the database, then exits)
 | Person | Area | Key files |
 |---|---|---|
 | **Dominic** | Web frontend & auth | `web/src/app/`, `web/src/components/`, `web/src/middleware.ts` |
-| **Marcus** | Scraper & data pipeline | `scraper/app/scraper/`, `scraper/app/routers/`, `data/sources.json` |
+| **Marcus** | Scraper & data pipeline | `scraper/app/scraper/`, `scraper/app/routers/`, PostgreSQL source records |
 | **Jeff** | AI agent, outreach & CRM | `web/src/app/(app)/outreach/`, `web/src/app/(app)/crm/`, `scraper/app/personas/`, `scraper/app/email_relay/` |
 | **Caitlyn** | Docs & presentation | Architecture diagram, security write-up, slide deck |
 

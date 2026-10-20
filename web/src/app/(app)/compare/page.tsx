@@ -5,6 +5,7 @@ import PlanFilters from "@/components/compare/plan-filters";
 import PageHeader from "@/components/layout/page-header";
 import { getCurrentUser } from "@/lib/session";
 import type { ComparePersonalProfile } from "@/lib/premium";
+import { profileAge } from "@/lib/profile";
 
 export const metadata = { title: "Compare Plans — Assura" };
 
@@ -16,7 +17,7 @@ export default async function ComparePage() {
   const p = user?.profile;
   const profile: ComparePersonalProfile | undefined = p
     ? {
-        age: p.age,
+        age: profileAge(p),
         gender: p.gender,
         smoker: p.smoker,
         monthlyBudget: p.monthlyBudget,

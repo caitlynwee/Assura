@@ -44,6 +44,7 @@ import {
   THREAD_STATUS_LABELS,
 } from "@/lib/constants";
 import type { ConsentFlags, ThreadStatus, UserProfile } from "@/lib/types";
+import { profileAge } from "@/lib/profile";
 import ApprovalDialog from "./approval-dialog";
 import { previewPII } from "./pii-preview";
 import {
@@ -155,7 +156,7 @@ export default function OutreachWizard({
   const [selected, setSelected] = useState<string[]>([]);
   const [templateId, setTemplateId] = useState(OUTREACH_TEMPLATES[0].id);
   const [ctx, setCtx] = useState<OutreachContext>({
-    age: profile.age,
+    age: profileAge(profile),
     gender: profile.gender,
     smoker: profile.smoker,
     coverageNeeded: profile.coverageNeeded,

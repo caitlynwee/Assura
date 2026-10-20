@@ -1,5 +1,7 @@
 // ─── User ─────────────────────────────────────────────────────────────────────
 
+import type { CountryOfOrigin } from "./countries";
+
 export type UserTier = "free" | "premium";
 
 export interface ConsentFlags {
@@ -13,15 +15,17 @@ export interface ConsentFlags {
   shareIncome: boolean;
 }
 
-/** Optional profile captured at onboarding. Only fields the user consented to
- *  share are ever placed into an outreach draft (enforced server-side in ai.ts). */
+/** Optional profile captured in settings/onboarding. Exact birthday and country
+ *  remain private; outreach receives only explicitly consented fields. */
 export interface UserProfile {
+  /** Legacy age retained for profiles created before date-of-birth collection. */
   age?: number;
+  dateOfBirth?: string;
+  countryOfOrigin?: CountryOfOrigin;
   gender?: "male" | "female" | "prefer_not_to_say";
   smoker?: boolean;
   coverageNeeded?: number; // SGD
   monthlyBudget?: number; // SGD
-  occupation?: string;
 }
 
 export interface User {

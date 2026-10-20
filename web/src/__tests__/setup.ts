@@ -20,7 +20,6 @@ let pgliteClient: any;
 export let testDb: any;
 
 const migrationsFolder = path.resolve(__dirname, "../../drizzle");
-const seedDir = path.resolve(__dirname, "../../../seed");
 
 /** Remove every row (in FK-safe order), then reload the seed data. */
 export async function resetDatabase(): Promise<void> {
@@ -32,7 +31,7 @@ export async function resetDatabase(): Promise<void> {
   await testDb.delete(schema.scraperRuns);
   await testDb.delete(schema.users);
   await testDb.delete(schema.insurers);
-  await seedDatabase(testDb, seedDir);
+  await seedDatabase(testDb);
 }
 
 beforeAll(async () => {
@@ -42,7 +41,7 @@ beforeAll(async () => {
   testDb = drizzle(pgliteClient, { schema });
 
   await migrate(testDb, { migrationsFolder });
-  await seedDatabase(testDb, seedDir);
+  await seedDatabase(testDb);
 
   setDb(testDb);
 });
