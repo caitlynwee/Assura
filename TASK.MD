@@ -412,3 +412,13 @@ Files: docs/HANDOFF-supabase-auth-pr7.md, TASK.MD
 Others need to know: Still unverified against the live Supabase project: new-account signup and account deletion. Signup previously hit Supabase's email rate limit. PR #7 must remain draft until those checks are completed or explicitly waived, and the user approves merging.
 Blockers: Live Supabase signup/account-deletion smoke test and user decision on PR readiness/merge.
 ---
+
+## 2026-10-20 | Copilot | Resolve Supabase Auth PR handoff gates
+Status: Completed
+Done:
+- Verified PR #7 merged into `main` as `9af4cd4` after web and scraper CI passed; the user explicitly authorized merging.
+- Closed the handoff's PR readiness/merge decision. The live Supabase signup and account-deletion checks remain unverified and are follow-up validation, not a merge blocker.
+Files: TASK.MD
+Others need to know: Before relying on real-account flows, smoke-test signup and account deletion against the intended Supabase project; CI does not validate those live service flows.
+Blockers: None for the PR merge; live Supabase smoke tests remain outstanding.
+---
