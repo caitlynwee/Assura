@@ -32,8 +32,8 @@ usage() {
   DOCKER
     ./dev.sh up              Start web only (dev mode, hot reload; Free/basic use)
     ./dev.sh up --build      Start web only, rebuilding its image first
-    ./dev.sh up-stripe       Start web + Stripe webhook forwarding for billing tests
-    ./dev.sh up-stripe --build  Rebuild web, then start web + Stripe forwarding
+    ./dev.sh up-stripe       Start web + mail + Mailpit + Stripe forwarding
+    ./dev.sh up-stripe --build  Rebuild app images, then start billing demo
     ./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
     ./dev.sh up-scraper      Start scraper independently (no web or mail required)
     ./dev.sh up-prod         Start the full production-built Premium demo
@@ -112,7 +112,7 @@ cmd_up_stripe() {
   if [ "${1:-}" = "--build" ]; then
     compose_args+=(--build)
   fi
-  compose_args+=(web)
+  compose_args+=(web mail mailpit)
 
   info "Starting Stripe webhook forwarding to http://localhost:3000/api/stripe/webhook..."
   STRIPE_API_KEY="$stripe_key" stripe listen \
@@ -121,7 +121,7 @@ cmd_up_stripe() {
   stripe_listen_pid=$!
   trap "kill $stripe_listen_pid 2>/dev/null || true; wait $stripe_listen_pid 2>/dev/null || true" EXIT
 
-  info "Starting web with the Stripe CLI webhook secret..."
+  info "Starting web, Premium mail services, and Stripe forwarding..."
   STRIPE_WEBHOOK_SECRET="$webhook_secret" docker compose "${compose_args[@]}"
 }
 
@@ -310,7 +310,7 @@ cmd_setup() {
     echo ""
     echo "  Configure Supabase, DATABASE_URL, and DEEPSEEK_API_KEY in .env."
     echo "  Then run: ./dev.sh up-prod"
-    echo "  For Stripe billing tests: add STRIPE_SECRET_KEY and STRIPE_PRICE_ID, then run ./dev.sh up-stripe"
+    echo "  For the full Stripe Premium demo: add STRIPE_SECRET_KEY and STRIPE_PRICE_ID, then run ./dev.sh up-stripe"
     echo "  For host-based development dependencies, run: ./dev.sh setup --local"
     return
   fi
@@ -349,7 +349,7 @@ cmd_setup() {
   echo "  1. Configure .env: Supabase URL/keys, DATABASE_URL, and DEEPSEEK_API_KEY"
   echo "  2. ./dev.sh up          ← web only (Free/basic use; hot reload)"
   echo "     ./dev.sh up-premium  ← web + mail service + Mailpit"
-  echo "     ./dev.sh up-stripe   ← web + Stripe CLI webhook forwarding"
+  echo "     ./dev.sh up-stripe   ← web + mail + Mailpit + Stripe webhook forwarding"
   echo "     ./dev.sh up-prod     ← full production-built Premium demo"
   echo ""
 }

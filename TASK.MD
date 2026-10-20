@@ -635,9 +635,9 @@ Files: `.env.example`
 Others need to know: Add real values to the ignored root `.env`, not `.env.example`.
 Blockers: None.
 ---
-## 2026-10-20 | Copilot | One-Command Stripe Billing Test
+## 2026-10-20 | Copilot | One-Command Stripe Billing Demo
 Status: Completed
-Done: Added `./dev.sh up-stripe [--build]` to start the web container and Stripe CLI event forwarding together; the command obtains a local webhook signing secret and injects it into the container without writing it to `.env`.
+Done: `./dev.sh up-stripe [--build]` starts web, Premium mail, Mailpit, and Stripe CLI event forwarding together; it obtains a local webhook signing secret and injects it into the web container without writing it to `.env`.
 Files: `dev.sh`, `README.md`, `.env.example`
 Others need to know: Requires Stripe CLI and `STRIPE_SECRET_KEY` plus recurring `STRIPE_PRICE_ID` in root `.env`; Supabase and database configuration must also be ready as for normal Docker startup.
 Blockers: None.

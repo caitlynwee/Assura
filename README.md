@@ -111,8 +111,8 @@ not real or externally deliverable email addresses.
 ```bash
 ./dev.sh up              # web only; development mode with hot reload (Free/basic use)
 ./dev.sh up --build      # web only, rebuilding its image first
-./dev.sh up-stripe       # web + Stripe CLI webhook forwarding (Free-to-Premium billing test)
-./dev.sh up-stripe --build # rebuild web, then start billing test
+./dev.sh up-stripe       # web + mail + Mailpit + Stripe CLI (full billing demo)
+./dev.sh up-stripe --build # rebuild app images, then start the full billing demo
 ./dev.sh up-premium      # web + isolated mail service + Mailpit for Premium outreach demo
 ./dev.sh up-scraper      # scraper only, independent from web and mail
 ./dev.sh up-prod         # full production-built Premium demo
@@ -161,8 +161,8 @@ Run the services you're **not** working on in Docker, run your own service local
 
 ./dev.sh up              Start web only (development/hot reload)
 ./dev.sh up --build      Rebuild web image then start development mode
-./dev.sh up-stripe       Start web + Stripe CLI forwarding for billing tests
-./dev.sh up-stripe --build  Rebuild web, then start billing test
+./dev.sh up-stripe       Start web + mail + Mailpit + Stripe CLI for billing demo
+./dev.sh up-stripe --build  Rebuild app images, then start billing demo
 ./dev.sh up-premium      Start web + mail service + Mailpit for Premium demo
 ./dev.sh up-scraper      Start the scraper independently
 ./dev.sh up-prod         Start full production-built Premium demo (recommended)
@@ -359,16 +359,19 @@ code and separately configured.
 
 For a single-command local billing test, install the Stripe CLI and configure
 `STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` in the root `.env`, then run
-`./dev.sh up-stripe`. It uses the test secret key to obtain the local webhook
-signing secret, starts forwarding the subscription events above, and passes
-that secret directly to the web container for this run. You do not need to
-copy the CLI-generated secret into `.env` when using this command. Add
-`--build` to rebuild the web image first. The regular `./dev.sh up` command
-does not start Stripe CLI; if you use it for billing tests, configure
-`STRIPE_WEBHOOK_SECRET` yourself. For an externally hosted webhook endpoint,
-configure Stripe to send `customer.subscription.created`,
-`customer.subscription.updated`, and `customer.subscription.deleted` to the
-app's webhook URL and use that endpoint's signing secret.
+`./dev.sh up-stripe`. This one command starts the web app, Premium mail service,
+Mailpit, and Stripe webhook forwarding. It uses the test secret key to obtain
+the local webhook signing secret, then passes that secret directly to the web
+container for this run. You do not need to copy the CLI-generated secret into
+`.env` when using this command. Add `--build` to rebuild the app images first.
+The independent scraper and the configured Supabase/PostgreSQL service are not
+started by this command; Supabase credentials and `DATABASE_URL` must already
+be configured in `.env`. The regular `./dev.sh up` command does not start
+Stripe CLI; if you use it for billing tests, configure `STRIPE_WEBHOOK_SECRET`
+yourself. For an externally hosted webhook endpoint, configure Stripe to send
+`customer.subscription.created`, `customer.subscription.updated`, and
+`customer.subscription.deleted` to the app's webhook URL and use that
+endpoint's signing secret.
 
 ### `web/.env.local` — used when running web locally
 
