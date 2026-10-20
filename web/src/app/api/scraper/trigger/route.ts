@@ -24,16 +24,19 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const parsed = scraperTriggerSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
   await logEvent(userId, "scraper.triggered", {
-    sourceId: parsed.success ? (parsed.data.sourceId ?? "all") : "all",
+    sourceId: parsed.data.sourceId ?? "all",
   });
 
   try {
     const res = await fetch(`${SCRAPER_URL}/scraper/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed.success ? parsed.data : {}),
+      body: JSON.stringify({ source_id: parsed.data.sourceId }),
     });
     if (!res.ok) throw new Error("Scraper returned " + res.status);
     const data = await res.json();

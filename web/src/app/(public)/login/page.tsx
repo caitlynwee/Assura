@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { TriangleAlertIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import AuthCard from "@/components/auth/auth-card";
 import LoginForm from "@/components/auth/login-form";
 import DemoLoginButton from "@/components/auth/demo-login-button";
@@ -19,27 +22,38 @@ export default async function LoginPage({
       footer={
         <>
           New to Assura?{" "}
-          <Link href="/signup" className="font-medium text-blue-600 hover:underline">
+          <Link href="/signup" className="font-medium text-primary hover:underline">
             Create an account
           </Link>
         </>
       }
     >
+      {error === "session-expired" && (
+        <Alert variant="warning" className="mb-4">
+          <TriangleAlertIcon />
+          <AlertDescription>
+            Your saved session expired. Sign in again to continue.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {error === "demo" && (
-        <p role="alert" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Demo login failed. Run <code className="font-mono">bash seed/reset.sh</code> to seed the demo user.
-        </p>
+        <Alert variant="warning" className="mb-4">
+          <TriangleAlertIcon />
+          <AlertDescription>
+            <p>
+              Demo login failed. Run <code className="font-mono">bash seed/reset.sh</code> to seed the demo user.
+            </p>
+          </AlertDescription>
+        </Alert>
       )}
 
       <LoginForm callbackUrl={callbackUrl} />
 
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-          <div className="w-full border-t border-gray-200" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-white px-2 text-xs text-gray-400">or</span>
-        </div>
+      <div className="my-5 flex items-center gap-3" aria-hidden="true">
+        <Separator className="flex-1" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <Separator className="flex-1" />
       </div>
 
       <DemoLoginButton callbackUrl={callbackUrl} />

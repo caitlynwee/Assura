@@ -5,7 +5,7 @@
  * only writer. The Drizzle client is created lazily from process.env.DATABASE_URL
  * via the postgres.js driver.
  *
- * Do NOT import this module into edge code (auth.config.ts / middleware) — it
+ * Do NOT import this module into edge code (middleware / auth-routing.ts) — it
  * pulls in a Node Postgres driver. auth.ts (Node runtime) is the correct home
  * for DB-backed lookups.
  *
@@ -15,7 +15,7 @@
 
 import { setDefaultResultOrder } from "node:dns";
 import { drizzle as drizzlePostgres } from "drizzle-orm/postgres-js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import postgres from "postgres";
 
 // Force IPv4 DNS — Docker on macOS resolves Supabase to IPv6 which is unreachable.
@@ -30,6 +30,7 @@ import type {
   ThreadMessage,
   ScraperRun,
   ConsentFlags,
+  UserProfile,
 } from "./types";
 
 // The Drizzle instance type is intentionally loose so a pglite-backed instance
@@ -55,8 +56,10 @@ export function getDb(): Database {
       "DATABASE_URL is not set. Point it at a PostgreSQL instance before using the data layer."
     );
   }
+  // Keep total session-pool usage small: the scraper and migration job share
+  // Supabase's limited session-mode connection pool with this web process.
   const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
-  sqlClient = postgres(url, { ssl: isLocal ? false : "require" });
+  sqlClient = postgres(url, { max: 3, ssl: isLocal ? false : "require" });
   dbInstance = drizzlePostgres(sqlClient, { schema });
   return dbInstance;
 }
@@ -87,7 +90,9 @@ function rowToUser(row: UserRow): User {
     maskedInbox: row.maskedInbox,
     onboarded: row.onboarded,
     consent,
+    profile: (row.profile as UserProfile | null) ?? {},
     createdAt: row.createdAt,
+    ...(row.authUid != null ? { authUid: row.authUid } : {}),
   };
 }
 
@@ -144,6 +149,48 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   return (
     users.find((u) => u.email.toLowerCase() === email.toLowerCase()) ?? null
   );
+}
+
+/** Resolve an app user by its linked Supabase auth uid, or null. */
+export async function getUserByAuthUid(authUid: string): Promise<User | null> {
+  const rows = await getDb()
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.authUid, authUid))
+    .limit(1);
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+
+/** Sync the email from an already-verified Supabase identity to its app row. */
+export async function syncUserEmailByAuthUid(
+  authUid: string,
+  email: string
+): Promise<User | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await getUserByAuthUid(authUid);
+  if (!user) return null;
+
+  const existingEmailOwner = await getUserByEmail(normalizedEmail);
+  if (existingEmailOwner && existingEmailOwner.id !== user.id) return null;
+  if (user.email === normalizedEmail) return user;
+
+  const rows = await getDb()
+    .update(schema.users)
+    .set({ email: normalizedEmail })
+    .where(eq(schema.users.authUid, authUid))
+    .returning();
+  return rows[0] ? rowToUser(rows[0]) : null;
+}
+
+/** Back-fill the Supabase auth uid onto an app user row (idempotent link). */
+export async function linkAuthUid(
+  appUserId: string,
+  authUid: string
+): Promise<void> {
+  await getDb()
+    .update(schema.users)
+    .set({ authUid })
+    .where(eq(schema.users.id, appUserId));
 }
 
 /**
@@ -377,4 +424,38 @@ export async function getAuditRows(): Promise<AuditRow[]> {
     .from(schema.auditEntries)
     .orderBy(schema.auditEntries.id);
   return rows as AuditRow[];
+}
+
+/**
+ * Delete a user and ALL their FK-dependent data, in FK-safe order, inside a
+ * single transaction:
+ *   thread_messages (of the user's threads) → threads → the users row.
+ * Audit entries are intentionally LEFT INTACT — the append-only audit chain
+ * must not be mutated (deleting links would break verifyChain), and the
+ * account-deletion event itself is logged by the caller.
+ *
+ * Returns true if a user row was deleted, false if no such user existed.
+ */
+export async function deleteUserCascade(userId: string): Promise<boolean> {
+  return getDb().transaction(async (tx: Database) => {
+    const threadRows = (await tx
+      .select({ id: schema.threads.id })
+      .from(schema.threads)
+      .where(eq(schema.threads.userId, userId))) as Array<{ id: string }>;
+    const threadIds = threadRows.map((r) => r.id);
+
+    if (threadIds.length > 0) {
+      await tx
+        .delete(schema.threadMessages)
+        .where(inArray(schema.threadMessages.threadId, threadIds));
+      await tx.delete(schema.threads).where(eq(schema.threads.userId, userId));
+    }
+
+    const deleted = await tx
+      .delete(schema.users)
+      .where(eq(schema.users.id, userId))
+      .returning({ id: schema.users.id });
+
+    return deleted.length > 0;
+  });
 }

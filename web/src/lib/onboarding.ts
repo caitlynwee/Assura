@@ -39,6 +39,7 @@ export async function completeOnboarding(
       return;
     }
     u.consent = consent;
+    if (parsed.data.profile) u.profile = parsed.data.profile;
     u.onboarded = true;
   });
 

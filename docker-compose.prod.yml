@@ -1,0 +1,22 @@
+# Production override for the web service — run the whole stack in Docker with
+# the Next.js app built + served (no on-demand recompiling).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+#   (or: ./dev.sh up-prod)
+#
+# Only the `web` service is overridden; db-migrate, scraper, mailpit are reused
+# from docker-compose.yml unchanged. NEXT_PUBLIC_* are passed as BUILD ARGS
+# because Next inlines them into the client bundle at build time.
+
+services:
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    # The dev source bind-mounts must NOT apply in production — the built
+    # standalone output is baked into the image. Empty the volumes list.
+    volumes: []
+    command: ["node", "server.js"]

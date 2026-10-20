@@ -4,11 +4,17 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { getInsurers, getThreadsByUser } from "@/lib/db";
 import OutreachWizard, { type InsurerOption } from "@/components/outreach/outreach-wizard";
+import PageHeader from "@/components/layout/page-header";
+import { Card, CardContent } from "@/components/ui/card";
 import type { Insurer, Thread } from "@/lib/types";
 
 export const metadata = { title: "Outreach — Assura" };
 
-function buildInsurerOptions(insurers: Insurer[], threads: Thread[], userId: string): InsurerOption[] {
+function buildInsurerOptions(
+  insurers: Insurer[],
+  threads: Thread[],
+  userId: string
+): InsurerOption[] {
   const userThreads = threads.filter((t) => t.userId === userId);
   // Persona is internal (simulation) — never sent to the browser.
   return insurers.map(({ id, name, agentEmail, website }) => {
@@ -47,17 +53,16 @@ export default async function OutreachPage() {
 
   return (
     <div className="max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Outreach</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Pick up to 5 insurers and a question. Assura drafts each email — you edit and approve
-          before anything is sent.
-        </p>
-      </div>
+      <PageHeader
+        title="Outreach"
+        description="Pick up to 5 insurers and a question. Assura drafts each email — you edit and approve before anything is sent."
+      />
       {insurerOptions.length === 0 ? (
-        <div className="rounded-xl border bg-white p-6 text-sm text-gray-500">
-          No insurers found. Run <code className="font-mono">bash seed/reset.sh</code> to load demo data.
-        </div>
+        <Card>
+          <CardContent className="text-sm text-muted-foreground">
+            No insurers found. Run <code className="font-mono">bash seed/reset.sh</code> to load demo data.
+          </CardContent>
+        </Card>
       ) : (
         <OutreachWizard
           insurers={insurerOptions}

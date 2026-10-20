@@ -1,0 +1,59 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Assura">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBFDFE"/>
+      <stop offset="1" stop-color="#EEF4F6"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#1E3A5F"/>
+      <stop offset="0.55" stop-color="#1B6B7A"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="shieldClip">
+      <path d="M512 196
+               C 512 196, 640 250, 744 250
+               C 758 250, 768 260, 768 276
+               L 768 476
+               C 768 632, 672 742, 512 812
+               C 352 742, 256 632, 256 476
+               L 256 276
+               C 256 260, 266 250, 280 250
+               C 384 250, 512 196, 512 196 Z"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <path d="M512 196
+           C 512 196, 640 250, 744 250
+           C 758 250, 768 260, 768 276
+           L 768 476
+           C 768 632, 672 742, 512 812
+           C 352 742, 256 632, 256 476
+           L 256 276
+           C 256 260, 266 250, 280 250
+           C 384 250, 512 196, 512 196 Z"
+        fill="url(#shield)"/>
+
+  <g clip-path="url(#shieldClip)">
+    <rect x="372" y="520" width="80" height="140" rx="18" fill="#FFFFFF"/>
+    <rect x="472" y="452" width="80" height="208" rx="18" fill="#FFFFFF"/>
+    <rect x="572" y="384" width="80" height="276" rx="18" fill="#5EEAD4"/>
+  </g>
+
+  <path d="M512 196
+           C 512 196, 640 250, 744 250
+           C 758 250, 768 260, 768 276
+           L 768 476
+           C 768 540, 752 592, 724 636
+           C 640 560, 384 560, 300 636
+           C 272 592, 256 540, 256 476
+           L 256 276
+           C 256 260, 266 250, 280 250
+           C 384 250, 512 196, 512 196 Z"
+        fill="url(#sheen)"/>
+</svg>

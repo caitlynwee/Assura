@@ -1,6 +1,6 @@
-"""converter.py — Quarantined LLM call to convert extracted text to plan JSON.
+"""converter.py — Quarantined DeepSeek call to convert extracted text to plan JSON.
 
-Uses DeepSeek (OpenAI-compatible API) with NO tools. Returns a fixed-schema dict only.
+Uses the OpenAI-compatible DeepSeek API with NO tools. Returns a fixed-schema dict only.
 Input text is untrusted — the LLM must not act on embedded instructions.
 """
 
@@ -44,6 +44,8 @@ STRICT RULES:
 def _get_client() -> AsyncOpenAI:
     global _client
     if _client is None:
+        if not settings.deepseek_api_key:
+            raise RuntimeError("DEEPSEEK_API_KEY is not set")
         _client = AsyncOpenAI(
             api_key=settings.deepseek_api_key,
             base_url="https://api.deepseek.com",
@@ -58,6 +60,7 @@ async def convert_to_plan(text: str, source: dict) -> dict:
     response = await client.chat.completions.create(
         model=settings.llm_model,
         max_tokens=1024,
+        response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {
@@ -68,7 +71,7 @@ async def convert_to_plan(text: str, source: dict) -> dict:
         # No tools — quarantined
     )
 
-    raw = response.choices[0].message.content or ""
+    raw = response.choices[0].message.content if response.choices else ""
 
     print(f"[converter] source={source.get('id')} extracted_text_len={len(text)}")
     print(f"[converter] llm_response={raw[:500]}")

@@ -152,7 +152,14 @@ def get_engine():
         url = url.replace("postgres://", "postgresql+psycopg2://", 1)
         is_local = "localhost" in url or "127.0.0.1" in url
         connect_args = {} if is_local else {"sslmode": "require"}
-        _engine = create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+        _engine = create_engine(
+            url,
+            pool_pre_ping=True,
+            pool_size=2,
+            max_overflow=0,
+            pool_timeout=30,
+            connect_args=connect_args,
+        )
     return _engine
 
 

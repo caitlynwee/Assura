@@ -1,60 +1,94 @@
 "use client";
 
+import { ScrollTextIcon, TriangleAlertIcon } from "lucide-react";
 import { useAuditLog } from "@/hooks/use-audit-log";
-import { formatDate } from "@/lib/utils";
-import Spinner from "@/components/ui/spinner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+/** Colour-code actions so blocks, denials and escalations stand out in the demo. */
+function actionVariant(action: string): "red" | "yellow" | "green" | "blue" | "gray" {
+  if (/block|deny|locked|failed|flag|tamper/.test(action)) return "red";
+  if (/escalate/.test(action)) return "yellow";
+  if (/sent|allow|success|onboard|verify/.test(action)) return "green";
+  if (/^auth|^user/.test(action)) return "blue";
+  return "gray";
+}
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString("en-SG", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
 
 export default function AuditEventList() {
   const { entries, loading, error } = useAuditLog();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner />
-      </div>
-    );
+    return <Skeleton className="h-64 w-full rounded-xl" aria-busy="true" />;
   }
 
   if (error) {
-    return <p className="text-red-600 text-sm">{error}</p>;
+    return (
+      <Alert variant="destructive">
+        <TriangleAlertIcon />
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
   }
 
   if (!entries.length) {
     return (
-      <div className="bg-white border rounded-xl p-8 text-center text-gray-400 text-sm">
-        No activity recorded yet.
-      </div>
+      <Card>
+        <CardContent className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+          <ScrollTextIcon className="size-8" />
+          No activity recorded yet.
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-white border rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left">Time</th>
-            <th className="px-4 py-3 text-left">Actor</th>
-            <th className="px-4 py-3 text-left">Action</th>
-            <th className="px-4 py-3 text-left font-mono">Hash (prev→)</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
+    <Card className="gap-0 overflow-hidden py-0">
+      <Table>
+        <TableHeader className="bg-muted/50">
+          <TableRow className="hover:bg-transparent">
+            {["Time", "Actor", "Action", "Prev hash", "Hash"].map((h, i) => (
+              <TableHead
+                key={h}
+                className={`text-xs uppercase tracking-wide text-muted-foreground ${i === 0 ? "pl-4" : ""}`}
+              >
+                {h}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {entries.map((entry, i) => (
-            <tr key={i} className="hover:bg-gray-50">
-              <td className="px-4 py-2 text-gray-500 text-xs whitespace-nowrap">
-                {formatDate(entry.timestamp)}
-              </td>
-              <td className="px-4 py-2 text-gray-700 font-mono text-xs">
-                {entry.actor.slice(0, 12)}
-              </td>
-              <td className="px-4 py-2 text-gray-800">{entry.action}</td>
-              <td className="px-4 py-2 font-mono text-xs text-gray-400">
-                {entry.hash.slice(0, 8)}…
-              </td>
-            </tr>
+            <TableRow key={i}>
+              <TableCell className="pl-4 text-xs tabular-nums text-muted-foreground">
+                {formatTime(entry.timestamp)}
+              </TableCell>
+              <TableCell className="font-mono text-xs">{entry.actor.slice(0, 14)}</TableCell>
+              <TableCell>
+                <Badge variant={actionVariant(entry.action)} className="font-mono font-normal">
+                  {entry.action}
+                </Badge>
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">
+                {entry.prevHash.slice(0, 8)}…
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">{entry.hash.slice(0, 8)}…</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

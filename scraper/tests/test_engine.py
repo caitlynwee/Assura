@@ -1,7 +1,8 @@
 """Tests for the scraper engine pipeline."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 def _make_source_row(source_id="src_aia_ci"):
@@ -97,3 +98,36 @@ async def test_no_change_skips_pipeline():
 
     session.expunge_all.assert_called_once()
     assert result["sourcesChanged"] == 0
+
+
+@pytest.mark.asyncio
+async def test_changed_source_uses_downloader_supported_arguments():
+    """A changed source reaches download_page with its supported signature."""
+    source = _make_source_row()
+    plan = _make_plan_row()
+    session = _make_session([source], [plan])
+
+    source_dict = {
+        "id": source.id, "insurerId": source.insurer_id, "url": source.url,
+        "type": source.type, "planIds": source.plan_ids,
+        "etag": None, "lastModified": None, "contentHash": None,
+        "lastChecked": None, "lastChanged": None, "status": "ok",
+    }
+    download = AsyncMock(return_value=b"<p>updated brochure</p>")
+
+    with patch("app.scraper.engine.get_session", return_value=session), \
+         patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(True, None))), \
+         patch("app.scraper.engine.download_page", new=download), \
+         patch("app.scraper.engine.extract_text", return_value="updated brochure"), \
+         patch("app.scraper.engine.convert_to_plan", new=AsyncMock(return_value={})), \
+         patch("app.scraper.engine.validate_plan", return_value={"planName": "Updated plan"}), \
+         patch("app.scraper.engine.source_to_camel", return_value=source_dict), \
+         patch("app.scraper.engine.update_source_metadata", return_value=source_dict), \
+         patch("app.scraper.engine.apply_source_update"):
+        from app.scraper.engine import run_scraper
+        result = await run_scraper(trigger="manual", source_id=source.id)
+
+    download.assert_awaited_once_with(source.url, None)
+    assert result["sourcesChecked"] == 1
+    assert result["sourcesChanged"] == 1
+    assert result["errors"] == []
