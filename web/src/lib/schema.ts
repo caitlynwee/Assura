@@ -181,3 +181,33 @@ export const auditEntries = pgTable("audit_entries", {
   prevHash: text("prev_hash").notNull(),
   hash: text("hash").notNull(),
 });
+
+// ─── chat_conversations ──────────────────────────────────────────────────────
+// One row per Plan Q&A conversation (the chat-history sidebar). Owned by a
+// user; deleting the user or the conversation removes its messages.
+export const chatConversations = pgTable("chat_conversations", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  createdAt: text("created_at").notNull(), // ISO 8601
+  updatedAt: text("updated_at").notNull(), // ISO 8601 — bumped on every message
+  // ISO 8601 when moved to "Recently deleted"; null = active. Rows in the bin
+  // are permanently removed after TRASH_RETENTION_DAYS.
+  deletedAt: text("deleted_at"),
+});
+
+// ─── chat_messages ───────────────────────────────────────────────────────────
+// Child of chat_conversations. `ordering` gives a stable append order.
+export const chatMessages = pgTable("chat_messages", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => chatConversations.id, { onDelete: "cascade" }),
+  ordering: integer("ordering").notNull(),
+  role: text("role").notNull(), // 'user' | 'assistant'
+  content: text("content").notNull(),
+  citations: jsonb("citations"), // Citation[] | null
+  timestamp: text("timestamp").notNull(), // ISO 8601
+});
