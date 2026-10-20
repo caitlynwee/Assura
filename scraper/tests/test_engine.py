@@ -114,9 +114,11 @@ async def test_changed_source_uses_downloader_supported_arguments():
         "lastChecked": None, "lastChanged": None, "status": "ok",
     }
     download = AsyncMock(return_value=b"<p>updated brochure</p>")
+    response = MagicMock()
+    response.content = b"<p>updated brochure</p>"
 
     with patch("app.scraper.engine.get_session", return_value=session), \
-         patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(True, None))), \
+         patch("app.scraper.engine.has_changed", new=AsyncMock(return_value=(True, response))), \
          patch("app.scraper.engine.download_page", new=download), \
          patch("app.scraper.engine.extract_text", return_value="updated brochure"), \
          patch("app.scraper.engine.convert_to_plan", new=AsyncMock(return_value={})), \
@@ -127,7 +129,9 @@ async def test_changed_source_uses_downloader_supported_arguments():
         from app.scraper.engine import run_scraper
         result = await run_scraper(trigger="manual", source_id=source.id)
 
-    download.assert_awaited_once_with(source.url, None)
+    download.assert_awaited_once_with(
+        source.url, response, source_type="product_page"
+    )
     assert result["sourcesChecked"] == 1
     assert result["sourcesChanged"] == 1
     assert result["errors"] == []

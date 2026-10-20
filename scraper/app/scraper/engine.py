@@ -1,19 +1,28 @@
 """engine.py — Core scraper pipeline orchestrator.
 
-Pipeline per source: detect change → download → extract → convert → validate → persist.
-Invariant: a failed scrape NEVER deletes last good data — we only commit to the DB
-when changed > 0 and all per-source processing succeeded (errors are non-fatal per
-source but the overall commit is skipped unless at least one source changed).
+Pipeline:
+  Phase 1 (per source): detect change → download → extract → accumulate text by plan_id
+  Phase 2 (per plan):   combine PDF + product-page text → LLM → validate → persist
+
+Two sources per insurer (created by discovery):
+  src_{insurer_id}_ci_pdf   → type="pdf",          PDF brochure URL
+  src_{insurer_id}_ci_page  → type="product_page",  product page URL
+
+Invariant: a failed scrape NEVER deletes last good data — we only commit when
+at least one source changed and Phase 2 succeeds per plan (errors are non-fatal).
 """
 
 import uuid
 
+from app.config import settings
 from app.scraper.change_detector import has_changed, update_source_metadata
 from app.scraper.converter import convert_to_plan
+from app.scraper.discovery import discover_top_insurers
 from app.scraper.downloader import download_page
 from app.scraper.extractor import extract_text
 from app.scraper.validator import validate_plan
 from app.storage.database import (
+    Insurer,
     Plan,
     ScraperRun,
     Source,
@@ -24,28 +33,107 @@ from app.storage.database import (
 from app.utils.time import now_utc_iso
 
 
+def _upsert_discovered(session, discovered: list[dict]) -> None:
+    """Upsert insurer + two source rows (pdf + product_page) per insurer."""
+    for co in discovered:
+        # Insurer — insert if new, skip if exists
+        if not session.query(Insurer).filter_by(id=co["insurer_id"]).first():
+            session.add(
+                Insurer(
+                    id=co["insurer_id"],
+                    name=co["insurer_name"],
+                    agent_email="",
+                    logo="",
+                    persona="helpful",
+                    website=co["website"],
+                    country=co["country"],
+                )
+            )
+
+        label_base = f"{co['insurer_name']} {co['plan_name']}"
+
+        # PDF brochure source
+        if co.get("brochure_url"):
+            pdf_id = f"src_{co['insurer_id']}_ci_pdf"
+            if not session.query(Source).filter_by(id=pdf_id).first():
+                session.add(
+                    Source(
+                        id=pdf_id,
+                        insurer_id=co["insurer_id"],
+                        label=f"{label_base} Brochure",
+                        url=co["brochure_url"],
+                        type="pdf",
+                        plan_ids=[co["plan_id"]],
+                        etag=None,
+                        last_modified=None,
+                        content_hash=None,
+                        last_checked=None,
+                        last_changed=None,
+                        status="pending",
+                        country=co["country"],
+                    )
+                )
+
+        # Product page source
+        if co.get("product_url"):
+            page_id = f"src_{co['insurer_id']}_ci_page"
+            if not session.query(Source).filter_by(id=page_id).first():
+                session.add(
+                    Source(
+                        id=page_id,
+                        insurer_id=co["insurer_id"],
+                        label=label_base,
+                        url=co["product_url"],
+                        type="product_page",
+                        plan_ids=[co["plan_id"]],
+                        etag=None,
+                        last_modified=None,
+                        content_hash=None,
+                        last_checked=None,
+                        last_changed=None,
+                        status="pending",
+                        country=co["country"],
+                    )
+                )
+
+    session.flush()
+
+
 async def run_scraper(
     trigger: str = "manual",
     source_id: str | None = None,
+    country: str | None = None,
 ) -> dict:
+    country = country or settings.current_country
     run_id = str(uuid.uuid4())
     started_at = now_utc_iso()
 
     session = get_session()
     try:
-        # Load sources and plans from DB
+        # ── Discovery ──────────────────────────────────────────────────────────
+        if not source_id:
+            try:
+                discovered = await discover_top_insurers(country)
+                _upsert_discovered(session, discovered)
+            except Exception:  # noqa: BLE001, S110
+                pass  # non-fatal — proceed with existing sources
+
+        # ── Load sources ───────────────────────────────────────────────────────
         if source_id:
             sources = session.query(Source).filter_by(id=source_id).all()
         else:
-            sources = session.query(Source).all()
+            sources = session.query(Source).filter_by(country=country).all()
 
-        # Index plans by id for fast lookup
-        all_plans = session.query(Plan).all()
-        plans_by_id = {p.id: p for p in all_plans}
+        insurers_by_id = {i.id: i for i in session.query(Insurer).all()}
+        plans_by_id = {p.id: p for p in session.query(Plan).all()}
 
         checked = 0
         changed = 0
         errors = []
+
+        # ── Phase 1: Download per source, accumulate text by plan_id ──────────
+        # plan_texts: plan_id → {pdf: str, product_page: str, source_dict: dict}
+        plan_texts: dict[str, dict] = {}
 
         for source in sources:
             checked += 1
@@ -55,25 +143,73 @@ async def run_scraper(
                 if not changed_flag:
                     continue
 
-                content = await download_page(source_dict["url"], response)
+                source_type = source_dict.get("type", "product_page")
+                content = await download_page(
+                    source_dict["url"], response, source_type=source_type,
+                )
+                text = extract_text(content, source_type=source_type)
+                print(
+                    f"[engine] {source_dict['id']} ({source_type}) "
+                    f"snippet: {text[200:600]!r}"
+                )
 
-                # Extract clean text
-                text = extract_text(content)
+                # Accumulate text by plan_id — PDF source_dict takes priority
+                for plan_id in (source_dict.get("planIds") or []):
+                    if plan_id not in plan_texts:
+                        plan_texts[plan_id] = {
+                            "pdf": "",
+                            "product_page": "",
+                            "source_dict": source_dict,
+                        }
+                    plan_texts[plan_id][source_type] = text
+                    if source_type == "pdf":
+                        plan_texts[plan_id]["source_dict"] = source_dict
 
-                # Quarantined LLM conversion
-                plan_data = await convert_to_plan(text, source_dict)
+                # Update source metadata immediately (per-source, not per-plan)
+                updated_source_dict = update_source_metadata(
+                    source_dict, response, response.content
+                )
+                apply_source_update(source, updated_source_dict)
 
-                # Validate against schema
+                changed += 1
+
+            except Exception as exc:  # noqa: BLE001
+                msg = str(exc) or type(exc).__name__
+                errors.append(
+                    {"sourceId": source_dict["id"], "message": f"{type(exc).__name__}: {msg}"}
+                )
+
+        # ── Phase 2: Combine texts per plan, one LLM call each ────────────────
+        for plan_id, info in plan_texts.items():
+            try:
+                pdf_text = info.get("pdf", "")
+                page_text = info.get("product_page", "")
+                source_dict = info["source_dict"]
+
+                parts = []
+                if pdf_text:
+                    parts.append(f"--- PDF BROCHURE ---\n{pdf_text}")
+                if page_text:
+                    parts.append(f"--- PRODUCT PAGE ---\n{page_text}")
+                combined = "\n\n".join(parts)
+
+                plan_data = await convert_to_plan(combined, source_dict)
+
+                insurer = insurers_by_id.get(source_dict["insurerId"])
+                if insurer:
+                    plan_data["insurerName"] = insurer.name
+                    contact_email = plan_data.get("contactEmail", "")
+                    if contact_email and not insurer.agent_email:
+                        insurer.agent_email = contact_email
+
                 validated = validate_plan(plan_data)
 
-                # Merge into DB — update existing plan or insert new one
                 plan_ids = source_dict.get("planIds") or []
                 existing_plan = next(
                     (plans_by_id[pid] for pid in plan_ids if pid in plans_by_id),
                     None,
                 )
                 if existing_plan is not None:
-                    # Update existing plan row
                     old_notes = existing_plan.change_notes or []
                     existing_plan.insurer_name = validated.get("insurerName", existing_plan.insurer_name)
                     existing_plan.plan_name = validated.get("planName", existing_plan.plan_name)
@@ -94,7 +230,6 @@ async def run_scraper(
                     existing_plan.version = existing_plan.version + 1
                     existing_plan.scraped_at = started_at
                 else:
-                    # Insert new plan row
                     new_plan = Plan(
                         id=validated["id"],
                         insurer_id=validated.get("insurerId", ""),
@@ -116,27 +251,20 @@ async def run_scraper(
                         change_notes=[f"Added {started_at[:10]}"],
                         version=1,
                         scraped_at=started_at,
+                        country=country,
                     )
-                    session.add(new_plan)
+                    session.merge(new_plan)
                     plans_by_id[new_plan.id] = new_plan
 
-                # Update source metadata (etag, hash, timestamps)
-                updated_source_dict = update_source_metadata(source_dict, response, content)
-                apply_source_update(source, updated_source_dict)
-
-                changed += 1
-
             except Exception as exc:  # noqa: BLE001
-                errors.append({"sourceId": source_dict["id"], "message": str(exc)})
+                msg = str(exc) or type(exc).__name__
+                errors.append(
+                    {"planId": plan_id, "message": f"{type(exc).__name__}: {msg}"}
+                )
 
-        # Only persist plan/source changes if at least one source succeeded.
-        # session.commit() flushes before committing, so we expunge_all() when
-        # nothing changed to guarantee dirty objects are never accidentally written.
-        # A failed scrape must NEVER delete last good data.
         if changed == 0:
-            session.expunge_all()  # discard any partially-modified ORM objects
+            session.expunge_all()
 
-        # Always record the run (even if nothing changed)
         run_row = ScraperRun(
             run_id=run_id,
             trigger=trigger,
@@ -158,6 +286,7 @@ async def run_scraper(
     return {
         "runId": run_id,
         "trigger": trigger,
+        "country": country,
         "startedAt": started_at,
         "finishedAt": now_utc_iso(),
         "sourcesChecked": checked,

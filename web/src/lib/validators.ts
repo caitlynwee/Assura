@@ -58,7 +58,14 @@ export const chatMessageSchema = z.object({
 
 export const chatRequestSchema = z.object({
   message: z.string().min(1).max(2000),
-  history: z.array(chatMessageSchema).max(50).optional().default([]),
+  // Existing conversation to continue. Omit to start a new one. History is
+  // loaded server-side from the database — the client can't inject it.
+  conversationId: z.string().min(1).max(64).optional(),
+  // Edit-and-regenerate: replace this earlier USER message (and everything
+  // after it) with `message`, then answer again. Requires conversationId.
+  editMessageId: z.string().min(1).max(64).optional(),
+}).refine((d) => !d.editMessageId || d.conversationId, {
+  message: "editMessageId requires conversationId",
 });
 
 // ─── Outreach ─────────────────────────────────────────────────────────────────

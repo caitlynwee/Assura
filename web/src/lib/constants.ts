@@ -12,6 +12,9 @@ export const TIER_LABELS: Record<PolicyTier, string> = {
 // ─── Rate limits ──────────────────────────────────────────────────────────────
 
 export const MAX_INSURERS_PER_OUTREACH = 5;
+
+/** Days a deleted Plan Q&A chat stays in "Recently deleted" before it is purged. */
+export const TRASH_RETENTION_DAYS = 30;
 export const MAX_EMAILS_PER_USER_PER_DAY = 20;
 export const FOLLOWUP_COOLDOWN_MS = 48 * 60 * 60 * 1000; // 48 hours
 

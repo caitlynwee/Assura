@@ -89,7 +89,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ## Architecture Decisions (do not change without team consensus)
 - **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
-- **Storage**: PostgreSQL is the runtime source of truth. The web app owns schema and migrations via Drizzle; the scraper maps the same tables via SQLAlchemy and does not issue DDL. Typed fixtures in `web/src/lib/seed-data.ts` populate/reset demo data. Selected nested fields use PostgreSQL `JSONB`; audit detail is stored as exact serialized text in `audit_entries` so hash verification remains byte-stable.
+- **Storage**: PostgreSQL is the runtime source of truth. The web app owns schema and migrations via Drizzle; the scraper maps the same tables via SQLAlchemy and does not issue DDL. The typed fixture in `web/src/lib/seed-data.ts` seeds the demo user; the scraper discovers and persists insurer, plan, and source records. Selected nested fields use PostgreSQL `JSONB`; audit detail is stored as exact serialized text in `audit_entries` so hash verification remains byte-stable.
 - **Auth**: Supabase Auth verifies credentials; PostgreSQL app profiles supply tier/consent data. `proxy.ts` verifies access-token signatures with Supabase JWKS.
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.

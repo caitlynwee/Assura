@@ -1,37 +1,74 @@
-"""downloader.py — Fetch page content respecting robots.txt and rate limits."""
+"""downloader.py — Fetch page content respecting robots.txt and rate limits.
+
+Routing:
+  source_type == "mock"                    → plain httpx (localhost only)
+  source_type == "product_page" or "pdf"  → Jina Reader API (handles JS + PDFs)
+
+Jina Reader (r.jina.ai) proxies any URL through their rendering infrastructure
+and returns clean markdown. No Playwright, no bot detection issues, works for
+both web pages and PDF brochures.
+"""
 
 import asyncio
+import os
 from urllib.parse import urlparse
 
 import httpx
 
 from app.config import settings
+from app.utils.debug_dump import dump
 from app.utils.http_client import USER_AGENT, get_client
 
-# In-memory per-domain last-fetch timestamp
+# Per-domain last-fetch timestamp for rate limiting
 _last_fetch: dict[str, float] = {}
 
+JINA_BASE = "https://r.jina.ai"
 
-async def download_page(url: str, existing_response: httpx.Response | None = None) -> bytes:
-    """Download a URL, respecting robots.txt and rate limits. Returns raw bytes."""
+
+async def download_page(
+    url: str,
+    existing_response: httpx.Response | None = None,
+    source_type: str = "product_page",
+) -> bytes:
+    """Download a URL and return clean text bytes via Jina Reader.
+
+    Mock sources use plain httpx (fast, localhost only).
+    All other sources go through Jina Reader which handles JS rendering,
+    bot bypassing, and PDF text extraction transparently.
+    """
     domain = _get_domain(url)
 
-    # Check robots.txt
     if not await _is_allowed(url):
         raise PermissionError(f"robots.txt disallows scraping {url}")
 
-    # Rate limit: wait if we fetched this domain recently
     await _rate_limit(domain)
 
-    # If we already have the response (from change detection), reuse it
-    if existing_response is not None and existing_response.status_code == 200:
+    if source_type == "mock":
+        if existing_response is not None and existing_response.status_code == 200:
+            _last_fetch[domain] = asyncio.get_event_loop().time()
+            return existing_response.content
+        client = get_client()
+        response = await client.get(url)
+        response.raise_for_status()
         _last_fetch[domain] = asyncio.get_event_loop().time()
-        return existing_response.content
+        return response.content
 
-    client = get_client()
-    response = await client.get(url)
-    response.raise_for_status()
+    # product_page + pdf → Jina Reader
+    jina_url = f"{JINA_BASE}/{url}"
+    headers = {"Accept": "text/plain", "User-Agent": USER_AGENT}
+    api_key = os.environ.get("JINA_API_KEY")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    # Jina can take longer on heavy pages/PDFs — use a separate long-timeout client
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0), follow_redirects=True) as client:
+        response = await client.get(jina_url, headers=headers)
+        response.raise_for_status()
+
     _last_fetch[domain] = asyncio.get_event_loop().time()
+    text = response.content.decode("utf-8", errors="replace")
+    print(f"[downloader] Jina fetched {url} → {len(response.content)} bytes")
+    dump(f"jina_{source_type}", {"url": url, "jina_url": jina_url, "content": text})
     return response.content
 
 
@@ -44,9 +81,10 @@ async def _rate_limit(domain: str) -> None:
 
 
 async def _is_allowed(url: str) -> bool:
-    """Check robots.txt for the given URL."""
+    """Check robots.txt for the given URL. Fails open."""
     try:
         from robotexclusionrulesparser import RobotExclusionRulesParser
+
         domain = _get_domain(url)
         robots_url = f"https://{domain}/robots.txt"
         client = get_client()
@@ -55,7 +93,7 @@ async def _is_allowed(url: str) -> bool:
         parser.parse(resp.text)
         return parser.is_allowed(USER_AGENT, url)
     except Exception:  # noqa: BLE001
-        return True  # if robots.txt check fails, allow (fail open for public pages)
+        return True  # fail open for public pages
 
 
 def _get_domain(url: str) -> str:
