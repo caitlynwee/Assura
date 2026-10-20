@@ -260,6 +260,31 @@ export interface Citation {
   excerpt: string;
 }
 
+// ─── Policy Chat ──────────────────────────────────────────────────────────────
+
+/** A user-uploaded insurance policy document. */
+export interface PolicyDocument {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+  title: string;
+  extractedText: string | null;
+  pageCount: number | null;
+  uploadedAt: string;
+}
+
+/** A Policy Chat conversation (one entry in the history sidebar). */
+export interface PolicyConversation {
+  id: string;
+  documentId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  /** ISO time it was moved to "Recently deleted"; null while active. */
+  deletedAt?: string | null;
+}
+
 // ─── Outreach ─────────────────────────────────────────────────────────────────
 
 export interface OutreachTemplate {

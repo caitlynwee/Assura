@@ -79,6 +79,49 @@ export async function* chatWithPlans(
   }
 }
 
+// ─── Policy Document Chat ─────────────────────────────────────────────────────
+
+export async function* chatWithPolicy(
+  messages: ChatMessage[],
+  documentText: string,
+  documentTitle: string,
+  locale: "en" | "zh" = "en"
+): AsyncGenerator<string> {
+  const languageRule =
+    locale === "zh"
+      ? "\n\nLANGUAGE: Reply in Simplified Chinese (简体中文). Keep plan names, policy terms and section headings exactly as they appear in the document."
+      : "";
+
+  const stream = await client().chat.completions.create({
+    model: "deepseek-chat",
+    max_tokens: 1024,
+    stream: true,
+    messages: [
+      {
+        role: "system",
+        content: `You are Assura's policy document assistant. The user has uploaded their insurance policy document titled "${documentTitle}". Answer questions based solely on the text of this document.
+
+${FACTUAL_GUARDRAIL}
+
+RULES:
+1. Answer ONLY from the provided document text. If information is not found, say clearly that you could not find it in this document — do not invent or infer.
+2. Reference sections, clauses, or page areas when possible (e.g. "Under Section 3 — Exclusions…").
+3. If the text appears garbled or incomplete (e.g. a scanned PDF), mention this as a caveat.
+4. Do not recommend purchase decisions or financial actions.${languageRule}
+
+---DOCUMENT TEXT---
+${documentText}`,
+      },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
+  });
+
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content;
+    if (delta) yield delta;
+  }
+}
+
 // ─── Outreach Email Drafting ──────────────────────────────────────────────────
 
 /**

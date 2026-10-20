@@ -8,6 +8,14 @@ import { useChat } from "@/hooks/use-chat";
 import { useConversations, useTrash } from "@/hooks/use-conversations";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { ChatConversation } from "@/lib/types";
 import ChatHistorySidebar from "./chat-history-sidebar";
 import ChatTrashDialog from "./chat-trash-dialog";
@@ -24,6 +32,7 @@ export default function ChatWorkspace() {
   const [activeId, setActiveIdState] = useState<string | null>(searchParams.get("c"));
   const [showHistoryMobile, setShowHistoryMobile] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ChatConversation | null>(null);
   const t = useT().chat;
 
   const { conversations, loading: listLoading, error: listError, refresh, remove, restore } =
@@ -57,7 +66,7 @@ export default function ChatWorkspace() {
     setShowHistoryMobile(false);
   }
 
-  async function moveToTrash(c: ChatConversation) {
+  async function confirmMoveToTrash(c: ChatConversation) {
     const ok = await remove(c.id);
     if (!ok) {
       toast.error(t.deleteFailed);
@@ -94,7 +103,7 @@ export default function ChatWorkspace() {
       disabled={streaming}
       onSelect={selectConversation}
       onNewChat={newChat}
-      onDelete={(c) => void moveToTrash(c)}
+      onDelete={(c) => setPendingDelete(c)}
       onOpenTrash={() => {
         setShowHistoryMobile(false);
         setTrashOpen(true);
@@ -145,6 +154,35 @@ export default function ChatWorkspace() {
           loading={loading}
         />
       </div>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => { if (!open) setPendingDelete(null); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.deleteChatConfirmTitle}</DialogTitle>
+            <DialogDescription>
+              {pendingDelete ? t.deleteChatConfirmBody(pendingDelete.title) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const c = pendingDelete;
+                setPendingDelete(null);
+                if (c) void confirmMoveToTrash(c);
+              }}
+            >
+              {t.moveToBin}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ChatTrashDialog
         open={trashOpen}

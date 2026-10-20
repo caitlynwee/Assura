@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  FileTextIcon,
   InboxIcon,
   LayoutGridIcon,
   LockIcon,
@@ -27,6 +28,7 @@ type NavKey = keyof Messages["layout"]["nav"];
 const NAV_ITEMS: { href: string; labelKey: NavKey; icon: LucideIcon; premium: boolean }[] = [
   { href: "/compare", labelKey: "compare", icon: LayoutGridIcon, premium: false },
   { href: "/chat", labelKey: "chat", icon: MessagesSquareIcon, premium: false },
+  { href: "/policies", labelKey: "policyChat", icon: FileTextIcon, premium: false },
   { href: "/outreach", labelKey: "outreach", icon: SendIcon, premium: true },
   { href: "/crm", labelKey: "crm", icon: InboxIcon, premium: true },
   { href: "/activity", labelKey: "activity", icon: ScrollTextIcon, premium: true },

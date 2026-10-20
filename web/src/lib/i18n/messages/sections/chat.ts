@@ -27,6 +27,9 @@ export const chat = section(
     noChats: "No saved chats yet. Your conversations will appear here.",
     groups: { today: "Today", yesterday: "Yesterday", week: "Previous 7 days", older: "Older" },
     deleteChat: (title: string) => `Delete chat: ${title}`,
+    deleteChatConfirmTitle: "Move to Recently deleted?",
+    deleteChatConfirmBody: (title: string) =>
+      `"${title}" will be moved to Recently deleted. You can restore it within 30 days.`,
     moveToBin: "Move to Recently deleted",
     recentlyDeleted: "Recently deleted",
     movedToBin: "Moved to Recently deleted",
@@ -80,6 +83,9 @@ export const chat = section(
     noChats: "还没有保存的对话。您的对话会显示在这里。",
     groups: { today: "今天", yesterday: "昨天", week: "过去 7 天", older: "更早" },
     deleteChat: (title: string) => `删除对话：${title}`,
+    deleteChatConfirmTitle: "移到最近删除？",
+    deleteChatConfirmBody: (title: string) =>
+      `"${title}"将被移到最近删除。您可在 30 天内恢复。`,
     moveToBin: "移到最近删除",
     recentlyDeleted: "最近删除",
     movedToBin: "已移到最近删除",

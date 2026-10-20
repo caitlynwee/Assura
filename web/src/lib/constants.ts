@@ -28,6 +28,9 @@ export const MAX_INSURERS_PER_OUTREACH = 5;
 
 /** Days a deleted Plan Q&A chat stays in "Recently deleted" before it is purged. */
 export const TRASH_RETENTION_DAYS = 30;
+
+/** Maximum upload size for a user's own policy document PDF: 10 MB. */
+export const MAX_POLICY_DOCUMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_EMAILS_PER_USER_PER_DAY = 20;
 export const FOLLOWUP_COOLDOWN_MS = 48 * 60 * 60 * 1000; // 48 hours
 
