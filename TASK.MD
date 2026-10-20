@@ -446,3 +446,15 @@ Files: web/src/lib/mail.ts, web/drizzle/0003_assura_relay_domain.sql, scraper/ap
 Others need to know: Demo login remains `demo@fineprint.local`; it is separate from the masked relay address.
 Blockers: None.
 ---
+
+## 2026-10-20 | Copilot | Enable confirmed account email changes
+Status: Completed
+Done:
+- Added a Settings email-change request that delegates to Supabase Auth and requires its confirmation link; the shared demo account remains protected.
+- Added the Supabase PKCE callback and syncs the app profile only after Supabase reports the confirmed email; handles multi-step confirmation as pending.
+- Added callback URL configuration guidance and tests for validation, audit masking, demo protection, and profile email sync.
+- Verified 19 focused web tests, changed-file ESLint, and production Next.js build.
+Files: web/src/app/_actions/settings.ts, web/src/app/auth/callback/route.ts, web/src/components/settings/settings-form.tsx, web/src/lib/{db,users,supabase/server}.ts, .env.example, README.md
+Others need to know: Add `http://localhost:3000/auth/callback` to Supabase Auth's allowed redirect URLs. Set `NEXT_PUBLIC_SITE_URL` to the public app origin in hosted environments.
+Blockers: None.
+---
