@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getInsurers } from "@/lib/db";
+import { getInsurerRecipientAddress } from "@/lib/insurer-recipient";
 
 export async function GET() {
   const session = await auth();
@@ -14,7 +15,7 @@ export async function GET() {
   const safe = insurers.map(({ id, name, agentEmail, logo, website }) => ({
     id,
     name,
-    agentEmail,
+    agentEmail: getInsurerRecipientAddress(id, agentEmail),
     logo,
     website,
   }));

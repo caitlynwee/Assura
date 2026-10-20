@@ -30,6 +30,7 @@ THREE DELIVERABLES
    - Holds NO user credentials.
    - Runs separately from the scraper; the Premium demo starts web + mail service + Mailpit, while basic testing needs only web.
    - Sends from a per-user relay address to the local Mailpit sandbox only; no external email is delivered.
+   - Insurers without a configured contact use a deterministic `@insurer.assura.local` demo address; simulated replies use that same address.
    - Every email discloses that it was sent with Assura's help and reviewed and approved by the user.
    - Shares only what the user ticked in onboarding. Never shares name, real email, phone, NRIC, health or income.
    - Limits: max 5 insurers per request, 1 follow-up per thread per 48h, 20 emails per user per day.

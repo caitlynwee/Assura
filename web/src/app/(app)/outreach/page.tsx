@@ -3,17 +3,20 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/session";
 import { getInsurers, getThreadsByUser } from "@/lib/db";
-import OutreachWizard, { type InsurerOption } from "@/components/outreach/outreach-wizard";
+import OutreachWizard, {
+  type InsurerOption,
+} from "@/components/outreach/outreach-wizard";
 import PageHeader from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Insurer, Thread } from "@/lib/types";
+import { getInsurerRecipientAddress } from "@/lib/insurer-recipient";
 
 export const metadata = { title: "Outreach — Assura" };
 
 function buildInsurerOptions(
   insurers: Insurer[],
   threads: Thread[],
-  userId: string
+  userId: string,
 ): InsurerOption[] {
   const userThreads = threads.filter((t) => t.userId === userId);
   // Persona is internal (simulation) — never sent to the browser.
@@ -24,9 +27,11 @@ function buildInsurerOptions(
     return {
       id,
       name,
-      agentEmail,
+      agentEmail: getInsurerRecipientAddress(id, agentEmail),
       website,
-      existingThread: latest ? { id: latest.id, status: latest.status } : undefined,
+      existingThread: latest
+        ? { id: latest.id, status: latest.status }
+        : undefined,
     };
   });
 }
@@ -60,7 +65,9 @@ export default async function OutreachPage() {
       {insurerOptions.length === 0 ? (
         <Card>
           <CardContent className="text-sm text-muted-foreground">
-            No insurers found. Run <code className="font-mono">bash seed/reset.sh</code> to load demo data.
+            No insurers found. Run{" "}
+            <code className="font-mono">bash seed/reset.sh</code> to load demo
+            data.
           </CardContent>
         </Card>
       ) : (

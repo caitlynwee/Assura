@@ -469,6 +469,22 @@ Others need to know: Personal/health/income data is never shared unless separate
 Blockers: None.
 ---
 
+## 2026-10-20 | Copilot | Verify Local Outreach Delivery
+Status: Completed
+Done: Rebuilt and restarted the Stripe Docker demo stack, verified Mailpit SMTP health and delivery to the fallback insurer address, and passed five mail-service tests plus five targeted web tests and targeted ESLint.
+Files: `TASK.MD`, `web/src/__tests__/outreach-send.test.ts`
+Others need to know: The Stripe demo stack is running; a verification message is visible in Mailpit at `http://localhost:8025`.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Prepare Kiro Context Handoff
+Status: Completed
+Done: Documented the outreach recipient fix, validation, Docker runtime status, outstanding worktree cautions, and suggested continuation steps for Kiro.
+Files: `docs/HANDOFF-2026-10-20.md`, `TASK.MD`
+Others need to know: The handoff distinguishes the uncommitted outreach changes from additional demo-user seed edits that need separate review.
+Blockers: None.
+---
+
 ## 2026-10-20 | Copilot | Rebrand local masked relay addresses
 Status: Completed
 Done:
@@ -685,5 +701,12 @@ Status: Completed
 Done: Added an idempotent catch-up migration for Stripe customer/subscription columns and registered it in the Drizzle journal so Compose startup can repair databases that missed the billing migration.
 Files: `web/drizzle/0009_stripe_billing_catchup.sql`, `web/drizzle/meta/_journal.json`
 Others need to know: `npx drizzle-kit check` passes; the user confirmed this migration resolved the Docker Compose startup issue.
+Blockers: None.
+---
+## 2026-10-20 | Copilot | Fix Outreach With Missing Insurer Contacts
+Status: Completed
+Done: Confirmed empty insurer contact emails caused Mailpit's `invalid TO parameter` SMTP rejection. Added deterministic local demo addresses for insurers without configured contacts and reused them for outgoing messages and simulated replies.
+Files: `web/src/lib/insurer-recipient.ts`, `web/src/app/(app)/outreach/page.tsx`, `web/src/app/api/outreach/send/route.ts`, `mail-service/app/{relay,simulator}.py`
+Others need to know: Messages remain local to Mailpit; rebuild/restart mail and web services with `./dev.sh up-stripe --build` to load the changes.
 Blockers: None.
 ---

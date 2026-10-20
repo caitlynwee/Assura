@@ -6,7 +6,7 @@ import httpx
 from app.config import settings
 from app.database import Insurer, Thread, ThreadMessage, get_session
 from app.personas import generate_reply
-from app.relay import send_email
+from app.relay import send_email, simulated_insurer_address
 
 
 async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
@@ -50,7 +50,7 @@ async def simulate_reply(thread_id: str, insurer_id: str) -> dict:
         if reply["body"] is None:
             return {"status": "no_reply", "reason": "Slow persona — waiting for follow-up"}
 
-        from_address = insurer.agent_email
+        from_address = insurer.agent_email.strip() or simulated_insurer_address(insurer.id)
         to_address = (
             thread_data["messages"][0]["from"]
             if thread_data["messages"]

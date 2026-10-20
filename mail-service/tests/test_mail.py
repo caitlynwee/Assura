@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.config import settings
 from app.main import app
-from app.relay import require_mailpit_destination, send_email
+from app.relay import require_mailpit_destination, send_email, simulated_insurer_address
 
 
 @pytest.mark.asyncio
@@ -37,6 +37,17 @@ def test_external_smtp_destination_is_rejected(monkeypatch):
 
     with pytest.raises(RuntimeError, match="restricted to local Mailpit"):
         require_mailpit_destination()
+
+
+def test_missing_insurer_contact_uses_deterministic_local_mailpit_address():
+    assert simulated_insurer_address("great-eastern") == (
+        "insurer-great-eastern@insurer.assura.local"
+    )
+
+
+def test_invalid_insurer_id_cannot_generate_empty_recipient():
+    with pytest.raises(ValueError, match="Cannot create a simulated email address"):
+        simulated_insurer_address("!!!")
 
 
 def test_mail_routes_require_internal_api_key():

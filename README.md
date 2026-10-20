@@ -342,6 +342,9 @@ Read `AGENTS.md` for the full breakdown and the `TASK.MD` protocol.
 internal API calls; change it from the demo default for non-demo environments.
 Mail service delivery is restricted in code to Mailpit hostnames on SMTP port
 1025. It does not accept external SMTP credentials.
+If an insurer has no configured contact address, outreach displays and uses a
+deterministic `@insurer.assura.local` demo address; simulated replies use the
+same address. All messages remain inside Mailpit.
 
 ### Stripe test billing
 
