@@ -71,6 +71,13 @@
       "when": 1792630000000,
       "tag": "0006_plan_product_url",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792640000000,
+      "tag": "0007_source_content_text",
+      "breakpoints": true
     }
   ]
 }

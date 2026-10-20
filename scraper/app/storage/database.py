@@ -83,6 +83,7 @@ class Source(Base):
     etag = Column(Text)
     last_modified = Column(Text)
     content_hash = Column(Text)
+    content_text = Column(Text)
     last_checked = Column(Text)
     last_changed = Column(Text)
     status = Column(Text, nullable=False)

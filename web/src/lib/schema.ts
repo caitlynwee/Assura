@@ -105,6 +105,7 @@ export const sources = pgTable("sources", {
   etag: text("etag"),
   lastModified: text("last_modified"),
   contentHash: text("content_hash"),
+  contentText: text("content_text"),
   lastChecked: text("last_checked"),
   lastChanged: text("last_changed"),
   status: text("status").notNull(), // SourceStatus

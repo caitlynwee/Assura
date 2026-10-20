@@ -197,6 +197,7 @@ async def run_scraper(
                     source_dict, response, response.content
                 )
                 apply_source_update(source, updated_source_dict)
+                source.content_text = text  # persist extracted markdown to DB
 
                 changed += 1
 
