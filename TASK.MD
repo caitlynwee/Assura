@@ -227,3 +227,14 @@ Others need to know:
 - Continue from docs/HANDOFF-supabase-auth-pr7.md.
 Blockers: Awaiting live smoke test (needs real Supabase + Brevo keys, user-run).
 ---
+
+## 2026-10-20 | Copilot | Retire completed CRM/outreach handoff
+Status: Completed
+Done:
+- Confirmed the CRM/outreach integration, Mailpit delivery, persona simulations, quote workflow, audit verification, and Docker demo are implemented and have been exercised.
+- The handoff's remaining suggestions are optional improvements, not blockers for the working demo; removed the stale handoff rather than keep obsolete setup and validation guidance.
+- Removed the live AGENTS.md pointer; TASK.MD and PROJECT.MD remain the current project references.
+Files: docs/HANDOFF.md, AGENTS.md, TASK.MD
+Others need to know: The open/draft PR #7 and its remaining live Supabase smoke-test/merge decisions are tracked separately; this does not mark PR #7 merged or ready.
+Blockers: None for retiring this handoff.
+---
