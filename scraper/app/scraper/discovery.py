@@ -200,33 +200,35 @@ def _pick_best_page(results: list[dict], parts: list[str], country_tld: str) -> 
     return non_pdfs[0] if non_pdfs else ""
 
 
-# Per-domain query overrides — used when the generic CI query finds the wrong plan type.
-# income.com.sg: generic query finds Employees FlexCare (corporate group plan) → exclude it.
-# manulife.com.sg: generic query finds ManuProtect Term (term life) → exclude term plans.
+# Per-domain query overrides — pins Firecrawl to the exact individual CI plan name
+# so it reliably finds the right brochure instead of group/term/wrong-country plans.
 _DOMAIN_OVERRIDES: dict[str, dict[str, str]] = {
     "aia.com.sg": {
-        # AIA's real structured content lives under /content/dam/, not the marketing page
-        "pdf": (
-            "site:aia.com.sg/content/dam critical illness plan brochure filetype:pdf"
-        ),
-        "page": "site:aia.com.sg individual critical illness plan",
+        # AIA Absolute Critical Cover — 187 conditions, main standalone individual CI plan
+        "pdf": 'site:aia.com.sg "Absolute Critical Cover" brochure filetype:pdf',
+        "page": 'site:aia.com.sg "Absolute Critical Cover" critical illness plan',
+    },
+    "prudential.com.sg": {
+        # PRUActive Crisis Guard — Prudential's flagship standalone individual CI plan
+        "pdf": 'site:prudential.com.sg "PRUActive Crisis Guard" brochure filetype:pdf',
+        "page": 'site:prudential.com.sg "PRUActive Crisis Guard" critical illness',
+    },
+    "greateasternlife.com": {
+        # GREAT Critical Cover Series — Great Eastern's standalone individual CI plan
+        "pdf": 'site:greateasternlife.com "Great Critical Cover" brochure filetype:pdf',
+        "page": 'site:greateasternlife.com "Great Critical Cover" critical illness plan',
     },
     "income.com.sg": {
-        "pdf": (
-            "site:income.com.sg individual critical illness plan brochure filetype:pdf"
-            " -flexcare -employees -group"
-        ),
-        "page": (
-            "site:income.com.sg individual critical illness insurance plan"
-            " -flexcare -employees -group"
-        ),
+        # Complete Critical Protect — Income's standalone individual CI plan
+        # (FlexCare is corporate group insurance — excluded by pinning the plan name)
+        "pdf": 'site:income.com.sg "Complete Critical Protect" brochure filetype:pdf',
+        "page": 'site:income.com.sg "Complete Critical Protect" critical illness',
     },
     "manulife.com.sg": {
-        "pdf": (
-            "site:manulife.com.sg critical illness insurance plan brochure filetype:pdf"
-            " -term"
-        ),
-        "page": "site:manulife.com.sg critical illness plan insurance -term",
+        # Ready CompleteCare — Manulife's standalone CI plan (126 conditions)
+        # (ManuProtect Term is term life — excluded by pinning the plan name)
+        "pdf": 'site:manulife.com.sg "Ready CompleteCare" brochure filetype:pdf',
+        "page": 'site:manulife.com.sg "Ready CompleteCare" critical illness',
     },
 }
 
