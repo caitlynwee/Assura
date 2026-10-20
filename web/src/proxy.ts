@@ -104,7 +104,12 @@ export default async function proxy(req: NextRequest) {
     case "json401":
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     case "redirect": {
-      const to = new URL(action.to, req.nextUrl);
+      // Prefer the configured public site origin so redirects never leak the
+      // container's HOSTNAME=0.0.0.0 bind host; fall back to the request URL
+      // when NEXT_PUBLIC_SITE_URL is unset. Read env inline to keep this edge
+      // bundle free of Node-only imports. action.to carries the path + query.
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+      const to = new URL(action.to, siteUrl || req.nextUrl);
       return NextResponse.redirect(to);
     }
   }
