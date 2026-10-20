@@ -422,3 +422,16 @@ Files: TASK.MD
 Others need to know: Before relying on real-account flows, smoke-test signup and account deletion against the intended Supabase project; CI does not validate those live service flows.
 Blockers: None for the PR merge; live Supabase smoke tests remain outstanding.
 ---
+
+## 2026-10-20 | Copilot | Fix sign-in pool exhaustion and add account settings
+Status: Completed
+Done:
+- Capped web PostgreSQL and scraper SQLAlchemy pools to fit Supabase's constrained session-mode connection pool.
+- Removed redundant post-login token refresh; invalid refresh-token cookies now clear through `/auth/reset`.
+- Added Settings to edit a display name and personal profile fields persisted in PostgreSQL; moved account deletion there and placed Sign out last in the account menu.
+- Added a profile JSONB migration after the latest timestamp in the shared database's migration history and upgraded the production web image to Node 22.
+- Verified 57 web tests, 15 scraper tests, targeted web lint and Ruff, host/Docker builds, migration and seed startup, and Docker endpoint/auth-reset smoke tests.
+Files: web/src/{lib/{db,schema,users,auth,onboarding}.ts,app/(app)/settings,app/_actions/settings.ts,components/settings}, web/drizzle/0002_last_killer_shrike.sql, scraper/app/storage/database.py, web/Dockerfile.prod
+Others need to know: Personal/health/income data is never shared unless separate consent permits it; sign-in email remains managed by Supabase. Full web lint still reports a pre-existing issue in untouched `web/src/hooks/use-plans.ts`.
+Blockers: None.
+---

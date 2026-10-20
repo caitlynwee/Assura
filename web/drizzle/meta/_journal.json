@@ -15,6 +15,13 @@
       "when": 1792438447026,
       "tag": "0001_curly_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792598400001,
+      "tag": "0002_last_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

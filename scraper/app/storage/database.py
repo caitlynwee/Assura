@@ -144,7 +144,13 @@ def get_engine():
         url = settings.database_url
         if not url:
             raise RuntimeError("DATABASE_URL is not set in environment")
-        _engine = create_engine(url, pool_pre_ping=True)
+        _engine = create_engine(
+            url,
+            pool_pre_ping=True,
+            pool_size=2,
+            max_overflow=0,
+            pool_timeout=30,
+        )
     return _engine
 
 

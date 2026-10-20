@@ -26,6 +26,7 @@ import type {
   ThreadMessage,
   ScraperRun,
   ConsentFlags,
+  UserProfile,
 } from "./types";
 
 // The Drizzle instance type is intentionally loose so a pglite-backed instance
@@ -51,7 +52,9 @@ export function getDb(): Database {
       "DATABASE_URL is not set. Point it at a PostgreSQL instance before using the data layer."
     );
   }
-  sqlClient = postgres(url);
+  // Keep total session-pool usage small: the scraper and migration job share
+  // Supabase's limited session-mode connection pool with this web process.
+  sqlClient = postgres(url, { max: 3 });
   dbInstance = drizzlePostgres(sqlClient, { schema });
   return dbInstance;
 }
@@ -82,6 +85,7 @@ function rowToUser(row: UserRow): User {
     maskedInbox: row.maskedInbox,
     onboarded: row.onboarded,
     consent,
+    profile: (row.profile as UserProfile | null) ?? {},
     createdAt: row.createdAt,
     ...(row.authUid != null ? { authUid: row.authUid } : {}),
   };

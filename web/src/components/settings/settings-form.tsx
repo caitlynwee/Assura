@@ -1,0 +1,211 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { saveSettingsAction } from "@/app/_actions/settings";
+import DeleteAccountDialog from "@/components/account/delete-account-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { UserProfile } from "@/lib/types";
+import { Trash2Icon } from "lucide-react";
+
+export default function SettingsForm({
+  initialName,
+  email,
+  initialProfile,
+  isDemoAccount,
+}: {
+  initialName: string;
+  email: string;
+  initialProfile: UserProfile;
+  isDemoAccount: boolean;
+}) {
+  const [name, setName] = useState(initialName);
+  const [profile, setProfile] = useState<UserProfile>(initialProfile);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
+    setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const cleanProfile = Object.fromEntries(
+      Object.entries(profile).filter(([, value]) => value !== undefined && value !== "")
+    );
+
+    startTransition(async () => {
+      const result = await saveSettingsAction({ name, profile: cleanProfile });
+      if (result.ok) {
+        toast.success("Your settings have been saved.");
+      } else {
+        setError(result.error);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={submit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal information</CardTitle>
+            <CardDescription>
+              These details are stored in your Assura account. They are only included in an
+              insurer enquiry when you separately allow that field under Privacy &amp; consent.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="settings-name">Name</Label>
+              <Input
+                id="settings-name"
+                autoComplete="name"
+                maxLength={80}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-email">Account email</Label>
+              <Input id="settings-email" type="email" value={email} readOnly />
+              <p className="text-xs text-muted-foreground">
+                Email is managed by your sign-in provider and cannot be changed here.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-age">Age</Label>
+              <Input
+                id="settings-age"
+                type="number"
+                min={18}
+                max={80}
+                value={profile.age ?? ""}
+                onChange={(event) =>
+                  update("age", event.target.value ? Number(event.target.value) : undefined)
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-gender">Gender</Label>
+              <Select
+                value={profile.gender ?? "unset"}
+                onValueChange={(value) =>
+                  update("gender", value === "unset" ? undefined : (value as UserProfile["gender"]))
+                }
+              >
+                <SelectTrigger id="settings-gender">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unset">Not provided</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-smoker">Smoker status</Label>
+              <Select
+                value={profile.smoker === undefined ? "unset" : profile.smoker ? "yes" : "no"}
+                onValueChange={(value) =>
+                  update("smoker", value === "unset" ? undefined : value === "yes")
+                }
+              >
+                <SelectTrigger id="settings-smoker">
+                  <SelectValue placeholder="Select…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unset">Not provided</SelectItem>
+                  <SelectItem value="no">Non-smoker</SelectItem>
+                  <SelectItem value="yes">Smoker</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-occupation">Occupation</Label>
+              <Input
+                id="settings-occupation"
+                maxLength={80}
+                value={profile.occupation ?? ""}
+                onChange={(event) => update("occupation", event.target.value || undefined)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-coverage">Coverage needed (SGD)</Label>
+              <Input
+                id="settings-coverage"
+                type="number"
+                min={1}
+                max={10_000_000}
+                value={profile.coverageNeeded ?? ""}
+                onChange={(event) =>
+                  update("coverageNeeded", event.target.value ? Number(event.target.value) : undefined)
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="settings-budget">Monthly budget (SGD)</Label>
+              <Input
+                id="settings-budget"
+                type="number"
+                min={1}
+                max={100_000}
+                value={profile.monthlyBudget ?? ""}
+                onChange={(event) =>
+                  update("monthlyBudget", event.target.value ? Number(event.target.value) : undefined)
+                }
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button type="submit" loading={pending}>
+          Save personal information
+        </Button>
+      </form>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle>Delete account</CardTitle>
+          <CardDescription>
+            Permanently delete your profile, outreach threads, and extracted quotes.
+            Your append-only audit entries are retained.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isDemoAccount && (
+            <p className="mb-3 text-sm text-muted-foreground">
+              The shared demo account is protected from deletion.
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            disabled={isDemoAccount}
+          >
+            <Trash2Icon />
+            Delete account
+          </Button>
+        </CardContent>
+      </Card>
+      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
+    </div>
+  );
+}

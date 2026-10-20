@@ -7,6 +7,7 @@ import {
   LayoutGridIcon,
   LockIcon,
   MessagesSquareIcon,
+  SettingsIcon,
   ScrollTextIcon,
   SendIcon,
   ShieldCheckIcon,
@@ -93,6 +94,12 @@ export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded
       </nav>
 
       <div className="border-t p-3">
+        <NavLink
+          href="/settings"
+          label="Settings"
+          icon={SettingsIcon}
+          active={pathname.startsWith("/settings")}
+        />
         <NavLink
           href={isPremium ? "/onboarding" : "/upgrade"}
           label="Privacy & consent"

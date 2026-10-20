@@ -21,6 +21,7 @@ import {
   jsonb,
   bigserial,
 } from "drizzle-orm/pg-core";
+import type { UserProfile } from "./types";
 
 // ─── users ──────────────────────────────────────────────────────────────────
 // ConsentFlags is flattened to 8 boolean columns (queryable, matches flat seed).
@@ -46,6 +47,7 @@ export const users = pgTable("users", {
   // identity. Nullable — seed rows and pre-existing rows link lazily on first
   // login (email fallback → back-fill) or eagerly via the demo-user seed step.
   authUid: text("auth_uid"),
+  profile: jsonb("profile").$type<UserProfile>().notNull().default({}),
 });
 
 // ─── insurers ─────────────────────────────────────────────────────────────────

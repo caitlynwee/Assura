@@ -106,8 +106,6 @@ export async function loginAction(
     return { error: "Invalid email or password.", values: { email } };
   }
 
-  await syncAuthMetadata(appUser.id);
-  await supabase.auth.refreshSession();
   logEvent(appUser.id, "auth.login.success", {});
   redirect(withToast(redirectTo, "login")); // NEXT_REDIRECT — propagates
 }
@@ -143,8 +141,6 @@ export async function demoLoginAction(formData: FormData): Promise<void> {
     redirect("/login?error=demo");
   }
 
-  await syncAuthMetadata(appUser.id);
-  await supabase.auth.refreshSession();
   logEvent(appUser.id, "auth.login.success", {});
   redirect(withToast(redirectTo, "login"));
 }
