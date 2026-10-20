@@ -377,6 +377,14 @@ yourself. For an externally hosted webhook endpoint, configure Stripe to send
 `customer.subscription.deleted` to the app's webhook URL and use that
 endpoint's signing secret.
 
+When running Stripe CLI directly from PowerShell, quote the comma-separated
+event list so PowerShell passes it as one argument:
+
+```powershell
+stripe login
+stripe listen --events "customer.subscription.created,customer.subscription.updated,customer.subscription.deleted" --forward-to http://localhost:3000/api/stripe/webhook
+```
+
 ### `web/.env.local` — used when running web locally
 
 Set the Supabase URL/keys (including the server-only service-role key),

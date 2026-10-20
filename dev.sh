@@ -98,7 +98,9 @@ cmd_up_stripe() {
   esac
 
   info "Getting the local Stripe webhook signing secret in Docker..."
-  if ! webhook_secret="$(docker compose --profile stripe run --rm --no-deps stripe-cli listen --print-secret)"; then
+  if ! webhook_secret="$(docker compose --profile stripe run --rm --no-deps stripe-cli listen \
+    --events=customer.subscription.created,customer.subscription.updated,customer.subscription.deleted \
+    --print-secret)"; then
     error "Could not get a webhook secret from the Stripe CLI container. Check Docker connectivity and the Stripe test key."
   fi
   case "$webhook_secret" in
