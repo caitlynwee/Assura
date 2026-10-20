@@ -204,6 +204,13 @@ def _pick_best_page(results: list[dict], parts: list[str], country_tld: str) -> 
 # income.com.sg: generic query finds Employees FlexCare (corporate group plan) → exclude it.
 # manulife.com.sg: generic query finds ManuProtect Term (term life) → exclude term plans.
 _DOMAIN_OVERRIDES: dict[str, dict[str, str]] = {
+    "aia.com.sg": {
+        # AIA's real structured content lives under /content/dam/, not the marketing page
+        "pdf": (
+            "site:aia.com.sg/content/dam critical illness plan brochure filetype:pdf"
+        ),
+        "page": "site:aia.com.sg individual critical illness plan",
+    },
     "income.com.sg": {
         "pdf": (
             "site:income.com.sg individual critical illness plan brochure filetype:pdf"
