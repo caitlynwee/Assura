@@ -7,6 +7,17 @@ import { redirect } from "next/navigation";
 import { auth } from "./auth";
 import { findUserById, toPublicUser } from "./users";
 import type { PublicUser } from "./types";
+import { VIEW_COOKIE_NAME } from "./view-mode";
+
+/**
+ * Read the raw "view as" cookie for cosmetic preview (admin-only feature).
+ * Returns the requested view string as-is; admin-gating is the job of
+ * `resolveEffectiveViewTier` in `view-mode.ts`. This is NOT a security boundary.
+ */
+export async function readViewCookie(): Promise<string | null> {
+  const jar = await cookies();
+  return jar.get(VIEW_COOKIE_NAME)?.value ?? null;
+}
 
 /** Fresh user record for the current session (no passwordHash), or null. */
 export async function getCurrentUser(): Promise<PublicUser | null> {

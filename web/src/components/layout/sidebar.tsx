@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import Logo from "@/components/brand/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useViewMode } from "@/components/view-mode/view-mode-provider";
 import type { UserTier } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import type { Messages } from "@/lib/i18n/messages";
@@ -64,8 +65,14 @@ function NavLink({
 
 export default function Sidebar({ tier, onboarded }: { tier: UserTier; onboarded: boolean }) {
   const pathname = usePathname();
-  const isPremium = tier === "premium";
-  const isAdmin = tier === "admin";
+  // COSMETIC gating only. The `tier` prop seeds the correct nav on first server
+  // render (no flash); the context value lets an admin's in-app view switch
+  // reflect instantly without a server round-trip. This is NOT a security
+  // boundary — real authorization stays in the edge middleware.
+  const { viewTier } = useViewMode();
+  const effectiveTier = viewTier ?? tier;
+  const isPremium = effectiveTier === "premium";
+  const isAdmin = effectiveTier === "admin";
   const hasOutreachAccess = isPremium || isAdmin;
   const t = useT().layout.nav;
 

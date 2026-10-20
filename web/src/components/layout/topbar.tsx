@@ -16,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useViewMode } from "@/components/view-mode/view-mode-provider";
+import ViewAsSwitcher from "@/components/view-mode/view-as-switcher";
 import type { PublicUser } from "@/lib/types";
 import { useT } from "@/lib/i18n/client";
 import LanguageSwitcher from "@/components/i18n/language-switcher";
@@ -26,14 +28,18 @@ function initials(nameOrEmail: string) {
 }
 
 export default function Topbar({ user }: { user: PublicUser }) {
-  const premium = user.tier === "premium";
-  const admin = user.tier === "admin";
+  // Tier-derived booleans follow the COSMETIC view tier (presentation only).
+  // Real identity fields (name/email/maskedInbox) still come from the real user.
+  const { viewTier } = useViewMode();
+  const premium = viewTier === "premium";
+  const admin = viewTier === "admin";
   const hasOutreachAccess = premium || admin;
   const logoutForm = useRef<HTMLFormElement>(null);
   const tt = useT();
   const t = tt.layout.topbar;
   return (
     <header className="flex h-14 items-center justify-end gap-3 border-b bg-card px-6">
+      <ViewAsSwitcher />
       <LanguageSwitcher />
       {hasOutreachAccess && user.maskedInbox && (
         <Tooltip>
