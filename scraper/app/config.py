@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     deepseek_api_key: str = ""
     llm_model: str = "deepseek-chat"
 
+    # Firecrawl — web search for PDF brochure + product page URLs
+    fire_crawl_api_key: str = ""
+
     # Country — swap to any country name to scrape that market's top 5 CI plans
     current_country: str = "Singapore"
 
