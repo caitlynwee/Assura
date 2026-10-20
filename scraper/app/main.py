@@ -1,43 +1,25 @@
-"""main.py — FastAPI application factory with lifespan scheduler."""
+"""main.py — FastAPI application factory.
 
-from contextlib import asynccontextmanager
+The scraper does NOT run on any automatic schedule. Each scrape hits Firecrawl
+(paid tokens) and insurer sites, so it runs ONLY when an admin triggers it via
+POST /scraper/run (the Admin page button). The previous daily cron scheduler
+was removed deliberately — do not re-add auto-scraping.
+"""
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
 from app.routers import scraper
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Start cron scheduler — runs scraper daily at 00:00 SGT
-    scheduler = AsyncIOScheduler(timezone=settings.scraper_cron_timezone)
-    scheduler.add_job(
-        _run_scheduled_scrape,
-        trigger="cron",
-        hour=settings.scraper_cron_hour,
-        minute=0,
-        id="daily_scrape",
-        replace_existing=True,
-    )
-    scheduler.start()
-    yield
-    scheduler.shutdown(wait=False)
-
-
-async def _run_scheduled_scrape() -> None:
-    from app.scraper.engine import run_scraper
-    await run_scraper(trigger="cron")
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Fineprint Scraper",
-        description="Background job server: insurer plan discovery and brochure scraping",
+        description=(
+            "Background job server: insurer plan discovery and brochure scraping. "
+            "Admin-triggered only — no automatic schedule (each run costs Firecrawl tokens)."
+        ),
         version="0.1.0",
-        lifespan=lifespan,
     )
 
     app.add_middleware(
