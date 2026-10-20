@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import email, scraper
+from app.routers import scraper
 
 
 @asynccontextmanager
@@ -35,7 +35,7 @@ async def _run_scheduled_scrape() -> None:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Fineprint Scraper",
-        description="Background job server: web scraper, email relay, insurer reply simulator",
+        description="Background job server: insurer plan discovery and brochure scraping",
         version="0.1.0",
         lifespan=lifespan,
     )
@@ -48,8 +48,6 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(scraper.router, prefix="/scraper", tags=["scraper"])
-    app.include_router(email.router, prefix="/email", tags=["email"])
-
     return app
 
 

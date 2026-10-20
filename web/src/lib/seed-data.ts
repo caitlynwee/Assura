@@ -1,4 +1,6 @@
-[
+import type { User } from "./types";
+
+export const seedUsers: User[] = [
   {
     "id": "user_demo",
     "email": "demo@assura.local",
@@ -19,4 +21,4 @@
     },
     "createdAt": "2026-10-01T00:00:00.000Z"
   }
-]
+];

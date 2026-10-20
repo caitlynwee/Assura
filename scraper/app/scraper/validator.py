@@ -39,7 +39,7 @@ def validate_plan(data: dict) -> dict:
     except ValidationError as e:
         raise ValueError(f"Plan validation failed: {e}") from e
 
-    # Return as camelCase dict (matches plans.json format)
+    # Return the camelCase plan shape consumed by the backend API.
     return {
         "id": plan.id,
         "insurerId": plan.insurer_id,
