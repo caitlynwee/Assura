@@ -4,24 +4,19 @@
  * migrate+seed one-shot step.
  */
 
+import { setDefaultResultOrder } from "node:dns";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import path from "path";
 
-async function waitForPostgres(url: string, maxAttempts = 30): Promise<void> {
-  for (let i = 1; i <= maxAttempts; i++) {
-    try {
-      const sql = postgres(url, { max: 1, connect_timeout: 5 });
-      await sql`SELECT 1`;
-      await sql.end();
-      return;
-    } catch {
-      console.log(`[migrate] postgres not ready (attempt ${i}/${maxAttempts}), retrying in 2s...`);
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-  }
-  throw new Error("Could not connect to postgres after 30 attempts.");
+// Force IPv4 DNS — Docker containers on macOS get IPv6 addresses for Supabase
+// hostnames which are unreachable inside the Docker network bridge.
+setDefaultResultOrder("ipv4first");
+
+function pgOptions(url: string) {
+  const isLocal = url.includes("localhost") || url.includes("127.0.0.1");
+  return { max: 1, ssl: isLocal ? false : ("require" as const) };
 }
 
 async function main() {
@@ -30,10 +25,7 @@ async function main() {
     throw new Error("DATABASE_URL is not set.");
   }
 
-  await waitForPostgres(url);
-
-  // `max: 1` — migrations must run on a single connection, sequentially.
-  const sql = postgres(url, { max: 1 });
+  const sql = postgres(url, pgOptions(url));
   const db = drizzle(sql);
 
   const migrationsFolder = path.resolve(process.cwd(), "drizzle");

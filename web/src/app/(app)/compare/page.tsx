@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import PlanTable from "@/components/compare/plan-table";
 import PlanFilters from "@/components/compare/plan-filters";
 import PageHeader from "@/components/layout/page-header";
+import RunScraperButton from "@/components/compare/run-scraper-button";
 import { getCurrentUser } from "@/lib/session";
 import type { ComparePersonalProfile } from "@/lib/premium";
 
@@ -26,10 +27,13 @@ export default async function ComparePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Compare Plans"
-        description="Critical illness plans from Singapore insurers. Every figure is sourced from a public brochure, with its “data as of” date."
-      />
+      <div className="flex items-start justify-between">
+        <PageHeader
+          title="Compare Plans"
+          description="Critical illness plans from Singapore insurers. Every figure is sourced from a public brochure, with its &ldquo;data as of&rdquo; date."
+        />
+        <RunScraperButton />
+      </div>
       <PlanFilters hasBudget={typeof profile?.monthlyBudget === "number"} />
       <PlanTable profile={profile} />
     </div>

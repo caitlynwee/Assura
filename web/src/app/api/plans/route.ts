@@ -25,7 +25,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid filters" }, { status: 400 });
   }
 
-  let plans = await getPlans();
+  const country = req.nextUrl.searchParams.get("country") ?? process.env.CURRENT_COUNTRY ?? "Singapore";
+  let plans = await getPlans(country);
   const { insurerId, minCoverage, maxCoverage, earlyStage, sortBy, sortDir, search } =
     parsed.data;
 

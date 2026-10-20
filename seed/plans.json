@@ -13,7 +13,10 @@
       "female_40_nonsmoker": 1750
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["25_years", "to_age_70"],
+    "coverageTerms": [
+      "25_years",
+      "to_age_70"
+    ],
     "illnessesCovered": 37,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -34,7 +37,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "aia_ci_prime",
@@ -50,7 +54,9 @@
       "female_40_nonsmoker": 960
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_65"],
+    "coverageTerms": [
+      "to_age_65"
+    ],
     "illnessesCovered": 30,
     "earlyStageConditions": false,
     "payoutType": "lump_sum",
@@ -70,7 +76,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "prudential_prucritical",
@@ -86,7 +93,10 @@
       "female_40_nonsmoker": 1890
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_70", "to_age_75"],
+    "coverageTerms": [
+      "to_age_70",
+      "to_age_75"
+    ],
     "illnessesCovered": 42,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -109,7 +119,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "prudential_prumyci",
@@ -125,7 +136,10 @@
       "female_40_nonsmoker": 530
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["10_years", "20_years"],
+    "coverageTerms": [
+      "10_years",
+      "20_years"
+    ],
     "illnessesCovered": 30,
     "earlyStageConditions": false,
     "payoutType": "lump_sum",
@@ -146,7 +160,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "ge_living_assurance",
@@ -162,7 +177,10 @@
       "female_40_nonsmoker": 1680
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["whole_life", "to_age_70"],
+    "coverageTerms": [
+      "whole_life",
+      "to_age_70"
+    ],
     "illnessesCovered": 36,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -183,7 +201,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "ge_supreme_health_ci",
@@ -199,7 +218,10 @@
       "female_40_nonsmoker": 1280
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_65", "to_age_70"],
+    "coverageTerms": [
+      "to_age_65",
+      "to_age_70"
+    ],
     "illnessesCovered": 30,
     "earlyStageConditions": false,
     "payoutType": "lump_sum",
@@ -220,7 +242,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "ge_ci_early_saver",
@@ -236,7 +259,9 @@
       "female_40_nonsmoker": 1060
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["20_years"],
+    "coverageTerms": [
+      "20_years"
+    ],
     "illnessesCovered": 36,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -257,7 +282,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "income_ci_classic",
@@ -273,7 +299,10 @@
       "female_40_nonsmoker": 780
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_65", "to_age_70"],
+    "coverageTerms": [
+      "to_age_65",
+      "to_age_70"
+    ],
     "illnessesCovered": 10,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -294,7 +323,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "income_ci_multiplier",
@@ -310,7 +340,10 @@
       "female_40_nonsmoker": 2080
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_70", "whole_life"],
+    "coverageTerms": [
+      "to_age_70",
+      "whole_life"
+    ],
     "illnessesCovered": 42,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -332,7 +365,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "income_starhealth_ci",
@@ -348,7 +382,9 @@
       "female_40_nonsmoker": 620
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_65"],
+    "coverageTerms": [
+      "to_age_65"
+    ],
     "illnessesCovered": 30,
     "earlyStageConditions": false,
     "payoutType": "lump_sum",
@@ -369,7 +405,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "manulife_ci_care",
@@ -385,7 +422,10 @@
       "female_40_nonsmoker": 1470
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["20_years", "to_age_70"],
+    "coverageTerms": [
+      "20_years",
+      "to_age_70"
+    ],
     "illnessesCovered": 36,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -406,7 +446,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "manulife_ci_prime",
@@ -422,7 +463,10 @@
       "female_40_nonsmoker": 2750
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["to_age_70", "whole_life"],
+    "coverageTerms": [
+      "to_age_70",
+      "whole_life"
+    ],
     "illnessesCovered": 45,
     "earlyStageConditions": true,
     "payoutType": "lump_sum",
@@ -445,7 +489,8 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   },
   {
     "id": "manulife_readyprotect",
@@ -461,7 +506,9 @@
       "female_40_nonsmoker": 500
     },
     "premiumFrequency": "annual",
-    "coverageTerms": ["5_years"],
+    "coverageTerms": [
+      "5_years"
+    ],
     "illnessesCovered": 30,
     "earlyStageConditions": false,
     "payoutType": "lump_sum",
@@ -482,6 +529,48 @@
     "updatedBadge": false,
     "changeNotes": [],
     "version": 1,
-    "scrapedAt": "2026-10-01T00:00:00.000Z"
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
+  },
+  {
+    "id": "singlife_ci_protect",
+    "insurerId": "singlife",
+    "insurerName": "Singlife",
+    "planName": "Singlife CI Protect",
+    "category": "critical_illness",
+    "coverageAmount": 200000,
+    "premiums": {
+      "male_30_nonsmoker": 1050,
+      "male_40_nonsmoker": 1920,
+      "female_30_nonsmoker": 860,
+      "female_40_nonsmoker": 1580
+    },
+    "premiumFrequency": "annual",
+    "coverageTerms": [
+      "to_age_65",
+      "to_age_70"
+    ],
+    "illnessesCovered": 37,
+    "earlyStageConditions": true,
+    "payoutType": "lump_sum",
+    "keyBenefits": [
+      "Covers 37 critical illnesses across early, intermediate and advanced stages",
+      "100% lump sum payout upon diagnosis",
+      "Premium waiver upon claim",
+      "Guaranteed renewable up to age 85"
+    ],
+    "exclusions": [
+      "Pre-existing conditions",
+      "Congenital conditions",
+      "Self-inflicted injuries",
+      "90-day waiting period for most conditions"
+    ],
+    "sourceUrl": "https://singlife.com/en/insurance/critical-illness",
+    "dataAsOf": "2026-09-30",
+    "updatedBadge": false,
+    "changeNotes": [],
+    "version": 1,
+    "scrapedAt": "2026-10-01T00:00:00.000Z",
+    "country": "Singapore"
   }
 ]

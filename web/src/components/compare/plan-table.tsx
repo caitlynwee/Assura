@@ -86,7 +86,7 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                   ))}
                 </TableRow>
               ))
-            ) : plans.length === 0 ? (
+            ) : plans.filter((p) => p.coverageAmount > 0).length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={COLUMNS.length} className="py-12 text-center text-muted-foreground">
                   <SearchXIcon className="mx-auto mb-2 size-6" />
@@ -94,7 +94,7 @@ export default function PlanTable({ profile }: { profile?: ComparePersonalProfil
                 </TableCell>
               </TableRow>
             ) : (
-              plans.map((plan) => {
+              plans.filter((p) => p.coverageAmount > 0).map((plan) => {
                 const resolved = resolvePremium(profile ?? {}, plan.premiums);
                 const within = isWithinBudget(resolved.premium, monthlyBudget);
                 const meetsCoverage = meetsCoverageNeed(plan.coverageAmount, coverageNeeded);
