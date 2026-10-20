@@ -53,12 +53,12 @@ describe("saveSettingsAction", () => {
     const result = await saveSettingsAction({
       name: "Lee Guan Feng",
       profile: {
-        age: 32,
+        dateOfBirth: "1993-04-15",
+        countryOfOrigin: "Singapore",
         gender: "male",
         smoker: false,
         coverageNeeded: 200_000,
         monthlyBudget: 150,
-        occupation: "Engineer",
       },
     });
 
@@ -66,12 +66,12 @@ describe("saveSettingsAction", () => {
     expect(await findUserById("user_demo")).toMatchObject({
       name: "Lee Guan Feng",
       profile: {
-        age: 32,
+        dateOfBirth: "1993-04-15",
+        countryOfOrigin: "Singapore",
         gender: "male",
         smoker: false,
         coverageNeeded: 200_000,
         monthlyBudget: 150,
-        occupation: "Engineer",
       },
     });
   });
@@ -87,6 +87,16 @@ describe("saveSettingsAction", () => {
       name: "Demo User",
       profile: {},
     });
+  });
+
+  it("rejects invalid or out-of-range birthdays", async () => {
+    const result = await saveSettingsAction({
+      name: "Demo User",
+      profile: { dateOfBirth: "2020-02-30" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(await findUserById("user_demo")).toMatchObject({ profile: {} });
   });
 
   it("downgrades a personal Premium account to Free and refreshes auth metadata", async () => {

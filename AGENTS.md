@@ -49,11 +49,11 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 ### Marcus — Scraper
 - Python FastAPI scraper server (`/scraper`)
 - Scrape 6 Singapore CI insurers: AIA, Prudential, Great Eastern, NTUC Income, Manulife, Singlife
-- Extract plan data from brochures → convert via quarantined LLM → update plans.json
+- Extract plan data from brochures → convert via quarantined LLM → update PostgreSQL plan rows
 - Cron job at 00:00 SGT (local for now, cloud later)
 - Change detection: ETag/Last-Modified → SHA-256 hash fallback
 - Mock brochure at `/mock/brochure` (editable live for demo)
-- Files: `scraper/app/scraper/`, `scraper/app/routers/scraper.py`, `data/sources.json`
+- Files: `scraper/app/scraper/`, `scraper/app/routers/scraper.py`, `scraper/app/storage/`
 
 ### Jeff — AI Agent & CRM
 - AI email drafting + thread management (in-process via `web/src/lib/ai.ts` — the standalone
@@ -77,8 +77,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 /
 ├── web/          Next.js 16 (App Router) — frontend + API routes
 ├── scraper/      Python FastAPI — scraper, email relay, personas
-├── data/         Runtime JSON files (gitignored; reset with bash seed/reset.sh)
-├── seed/         Seed data + reset.sh (source of truth for demo state)
+├── seed/         PostgreSQL reset script
 ├── docs/         Product spec and hackathon reference docs
 │   └── PROJECT.MD    ← product spec
 ├── AGENTS.md     ← you are here (AI agent instructions, any tool)
@@ -90,7 +89,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 
 ## Architecture Decisions (do not change without team consensus)
 - **AI provider**: DeepSeek via the OpenAI-compatible SDK (`DEEPSEEK_API_KEY`, model `deepseek-chat`), in `ai.ts` + `quarantine.ts`. The client is lazily instantiated so `next build` works without a key. (Migrated off Anthropic/Claude. The scraper's own LLM config is a separate port — Marcus's lane.)
-- **Storage**: Local JSON files — `data/*.json` and `data/*.jsonl`. Backend is the only writer. Atomic saves (temp → rename). **⚠ Migration in progress:** moving to PostgreSQL (Drizzle for web, SQLAlchemy for the scraper) on branch `migrate/postgres-storage` (full handoff lives on that branch). Until that merges, JSON files remain the source of truth.
+- **Storage**: PostgreSQL is the runtime source of truth. The web app owns schema and migrations via Drizzle; the scraper maps the same tables via SQLAlchemy and does not issue DDL. Typed fixtures in `web/src/lib/seed-data.ts` populate/reset demo data. Selected nested fields use PostgreSQL `JSONB`; audit detail is stored as exact serialized text in `audit_entries` so hash verification remains byte-stable.
 - **Auth**: Supabase Auth verifies credentials; PostgreSQL app profiles supply tier/consent data. `proxy.ts` verifies access-token signatures with Supabase JWKS.
 - **`DATA_DIR`**: Defined in `web/src/lib/db.ts` only. Do NOT put it in `constants.ts` (edge runtime constraint).
 - **All `(app)` pages**: Must export `export const dynamic = "force-dynamic"`.
@@ -103,7 +102,7 @@ Home → Compare & filter → Q&A chat (cited answer) → Onboarding (masked inb
 These must be demonstrably working in the demo:
 1. **Policy tiers**: 0=read, 1=advise/draft (premium), 2=send (approval required), 3=blocked (NRIC/health/income → escalate)
 2. **PII blocker**: NRIC regex `[STFGM]\d{7}[A-Z]`, SG phone, health keywords — blocks outgoing email, shows error to user
-3. **Audit hash chain**: SHA-256 linked entries in `audit.jsonl`, "Verify chain" button shows ✓/✗
+3. **Audit hash chain**: SHA-256 linked entries in PostgreSQL's `audit_entries` table, "Verify chain" button shows ✓/✗
 4. **Quarantine reader**: Insurer replies never reach the send agent raw — always parsed through isolated LLM call
 
 ---

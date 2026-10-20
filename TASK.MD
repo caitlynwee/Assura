@@ -495,3 +495,50 @@ Files: web/src/lib/demo.ts, web/src/lib/supabase/ensure-demo-user.ts, web/drizzl
 Others need to know: The `.local` email is a confirmed demo-only sign-in identifier and cannot receive external email.
 Blockers: None.
 ---
+
+## 2026-10-20 | Copilot | Add country and birthday to user profile
+Status: Completed
+Done:
+- Added country of origin and date of birth to Settings and onboarding; profile JSONB persistence requires no schema migration.
+- Replaced age entry with birthday and derive age for comparison/outreach; only derived age is eligible for insurer sharing with explicit consent.
+- Removed occupation from profile entry/sharing because it is not used in current comparison or outreach; coverage and monthly budget remain optional and support both flows.
+- Validate birthdays as real dates for ages 18–80; country, exact birthday, and legacy-age fallback are handled safely.
+- Verified focused and full web tests, changed-file ESLint, TypeScript, and production build.
+Files: web/src/lib/profile.ts, web/src/lib/types.ts, web/src/lib/validators.ts, web/src/lib/onboarding.ts, web/src/components/settings/settings-form.tsx, web/src/components/onboarding/onboarding-form.tsx, web/src/components/outreach/outreach-wizard.tsx, web/src/app/(app)/compare/page.tsx
+Others need to know: Country and exact birthday are retained in the account but never sent to insurers; legacy profiles keep their saved age until a birthday is entered.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Clarify PostgreSQL runtime storage
+Status: Completed
+Done:
+- Updated the agent guide and project spec to identify PostgreSQL as runtime source of truth, with Drizzle owning schema/migrations and scraper SQLAlchemy mapping the same database.
+- Clarified that JSONB is used for nested database fields and `seed/*.json` files are fixtures, not runtime persistence.
+- Corrected audit-chain, scraper data, and known-risk descriptions to match the current PostgreSQL implementation.
+Files: AGENTS.md, docs/PROJECT.MD, TASK.MD
+Others need to know: Historical entries in TASK.MD intentionally retain their original wording; the current architecture guidance is corrected.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Remove JSON seed-file dependency
+Status: Completed
+Done:
+- Moved the demo seed records into typed TypeScript fixtures in `web/src/lib/seed-data.ts`; PostgreSQL seeding and tests now consume those fixtures directly.
+- Removed the five `seed/*.json` files, `SEED_DIR` configuration, and Docker seed-volume mount.
+- Updated reset, scraper comments, architecture docs, and current references to describe the new fixture location.
+- Preserved PostgreSQL JSONB, API/LLM JSON serialization, and historical task entries; those are data formats/protocol details, not seed-file dependencies.
+Files: web/src/lib/seed-data.ts, web/src/lib/seed.ts, web/src/__tests__/setup.ts, seed/reset.sh, docker-compose.yml, AGENTS.md, docs/PROJECT.MD, README.md
+Others need to know: The project no longer requires checked-in JSON seed files to start/reset demo state.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Limit profile country picker options
+Status: Completed
+Done:
+- Replaced free-text country-of-origin inputs in Settings and onboarding with pickers for Singapore and China.
+- Restricted the profile type and server-side validation to those same options.
+- Added regression coverage for accepted and rejected country values.
+Files: web/src/lib/countries.ts, web/src/lib/types.ts, web/src/lib/validators.ts, web/src/components/settings/settings-form.tsx, web/src/components/onboarding/onboarding-form.tsx, web/src/__tests__/profile.test.ts
+Others need to know: The available country list is intentionally limited to Singapore and China for now.
+Blockers: None.
+---

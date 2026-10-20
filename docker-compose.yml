@@ -9,10 +9,8 @@ services:
     volumes:
       - ./web/src:/app/src
       - ./web/drizzle:/app/drizzle
-      - ./seed:/seed:ro
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set in .env}
-      SEED_DIR: /seed
       # db:seed-auth creates/links the demo Supabase identity via the admin API.
       # NEXT_PUBLIC_* are intentionally browser-exposed by design; the
       # service-role key is SERVER ONLY and must never be prefixed NEXT_PUBLIC_.

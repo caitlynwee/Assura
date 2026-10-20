@@ -78,7 +78,7 @@ async def convert_to_plan(text: str, source: dict) -> dict:
     from app.utils.time import now_utc_iso
     parsed["id"] = source.get("planIds", [None])[0] or f"plan_{source['id']}"
     parsed["insurerId"] = source.get("insurerId") or source.get("insurer_id", "")
-    parsed["insurerName"] = ""  # will be filled by validator from insurers.json
+    parsed["insurerName"] = ""  # the backend fills this from the insurer record
     parsed["category"] = "critical_illness"
     parsed["premiumFrequency"] = "annual"
     parsed["payoutType"] = "lump_sum"

@@ -1,5 +1,5 @@
 /**
- * seed.ts — load seed/*.json into the database.
+ * seed.ts — load typed demo fixtures into the database.
  *
  * Exposes seedDatabase(db) so both the `db:seed` CLI and the test harness can
  * reuse the exact same loader. Rows are inserted in FK-safe order:
@@ -7,41 +7,12 @@
  * audit_entries and scraper_runs are intentionally left empty (runtime data).
  */
 
-import fs from "fs";
-import path from "path";
 import * as schema from "./schema";
-import type {
-  Insurer,
-  Plan,
-  Source,
-  Thread,
-  User,
-} from "./types";
+import { seedData } from "./seed-data";
 import type { Database } from "./db";
 
-function readSeed<T>(seedDir: string, file: string): T {
-  const raw = fs.readFileSync(path.join(seedDir, file), "utf-8");
-  return JSON.parse(raw) as T;
-}
-
-/** Resolve the repo-root seed/ directory from the web/ working dir. */
-export function resolveSeedDir(): string {
-  // When run from web/ (cwd), the seed dir is ../seed. Fall back to an env
-  // override for containerized contexts.
-  return (
-    process.env.SEED_DIR ?? path.resolve(process.cwd(), "../seed")
-  );
-}
-
-export async function seedDatabase(
-  db: Database,
-  seedDir: string = resolveSeedDir()
-): Promise<void> {
-  const insurers = readSeed<Insurer[]>(seedDir, "insurers.json");
-  const users = readSeed<User[]>(seedDir, "users.json");
-  const plans = readSeed<Plan[]>(seedDir, "plans.json");
-  const sources = readSeed<Source[]>(seedDir, "sources.json");
-  const threads = readSeed<Thread[]>(seedDir, "threads.json");
+export async function seedDatabase(db: Database): Promise<void> {
+  const { insurers, users, plans, sources, threads } = seedData;
 
   // ── insurers ──
   if (insurers.length) {

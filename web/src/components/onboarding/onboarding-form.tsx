@@ -21,11 +21,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { ConsentFlags, UserProfile } from "@/lib/types";
+import { dateOfBirthInputBounds, profileAge } from "@/lib/profile";
+import { COUNTRY_OF_ORIGIN_OPTIONS } from "@/lib/countries";
 
-type ShareableKey = Exclude<keyof ConsentFlags, "shareHealthHistory" | "shareIncome">;
+type ShareableKey = Exclude<
+  keyof ConsentFlags,
+  "shareHealthHistory" | "shareIncome" | "shareOccupation"
+>;
 
 const SHAREABLE: { key: ShareableKey; label: string; describe: (p: UserProfile) => string | null }[] = [
-  { key: "shareAge", label: "Age", describe: (p) => (p.age ? `Age ${p.age}` : null) },
+  {
+    key: "shareAge",
+    label: "Age",
+    describe: (p) => {
+      const age = profileAge(p);
+      return age ? `Age ${age}` : null;
+    },
+  },
   {
     key: "shareGender",
     label: "Gender",
@@ -47,7 +59,6 @@ const SHAREABLE: { key: ShareableKey; label: string; describe: (p: UserProfile) 
     label: "Monthly budget",
     describe: (p) => (p.monthlyBudget ? `${formatCurrency(p.monthlyBudget)}/month budget` : null),
   },
-  { key: "shareOccupation", label: "Occupation", describe: (p) => p.occupation?.trim() || null },
 ];
 
 const NEVER_SHARED = [
@@ -97,6 +108,14 @@ export default function OnboardingForm({
     setProfile((p) => ({ ...p, [key]: value }));
   }
 
+  function setDateOfBirth(value: string) {
+    setProfile((current) => {
+      const next = { ...current, dateOfBirth: value || undefined };
+      if (value) delete next.age;
+      return next;
+    });
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -106,7 +125,12 @@ export default function OnboardingForm({
     startTransition(async () => {
       const res = await saveOnboardingAction({
         profile: cleanProfile,
-        consent: { ...consent, shareHealthHistory: false, shareIncome: false },
+        consent: {
+          ...consent,
+          shareHealthHistory: false,
+          shareIncome: false,
+          shareOccupation: false,
+        },
       });
       if (res.ok) setSavedInbox(res.maskedInbox);
       else setError(res.error);
@@ -191,22 +215,45 @@ export default function OnboardingForm({
       <Card>
         <CardHeader>
           <CardTitle>2. About you (optional)</CardTitle>
-          <CardDescription>Used to tailor enquiries. Nothing here is sent unless you allow it in step 3.</CardDescription>
+          <CardDescription>
+            Coverage and budget can tailor comparisons and enquiries. Your birthday and country stay
+            private; only your derived age can be shared if you allow it in step 3.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="age">Age</Label>
+              <Label htmlFor="birthday">Birthday</Label>
               <Input
-                id="age"
-                type="number"
-                min={18}
-                max={80}
-                inputMode="numeric"
-                value={profile.age ?? ""}
-                onChange={(e) => set("age", toInt(e.target.value))}
-                placeholder="32"
+                id="birthday"
+                type="date"
+                {...dateOfBirthInputBounds()}
+                value={profile.dateOfBirth ?? ""}
+                onChange={(e) => setDateOfBirth(e.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="country-of-origin">Country of origin</Label>
+              <Select
+                value={profile.countryOfOrigin ?? ""}
+                onValueChange={(value) =>
+                  set(
+                    "countryOfOrigin",
+                    COUNTRY_OF_ORIGIN_OPTIONS.find((country) => country === value)
+                  )
+                }
+              >
+                <SelectTrigger id="country-of-origin">
+                  <SelectValue placeholder="Select country…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_OF_ORIGIN_OPTIONS.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="gender">Gender</Label>
@@ -238,16 +285,6 @@ export default function OnboardingForm({
                   <SelectItem value="yes">Smoker</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="occupation">Occupation</Label>
-              <Input
-                id="occupation"
-                value={profile.occupation ?? ""}
-                onChange={(e) => set("occupation", e.target.value)}
-                maxLength={80}
-                placeholder="Software engineer"
-              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="coverage">Coverage needed (SGD)</Label>

@@ -10,7 +10,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Fresh from users.json (not just the JWT), so tier/onboarding changes show immediately.
+  // Fresh from PostgreSQL (not just the JWT), so tier/onboarding changes show immediately.
   const user = await requireUser();
 
   return (
