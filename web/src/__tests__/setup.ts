@@ -21,8 +21,22 @@ export let testDb: any;
 
 const migrationsFolder = path.resolve(__dirname, "../../drizzle");
 
+async function seedTestInsurers(): Promise<void> {
+  await testDb.insert(schema.insurers).values({
+    id: "aia",
+    name: "AIA Singapore",
+    agentEmail: "advisor@aia-demo.fineprint.local",
+    logo: "/logos/aia.svg",
+    persona: "helpful",
+    website: "https://www.aia.com.sg",
+    country: "Singapore",
+  }).onConflictDoNothing();
+}
+
 /** Remove every row (in FK-safe order), then reload the seed data. */
 export async function resetDatabase(): Promise<void> {
+  await testDb.delete(schema.chatMessages);
+  await testDb.delete(schema.chatConversations);
   await testDb.delete(schema.threadMessages);
   await testDb.delete(schema.threads);
   await testDb.delete(schema.sources);
@@ -32,6 +46,7 @@ export async function resetDatabase(): Promise<void> {
   await testDb.delete(schema.users);
   await testDb.delete(schema.insurers);
   await seedDatabase(testDb);
+  await seedTestInsurers();
 }
 
 beforeAll(async () => {
@@ -42,6 +57,7 @@ beforeAll(async () => {
 
   await migrate(testDb, { migrationsFolder });
   await seedDatabase(testDb);
+  await seedTestInsurers();
 
   setDb(testDb);
 });

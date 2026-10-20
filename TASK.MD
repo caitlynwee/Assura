@@ -30,6 +30,32 @@ Others need to know:
 Blockers: None
 ---
 
+## 2026-10-20 | Marcus | Scraper — DeepSeek + Playwright Implementation
+Status: Completed
+Done:
+- Swapped Anthropic SDK → openai>=1.0 (DeepSeek uses OpenAI-compatible API at api.deepseek.com)
+- Rewrote converter.py: AsyncOpenAI client, chat.completions.create, raised truncation 8k → 24k chars
+- Rewrote downloader.py: headless Chromium singleton via Playwright for product_page sources; plain httpx for mock sources
+- Fixed insurerName bug: validator.py now looks up display name from insurers.json when converter leaves it blank
+- Added Singlife as 6th insurer (seed: insurers.json, sources.json, plans.json)
+- Updated Dockerfile: Chromium system libs + playwright install chromium
+- docker-compose.yml: DEEPSEEK_API_KEY + LLM_MODEL env vars for scraper service
+- Added test_converter.py (4 tests); updated test_engine.py mock to accept source_type kwarg
+- All 20 tests pass, ruff lint clean
+Files:
+- scraper/app/scraper/{converter,downloader,engine,validator}.py
+- scraper/app/config.py, scraper/requirements.txt, scraper/pyproject.toml
+- scraper/Dockerfile, docker-compose.yml, scraper/.env.example
+- scraper/tests/{test_converter,test_engine}.py
+- seed/{insurers,sources,plans}.json
+- dev.sh, AGENTS.md (added playwright install chromium to setup steps)
+Others need to know:
+- Env var for scraper AI is DEEPSEEK_API_KEY (not HERMES_API_KEY — that's for web/email)
+- sources.json uses type="mock" for the local brochure and type="product_page" for real insurer URLs
+- To run scraper locally: `uv pip install -e ".[dev]"` (uv is now required)
+- `./dev.sh setup` handles everything (venv + deps + seed)
+---
+
 ## 2026-10-19 | Jeff | Storage migration (JSON → PostgreSQL) — handed off to Marcus
 Status: In Progress (handed off)
 Done:
@@ -494,6 +520,32 @@ Done:
 Files: web/src/lib/demo.ts, web/src/lib/supabase/ensure-demo-user.ts, web/drizzle/0004_demo_assura_email.sql, seed/users.json
 Others need to know: The `.local` email is a confirmed demo-only sign-in identifier and cannot receive external email.
 Blockers: None.
+
+## 2026-10-20 | Dominic | Plan Q&A chat history (saved conversations + sidebar)
+Status: Completed
+Done:
+- Chats now persist in Postgres (new `chat_conversations` + `chat_messages` tables, now migration 0005_chat_history). Refreshing /chat keeps the conversation; the active chat id lives in `?c=`.
+- Sidebar on /chat like other AI chat apps: New chat, list grouped Today / Yesterday / Previous 7 days / Older, click to switch, trash icon → confirm dialog → permanent delete (messages cascade).
+- /api/chat now saves the question + streamed answer and loads history SERVER-SIDE from the DB (client can no longer inject fake assistant turns). New: GET /api/chat/conversations, GET + DELETE /api/chat/conversations/:id — all scoped to the signed-in user (404 for anyone else's). Deletes are audit-logged as `chat.conversation_deleted` (id only, never content).
+- Fix: a failed model call used to error the stream before any bytes, so the server dropped the connection and the browser silently retried the POST (5×). It now finishes with a readable "couldn't answer" message instead.
+- Tests: chat-history.test.ts (11 tests: save, continue, ownership, injected history ignored, model failure, list/get/delete scoping, cascade + audit). Full suite 53/53, build + tsc clean, no new lint errors.
+Files: web/src/lib/{schema,db,types,validators,seed}.ts, web/drizzle/0005_chat_history.sql (+meta), web/src/app/api/chat/**, web/src/hooks/{use-chat,use-conversations}.ts, web/src/components/chat/{chat-workspace,chat-history-sidebar,chat-window}.tsx, web/src/app/(app)/chat/page.tsx, web/src/__tests__/{chat-history.test.ts,setup.ts}
+Others need to know:
+- Run `npm run db:migrate` (or restart Docker so db-init migrates) — the two new tables are required for /chat.
+- Reset scripts (seed.ts resetDatabase / RESET=1) now also clear chat tables.
+Blockers: None
+---
+
+## 2026-10-20 | Dominic | Plan Q&A: Recently deleted bin + edit & regenerate
+Status: Completed
+Done:
+- Deleting a chat now moves it to "Recently deleted" (soft delete via new `chat_conversations.deleted_at`, in migration 0005_chat_history) with an Undo toast. Bin dialog (sidebar → Recently deleted): Restore, Delete forever (confirm), Empty bin (confirm), "N days left" per chat.
+- 30-day retention: binned chats older than TRASH_RETENTION_DAYS are permanently deleted (all users) whenever a chat list or the bin loads — lazy purge, no scheduler; expired chats can never be seen or restored.
+- Edit & regenerate: hover a sent message → Edit → Enter. Server deletes that message and everything after it, saves the edited text and streams a fresh answer (`editMessageId` on POST /api/chat; ids returned in X-User-Message-Id / X-Assistant-Message-Id headers).
+- New: POST /api/chat/conversations/:id/restore, GET + DELETE /api/chat/trash, DELETE …/:id?permanent=true. All owner-scoped; audit events chat.conversation_deleted/_restored/_purged, chat.trash_emptied, chat.trash_auto_purged, chat.message_edited (ids only).
+- Tests: 76/76 (13 new for bin/purge/edit/ownership). Build, tsc, lint clean. Verified in a browser.
+Others need to know:
+- ⚠ Drizzle SKIPS any migration whose `when` is earlier than the newest one already recorded in the DB, and the shared Supabase DB has hand-dated future migrations. On merging main, the branch's 0002_chat_history/0003_chat_trash were replaced by ONE idempotent 0005_chat_history (`when` 1792620000000, CREATE … IF NOT EXISTS) so it is safe whether or not the chat tables already exist. Any NEW migration must use a `when` later than 1792620000000. Please don't migrate the shared DB from unmerged branches.
 ---
 
 ## 2026-10-20 | Copilot | Add country and birthday to user profile
@@ -540,5 +592,18 @@ Done:
 - Added regression coverage for accepted and rejected country values.
 Files: web/src/lib/countries.ts, web/src/lib/types.ts, web/src/lib/validators.ts, web/src/components/settings/settings-form.tsx, web/src/components/onboarding/onboarding-form.tsx, web/src/__tests__/profile.test.ts
 Others need to know: The available country list is intentionally limited to Singapore and China for now.
+Blockers: None.
+---
+
+## 2026-10-20 | Copilot | Integrate latest main before publishing
+Status: Completed
+Done:
+- Integrated the newer `origin/main` scraper and chat-history work without rewriting shared main history.
+- Preserved the no-JSON seed design: the TypeScript fixture seeds the demo account; the scraper discovers catalog records; test setup uses a minimal test insurer.
+- Registered the country migrations after the latest existing migration timestamp so fresh test databases apply them in order.
+- Updated the scraper downloader test for its response and `source_type` arguments.
+- Verified 91 web tests, production build, TypeScript, and 19 scraper tests; focused changed-file ESLint passes.
+Files: web/src/lib/seed.ts, web/src/lib/seed-data.ts, web/src/__tests__/setup.ts, web/drizzle/meta/_journal.json, scraper/tests/test_engine.py, TASK.MD
+Others need to know: Full web ESLint and scraper Ruff still report unrelated pre-existing errors in `web/src/hooks/use-plans.ts` and other scraper files.
 Blockers: None.
 ---

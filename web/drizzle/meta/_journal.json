@@ -36,6 +36,27 @@
       "when": 1792610000001,
       "tag": "0004_demo_assura_email",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792620000000,
+      "tag": "0005_chat_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792620000001,
+      "tag": "0001_add_country",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792620000002,
+      "tag": "0002_country_sg_to_singapore",
+      "breakpoints": true
     }
   ]
 }

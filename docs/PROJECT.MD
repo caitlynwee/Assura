@@ -44,7 +44,7 @@ SECURITY DESIGN (30% of the score, so build it properly)
 
 TECH AND DATA
 - Storage: PostgreSQL is the runtime source of truth. The web app owns schema and migrations through Drizzle; the Python scraper uses SQLAlchemy mappings against the same database and does not manage schema. Supabase provides the hosted PostgreSQL instance and authentication.
-- Structured data: relational columns are used for fields queried directly; PostgreSQL `JSONB` holds nested records and arrays that are read or updated as units (for example profiles, plan benefits, and extracted quotes). Demo fixtures are typed TypeScript and loaded into PostgreSQL by the seed/reset scripts.
+- Structured data: relational columns are used for fields queried directly; PostgreSQL `JSONB` holds nested records and arrays that are read or updated as units (for example profiles, plan benefits, and extracted quotes). The typed TypeScript seed fixture creates the demo user; the scraper discovers and stores the insurer catalog.
 - Audit chain: entries are stored in PostgreSQL `audit_entries`. The `detail` and timestamp values retain their exact serialized text so the chain can be recomputed without JSONB normalization affecting the hash.
 - Repo structure: monorepo with `/web` (Next.js) and `/scraper` (Python) sub-folders.
 - Frontend + backend API: Next.js (App Router). API routes handle web business logic. Supabase Auth verifies credentials; the PostgreSQL `users` table stores Assura profile, tier, and consent data.
