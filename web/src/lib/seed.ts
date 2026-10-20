@@ -65,6 +65,8 @@ export async function seedDatabase(
 export async function resetDatabase(db: Database): Promise<void> {
   // Reverse FK order: children before parents. Plans/sources/insurers are
   // left for the scraper to repopulate — only runtime data is cleared.
+  await db.delete(schema.chatMessages);
+  await db.delete(schema.chatConversations);
   await db.delete(schema.auditEntries);
   await db.delete(schema.scraperRuns);
   await db.delete(schema.threadMessages);
@@ -91,6 +93,8 @@ async function main() {
   // If RESET=1, truncate first (idempotent re-seed for dev/demo reset).
   if (process.env.RESET === "1") {
     console.log("[seed] truncating tables ...");
+    await db.delete(schema.chatMessages);
+    await db.delete(schema.chatConversations);
     await db.delete(schema.auditEntries);
     await db.delete(schema.scraperRuns);
     await db.delete(schema.threadMessages);
