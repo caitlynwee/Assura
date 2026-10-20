@@ -721,3 +721,10 @@ Done:
 - Tests: i18n.test.ts (same keys, same function signatures, nothing empty, Chinese entries really Chinese, browser-language default). Suite 126/126; build/tsc/lint clean; every page checked in a browser in both languages.
 Others need to know: New UI text → add it to the matching file in `web/src/lib/i18n/messages/sections/` (both languages) and use `useT()` (client) or `await getT()` (server). Terms: critical illness = 危疾, premium (price) = 保费, Free/Premium tier = 免费版/高级版.
 ---
+## 2026-10-20 | Jeff | Admin view-as-role switcher
+Status: Completed
+Done: Added an admin-only, COSMETIC "View as: Free/Premium/Admin" switcher in the topbar. Selecting a view changes only what the UI renders (sidebar nav gating, locked premium items, Upgrade CTA/tier badge, Admin link) with no re-login and no permission/DB change. Choice persists via cookie `assura_view_as` + localStorage `assura:view-as`, defaults to the real tier, and seeds the server layout so there's no flash. Non-admins never see the switcher and can never cosmetically upgrade (resolver ignores the cookie for them).
+Files: `web/src/lib/view-mode.ts` (new pure resolver + constants), `web/src/lib/session.ts` (readViewCookie), `web/src/components/view-mode/view-mode-provider.tsx` (new), `web/src/components/view-mode/view-as-switcher.tsx` (new), `web/src/app/(app)/layout.tsx`, `web/src/components/layout/topbar.tsx`, `web/src/components/layout/sidebar.tsx`, `web/src/__tests__/view-mode.test.ts` (new)
+Others need to know: Purely presentation — real authorization is UNCHANGED (edge middleware `auth-routing.ts` still gates /admin, /outreach etc. by JWT tier; an admin in Free view can still reach those pages, by design). Verified: `npm run build` exit 0, `npm run lint` exit 0 (no new errors), `npm test` 17 suites / 129 tests pass incl. new view-mode.test.ts.
+Blockers: None.
+---
